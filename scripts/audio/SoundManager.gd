@@ -1,13 +1,21 @@
 extends Node
-## Procedural one-shots so the prototype ships without audio files.
+## Procedural one-shots, baked once into PCM so nothing is synthesized at hit time.
+
+const MIX_RATE: int = 22050
+const VOICES: int = 6
+const ATTACK: float = 0.005
+## Pitch rises per combo step on hits, capped so it stays musical.
+const COMBO_PITCH_STEP: float = 0.03
+const COMBO_PITCH_CAP: int = 20
 
 var _players: Array[AudioStreamPlayer] = []
+var _next_voice: int = 0
+var _cache: Dictionary[Vector2i, AudioStreamWAV] = {}
 
 
 func _ready() -> void:
-	for i in 6:
+	for i in VOICES:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
 		add_child(p)
 		_players.append(p)
 	EventBus.tap_evaluated.connect(_on_tap)
@@ -15,41 +23,55 @@ func _ready() -> void:
 	EventBus.near_miss.connect(func(_r: Dictionary) -> void: play_tone(140.0, 0.28, 0.4))
 	EventBus.stage_cleared.connect(func(_i: int, _p: int) -> void: play_tone(523.25, 0.18, 0.3))
 	EventBus.run_started.connect(func() -> void: play_tone(392.0, 0.12, 0.2))
+	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
+	EventBus.countdown.connect(_on_countdown)
 
 
 func _on_tap(result: Dictionary) -> void:
+	var pitch: float = 1.0 + float(mini(GameState.session_combo, COMBO_PITCH_CAP)) * COMBO_PITCH_STEP
 	match String(result.get("grade_name", "")):
 		"perfect":
-			play_tone(740.0, 0.09, 0.32)
+			play_tone(740.0 * pitch, 0.09, 0.32)
 		"good":
-			play_tone(520.0, 0.08, 0.26)
+			play_tone(520.0 * pitch, 0.08, 0.26)
 		"miss":
 			play_tone(110.0, 0.2, 0.35)
 
 
+func _on_countdown(step: int) -> void:
+	if step > 0:
+		play_tone(660.0, 0.06, 0.22)
+	else:
+		play_tone(990.0, 0.1, 0.28)
+
+
 func play_tone(freq: float, seconds: float, volume: float = 0.3) -> void:
-	var player := _idle_player()
-	if player == null:
-		return
-	var gen := AudioStreamGenerator.new()
-	gen.mix_rate = 22050.0
-	gen.buffer_length = 0.15
-	player.stream = gen
+	var player: AudioStreamPlayer = _players[_next_voice]
+	_next_voice = (_next_voice + 1) % VOICES
+	player.stream = _get_tone(freq, seconds)
 	player.volume_db = linear_to_db(volume)
 	player.play()
-	var playback := player.get_stream_playback() as AudioStreamGeneratorPlayback
-	if playback == null:
-		return
-	var frames := int(seconds * gen.mix_rate)
+
+
+func _get_tone(freq: float, seconds: float) -> AudioStreamWAV:
+	var key := Vector2i(roundi(freq * 100.0), roundi(seconds * 1000.0))
+	if not _cache.has(key):
+		_cache[key] = _bake(freq, seconds)
+	return _cache[key]
+
+
+func _bake(freq: float, seconds: float) -> AudioStreamWAV:
+	var frames: int = int(seconds * MIX_RATE)
+	var data := PackedByteArray()
+	data.resize(frames * 2)
 	for i in frames:
-		var t := float(i) / gen.mix_rate
-		var env := 1.0 - t / seconds
-		var s := sin(TAU * freq * t) * env
-		playback.push_frame(Vector2(s, s))
-
-
-func _idle_player() -> AudioStreamPlayer:
-	for p in _players:
-		if not p.playing:
-			return p
-	return _players[0]
+		var t: float = float(i) / MIX_RATE
+		# Short attack avoids the click a hard 0→1 onset produces.
+		var env: float = minf(t / ATTACK, 1.0) * (1.0 - t / seconds)
+		data.encode_s16(i * 2, int(sin(TAU * freq * t) * env * 32767.0))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = MIX_RATE
+	wav.stereo = false
+	wav.data = data
+	return wav

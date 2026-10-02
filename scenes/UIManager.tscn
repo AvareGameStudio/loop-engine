@@ -69,7 +69,7 @@ pivot_offset = Vector2(200, 20)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 0.8)
 theme_override_font_sizes/font_size = 16
-text = "TAP WHEN THE POINTER HITS GOLD"
+text = "TAP ON GOLD  ·  HOLD FOR SLOW-MO"
 horizontal_alignment = 1
 
 [node name="Bottom" type="VBoxContainer" parent="HUD"]
@@ -79,7 +79,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 28.0
-offset_top = -430.0
+offset_top = -450.0
 offset_right = -28.0
 offset_bottom = -360.0
 mouse_filter = 2
@@ -89,6 +89,16 @@ custom_minimum_size = Vector2(0, 14)
 layout_mode = 2
 mouse_filter = 2
 max_value = 8.0
+show_percentage = false
+
+[node name="FocusBar" type="ProgressBar" parent="HUD/Bottom"]
+self_modulate = Color(1, 0.84, 0.3, 1)
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+mouse_filter = 2
+max_value = 1.0
+step = 0.0
+value = 1.0
 show_percentage = false
 
 [node name="Energy" type="Label" parent="HUD/Bottom"]

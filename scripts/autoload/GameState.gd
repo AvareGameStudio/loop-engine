@@ -33,10 +33,20 @@ var dda_perfect_deg: float = 7.0
 var dda_good_deg: float = 16.0
 var dda_near_deg: float = 22.0
 
+const SAVE_DEBOUNCE: float = 1.5
+
+var _save_pending: bool = false
+
+
 func _ready() -> void:
 	load_game()
-	EventBus.energy_changed.connect(func(a: int, _d: int) -> void: energy = a)
-	EventBus.coins_changed.connect(func(a: int, _d: int) -> void: coins = a)
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			if _save_pending:
+				save_game()
 
 
 func generator_rate() -> float:
@@ -48,20 +58,20 @@ func global_multiplier() -> float:
 
 
 func upgrade_cost(stat: String) -> int:
-	var level := generator_level if stat == "generator" else global_mult_level
+	var level: int = generator_level if stat == "generator" else global_mult_level
 	return int(40 * pow(1.35, level - 1))
 
 
 func add_energy(delta: int) -> void:
 	energy = max(0, energy + delta)
 	EventBus.energy_changed.emit(energy, delta)
-	save_game()
+	request_save()
 
 
 func add_coins(delta: int) -> void:
 	coins = max(0, coins + delta)
 	EventBus.coins_changed.emit(coins, delta)
-	save_game()
+	request_save()
 
 
 func try_upgrade(stat: String) -> bool:
@@ -91,7 +101,7 @@ func reset_run() -> void:
 	run_active = true
 	revive_used = false
 	runs_played += 1
-	save_game()
+	request_save()
 
 
 func end_run() -> void:
@@ -144,12 +154,26 @@ func from_dict(data: Dictionary) -> void:
 	cosmetics = PackedStringArray(skins)
 
 
-func save_game() -> void:
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
-		push_warning("Loop Engine: could not write save file.")
+func request_save() -> void:
+	if _save_pending:
 		return
-	file.store_string(JSON.stringify(to_dict(), "\t"))
+	_save_pending = true
+	get_tree().create_timer(SAVE_DEBOUNCE, true, false, true).timeout.connect(save_game)
+
+
+func save_game() -> void:
+	_save_pending = false
+	# Write-then-rename: a crash mid-write can never truncate the real save.
+	var tmp_path: String = SAVE_PATH + ".tmp"
+	var file := FileAccess.open(tmp_path, FileAccess.WRITE)
+	if file == null:
+		push_warning("Loop Engine: could not write save file (%s)." % error_string(FileAccess.get_open_error()))
+		return
+	file.store_string(JSON.stringify(to_dict()))
+	file.close()
+	var err: Error = DirAccess.rename_absolute(tmp_path, SAVE_PATH)
+	if err != OK:
+		push_warning("Loop Engine: save rename failed (%s)." % error_string(err))
 
 
 func load_game() -> void:

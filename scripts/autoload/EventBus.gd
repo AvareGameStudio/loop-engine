@@ -1,5 +1,7 @@
 extends Node
 ## Central signal hub. Systems talk through this bus so scenes stay decoupled.
+## Signals are only emitted from other scripts, hence the warning suppression.
+@warning_ignore_start("unused_signal")
 
 signal tap_evaluated(result: Dictionary)
 signal jackpot(multiplier: float, label: String)
@@ -22,3 +24,7 @@ signal ad_requested(placement: String, payload: Dictionary)
 signal ad_finished(placement: String, rewarded: bool)
 signal hold_started()
 signal hold_released(held_seconds: float)
+signal focus_changed(value: float)
+signal countdown(step: int)
+signal direction_flipped(direction: float)
+signal session_changed()

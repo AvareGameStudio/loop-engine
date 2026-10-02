@@ -2,7 +2,7 @@
 
 Hybrid-casual **one-tap** prototype for Godot **4.6**. Core loop is precision timing on a rotating ring; meta loop is idle energy + upgrades. Behavioral systems (variable-ratio rewards, near-miss loss aversion, Zeigarnik unfinished bars, DDA flow) are first-class nodes, not afterthoughts.
 
-Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the pointer sits in the gold arc. Hold slightly longer to dip into slow-mo assist.
+Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the pointer sits in the gold arc. Hold slightly longer to dip into slow-mo assist; it drains the gold Focus bar, which Perfects refill.
 
 ---
 
@@ -12,8 +12,10 @@ Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the poin
 Main.tscn                          boot composition
 ├── GameWorld.tscn                 ring, input, DDA, VR, juice
 │   ├── Camera2D
-│   ├── Arena (RingArena.gd)       draw ring / windows / pointer
-│   ├── Burst (GPUParticles2D)
+│   ├── Arena (RingArena.gd)       static ring / windows (redraws on change only)
+│   │   ├── Glow                   ring_glow shader, jackpot pulse
+│   │   ├── Pointer (RingPointer)  rotated pointer + direction chevron, hit_flash
+│   │   └── Burst (GPUParticles2D)
 │   ├── InputProcessor
 │   ├── IdleTick                   offline-style energy drip
 │   └── Juice                      hitstop / shake / punch
@@ -25,20 +27,22 @@ Main.tscn                          boot composition
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
-Autoloads: EventBus, GameState
+Autoloads: EventBus, GameState, TimeScale (sole writer of Engine.time_scale)
 ```
 
 | Path | Role |
 |---|---|
 | `scripts/core/TimingEngine.gd` | Angle delta → Perfect / Good / Near-Miss / Miss |
-| `scripts/core/InputProcessor.gd` | One-tap + hold-and-release |
+| `scripts/core/InputProcessor.gd` | One-tap + hold-and-release, Focus meter |
+| `scripts/autoload/TimeScale.gd` | Hitstop + slow-mo arbitration |
+| `scripts/world/RingPointer.gd` | Pointer, direction telegraph, flash |
 | `scripts/behavioral/VariableRatioSchedule.gd` | Skinner VR payouts / jackpots |
 | `scripts/behavioral/DynamicDifficulty.gd` | Flow-channel RPM + windows |
 | `scripts/behavioral/ZeigarnikTracker.gd` | Unfinished ~82% meta bars |
 | `scripts/monetization/AdsManager.gd` | Mock rewarded placements |
 | `scripts/monetization/IAPCatalog.gd` | No-Ads, Auto-Tap, cosmetics |
-| `shaders/ring_glow.gdshader` | Additive ring breath (optional overlay) |
-| `shaders/hit_flash.gdshader` | Flash mix for perfects |
+| `shaders/ring_glow.gdshader` | Additive ring glow on jackpot |
+| `shaders/hit_flash.gdshader` | Pointer flash on perfects |
 
 Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
@@ -57,7 +61,7 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
 Result payload includes `delta_deg`, `full_circle_pct`, `accuracy`, and `in_loss_aversion_band` so UI and ads never re-derive policy.
 
-Input: short press = tap lock. Hold past 120ms = slow-mo, release commits. Auto-Tap IAP samples the same `committed` path so idle cannot skip grading.
+Input: short press = tap lock. Hold past 120ms = slow-mo, release commits. Auto-Tap IAP locks only inside the Good window and goes through the same grading path; it never feeds DDA. Input is disarmed during the respawn delay, and a revive resumes after a 3-2-1 countdown.
 
 ---
 

@@ -34,8 +34,9 @@ func loops() -> Array:
 			"id": "stage",
 			"title": "Ring %d" % GameState.current_stage,
 			"subtitle": "%d / %d locks" % [GameState.hits_in_stage, GameState.hits_needed],
-			"progress": clampf(stage_fill, 0.0, TEASE if GameState.run_active else stage_fill),
-			"complete": not GameState.run_active and stage_fill >= 1.0,
+			# Not teased: the HUD stage bar shows the same value, and they must agree.
+			"progress": clampf(stage_fill, 0.0, 1.0),
+			"complete": stage_fill >= 1.0,
 		},
 		{
 			"id": "collection",

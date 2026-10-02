@@ -1,9 +1,23 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/GameWorld.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/world/RingArena.gd" id="2_arena"]
 [ext_resource type="Script" path="res://scripts/core/InputProcessor.gd" id="3_input"]
 [ext_resource type="Script" path="res://scripts/vfx/Juice.gd" id="4_juice"]
+[ext_resource type="Script" path="res://scripts/world/RingPointer.gd" id="5_pointer"]
+[ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="6_flash"]
+[ext_resource type="Shader" path="res://shaders/ring_glow.gdshader" id="7_glow"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
+shader = ExtResource("6_flash")
+shader_parameter/flash_color = Color(1, 1, 1, 1)
+shader_parameter/amount = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glow"]
+shader = ExtResource("7_glow")
+shader_parameter/glow_color = Color(1, 0.84, 0.28, 1)
+shader_parameter/pulse = 0.0
+shader_parameter/intensity = 0.0
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_burst"]
 particle_flag_disable_z = true
@@ -41,9 +55,21 @@ position_smoothing_speed = 8.0
 position = Vector2(360, 500)
 script = ExtResource("2_arena")
 
+[node name="Glow" type="ColorRect" parent="Arena"]
+material = SubResource("ShaderMaterial_glow")
+offset_left = -260.0
+offset_top = -260.0
+offset_right = 260.0
+offset_bottom = 260.0
+mouse_filter = 2
+
+[node name="Pointer" type="Node2D" parent="Arena"]
+material = SubResource("ShaderMaterial_flash")
+script = ExtResource("5_pointer")
+
 [node name="Burst" type="GPUParticles2D" parent="Arena"]
 emitting = false
-amount = 28
+amount = 48
 lifetime = 0.45
 one_shot = true
 explosiveness = 1.0
@@ -56,5 +82,9 @@ script = ExtResource("3_input")
 wait_time = 3.0
 autostart = true
 
-[node name="Juice" type="Node" parent="."]
+[node name="Juice" type="Node" parent="." node_paths=PackedStringArray("camera", "burst", "pointer", "glow")]
 script = ExtResource("4_juice")
+camera = NodePath("../Camera2D")
+burst = NodePath("../Arena/Burst")
+pointer = NodePath("../Arena/Pointer")
+glow = NodePath("../Arena/Glow")
