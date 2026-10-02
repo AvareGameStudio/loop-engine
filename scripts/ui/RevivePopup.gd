@@ -26,14 +26,14 @@ func present(result: Dictionary) -> void:
 	root.visible = true
 	var delta := float(result.get("delta_deg", 0.0))
 	var pct := float(result.get("full_circle_pct", 0.0))
-	title.text = "SO CLOSE!"
-	body.text = "You missed by %.1f°  (%.1f%% of the ring)\nWatch to revive this run." % [delta, pct]
-	watch.text = "Second Chance"
-	skip.text = "Let it go"
+	title.text = tr("REVIVE_TITLE")
+	body.text = "%s\n%s" % [tr("REVIVE_BODY") % [delta, pct], tr("REVIVE_PROMPT")]
+	watch.text = tr("REVIVE_WATCH")
+	skip.text = tr("REVIVE_SKIP")
 	watch.disabled = GameState.revive_used
 	if GameState.revive_used:
-		watch.text = "Revive already used"
-		body.text += "\nThis near-miss is the last one this run."
+		watch.text = tr("REVIVE_USED")
+		body.text += "\n" + tr("REVIVE_LAST")
 	_punch()
 
 
@@ -50,7 +50,7 @@ func _watch() -> void:
 		_skip()
 		return
 	watch.disabled = true
-	watch.text = "Loading ad…"
+	watch.text = tr("REVIVE_LOADING")
 	EventBus.ad_requested.emit("near_miss_revive", _result)
 
 

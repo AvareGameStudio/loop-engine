@@ -23,11 +23,13 @@ Main.tscn                          boot composition
 │   ├── HUD                        score, combo, stage bar
 │   ├── Meta                       Zeigarnik loops + upgrades
 │   ├── RunOver                    end-of-run + 3x rewarded
-│   └── RevivePopup.tscn           near-miss second chance
+│   ├── SettingsButton             gear, top-right, reachable over RunOver
+│   ├── RevivePopup.tscn           near-miss second chance
+│   └── SettingsPopup.tscn         language / sound / vibration, pauses the game
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
-Autoloads: EventBus, GameState, TimeScale (sole writer of Engine.time_scale)
+Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_scale)
 ```
 
 | Path | Role |
@@ -35,6 +37,9 @@ Autoloads: EventBus, GameState, TimeScale (sole writer of Engine.time_scale)
 | `scripts/core/TimingEngine.gd` | Angle delta → Perfect / Good / Near-Miss / Miss |
 | `scripts/core/InputProcessor.gd` | One-tap + hold-and-release, Focus meter |
 | `scripts/autoload/TimeScale.gd` | Hitstop + slow-mo arbitration |
+| `scripts/autoload/Settings.gd` | Language, sound (Master bus mute), vibration; `user://settings.cfg` |
+| `scripts/ui/SettingsPopup.gd` | Settings popup; pauses the tree while open |
+| `translations/strings.csv` | EN / TR strings, imported to `.translation` (generated, gitignored) |
 | `scripts/world/RingPointer.gd` | Pointer, direction telegraph, flash |
 | `scripts/behavioral/VariableRatioSchedule.gd` | Skinner VR payouts / jackpots |
 | `scripts/behavioral/DynamicDifficulty.gd` | Flow-channel RPM + windows |
@@ -45,6 +50,8 @@ Autoloads: EventBus, GameState, TimeScale (sole writer of Engine.time_scale)
 | `shaders/hit_flash.gdshader` | Pointer flash on perfects |
 
 Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
+
+**Localization.** Every player-facing string is a key in `translations/strings.csv`. Code-set texts go through `tr()`, and `UIManager` re-renders them on `NOTIFICATION_TRANSLATION_CHANGED`, so switching language mid-run updates the screen immediately. Static scene texts use the key directly and Godot translates them automatically. First launch follows the device locale (Turkish → `tr`, anything else → `en`). Add a language by adding a CSV column and its `.translation` path to `project.godot`. Do not call `to_upper()` on translated text, because it breaks Turkish `i` → `İ`; write uppercase into the CSV instead.
 
 ---
 
