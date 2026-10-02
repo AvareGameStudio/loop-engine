@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/GameWorld.tscn" id="2_world"]
+[ext_resource type="PackedScene" path="res://scenes/UIManager.tscn" id="3_ui"]
+[ext_resource type="PackedScene" path="res://scenes/SoundManager.tscn" id="4_sfx"]
+[ext_resource type="PackedScene" path="res://scenes/AdsManager.tscn" id="5_ads"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="GameWorld" parent="." instance=ExtResource("2_world")]
+
+[node name="UIManager" parent="." instance=ExtResource("3_ui")]
+
+[node name="SoundManager" parent="." instance=ExtResource("4_sfx")]
+
+[node name="AdsManager" parent="." instance=ExtResource("5_ads")]

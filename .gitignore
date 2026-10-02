@@ -1,0 +1,12 @@
+.godot/
+.import/
+*.translation
+*.apk
+*.aab
+*.ipa
+.DS_Store
+export.cfg
+android/
+ios/
+*.tmp
+*~

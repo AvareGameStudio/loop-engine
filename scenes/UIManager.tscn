@@ -1,0 +1,196 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
+[ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
+
+[node name="UIManager" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_ui")
+
+[node name="HUD" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Top" type="HBoxContainer" parent="HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 28.0
+offset_top = 36.0
+offset_right = -28.0
+offset_bottom = 100.0
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Score" type="Label" parent="HUD/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 40
+text = "0"
+
+[node name="Combo" type="Label" parent="HUD/Top"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "x0"
+
+[node name="Mult" type="Label" parent="HUD/Top"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "PAYOUT x1.0"
+horizontal_alignment = 2
+
+[node name="Center" type="VBoxContainer" parent="HUD"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = 210.0
+offset_right = 200.0
+offset_bottom = 320.0
+mouse_filter = 2
+
+[node name="Grade" type="Label" parent="HUD/Center"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+pivot_offset = Vector2(200, 20)
+
+[node name="Hint" type="Label" parent="HUD/Center"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "TAP WHEN THE POINTER HITS GOLD"
+horizontal_alignment = 1
+
+[node name="Bottom" type="VBoxContainer" parent="HUD"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -430.0
+offset_right = -28.0
+offset_bottom = -360.0
+mouse_filter = 2
+
+[node name="StageBar" type="ProgressBar" parent="HUD/Bottom"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+mouse_filter = 2
+max_value = 8.0
+show_percentage = false
+
+[node name="Energy" type="Label" parent="HUD/Bottom"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "ENERGY  0"
+
+[node name="Meta" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -340.0
+offset_right = -24.0
+offset_bottom = -24.0
+theme_override_constants/separation = 10
+
+[node name="Loops" type="VBoxContainer" parent="Meta"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Actions" type="HBoxContainer" parent="Meta"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Gen" type="Button" parent="Meta/Actions"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Upgrade Generator"
+
+[node name="Glob" type="Button" parent="Meta/Actions"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Upgrade Multiplier"
+
+[node name="Shop" type="Button" parent="Meta/Actions"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "Auto-Tap"
+
+[node name="RunOver" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="RunOver"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.03, 0.06, 0.55)
+
+[node name="Panel" type="PanelContainer" parent="RunOver"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -200.0
+offset_right = 250.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="RunOver/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="RunOver/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "LOOP BROKEN"
+horizontal_alignment = 1
+
+[node name="Body" type="Label" parent="RunOver/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Score 0"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Retry" type="Button" parent="RunOver/Panel/VBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "Spin again"
+
+[node name="X3" type="Button" parent="RunOver/Panel/VBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "Claim 3x Energy"
+
+[node name="RevivePopup" parent="." instance=ExtResource("2_revive")]
