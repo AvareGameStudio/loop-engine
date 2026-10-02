@@ -22,6 +22,7 @@ func _ready() -> void:
 	if burst:
 		burst.amount = max_burst
 	EventBus.juice_hit.connect(_on_juice)
+	EventBus.tap_evaluated.connect(_on_tap)
 
 
 func _process(delta: float) -> void:
@@ -35,6 +36,11 @@ func _process(delta: float) -> void:
 		camera.offset = Vector2.ZERO
 
 
+## Tap haptics come from TimingEngine's per-hit profile.
+func _on_tap(result: Dictionary) -> void:
+	Settings.vibrate(int(result.get("haptic_ms", 0)), float(result.get("haptic_amplitude", -1.0)))
+
+
 func _on_juice(grade: String, intensity: float) -> void:
 	match grade:
 		"perfect":
@@ -43,23 +49,19 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_punch(1.06)
 			_burst(28, Color(0.35, 1.0, 0.85))
 			_flash_pointer()
-			Settings.vibrate(15)
 		"good":
 			_add_shake(4.0 * intensity)
 			_punch(1.03)
 			_burst(16, Color(0.45, 0.75, 1.0))
-			Settings.vibrate(8)
 		"near_miss":
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
 			_punch(0.94)
 			_burst(36, Color(1.0, 0.35, 0.55))
-			Settings.vibrate(40)
 		"miss":
 			_add_shake(18.0)
 			_punch(0.9)
 			_burst(22, Color(0.7, 0.2, 0.3))
-			Settings.vibrate(60)
 		"jackpot":
 			TimeScale.hitstop(0.1)
 			_add_shake(12.0)

@@ -11,6 +11,7 @@ var best_score: int = 0
 var runs_played: int = 0
 var generator_level: int = 1
 var global_mult_level: int = 1
+var passive_level: int = 1
 var unlocked_themes: PackedStringArray = PackedStringArray(["neon"])
 var equipped_theme: String = "neon"
 var no_ads: bool = false
@@ -49,19 +50,6 @@ func _notification(what: int) -> void:
 				save_game()
 
 
-func generator_rate() -> float:
-	return 1.0 + (generator_level - 1) * 0.18
-
-
-func global_multiplier() -> float:
-	return 1.0 + (global_mult_level - 1) * 0.12
-
-
-func upgrade_cost(stat: String) -> int:
-	var level: int = generator_level if stat == "generator" else global_mult_level
-	return int(40 * pow(1.35, level - 1))
-
-
 func add_energy(delta: int) -> void:
 	energy = max(0, energy + delta)
 	EventBus.energy_changed.emit(energy, delta)
@@ -72,21 +60,6 @@ func add_coins(delta: int) -> void:
 	coins = max(0, coins + delta)
 	EventBus.coins_changed.emit(coins, delta)
 	request_save()
-
-
-func try_upgrade(stat: String) -> bool:
-	var cost := upgrade_cost(stat)
-	if energy < cost:
-		return false
-	add_energy(-cost)
-	if stat == "generator":
-		generator_level += 1
-		EventBus.meta_upgraded.emit("generator", generator_level)
-	else:
-		global_mult_level += 1
-		EventBus.meta_upgraded.emit("global_mult", global_mult_level)
-	save_game()
-	return true
 
 
 func reset_run() -> void:
@@ -121,6 +94,7 @@ func to_dict() -> Dictionary:
 		"runs_played": runs_played,
 		"generator_level": generator_level,
 		"global_mult_level": global_mult_level,
+		"passive_level": passive_level,
 		"unlocked_themes": Array(unlocked_themes),
 		"equipped_theme": equipped_theme,
 		"no_ads": no_ads,
@@ -141,6 +115,7 @@ func from_dict(data: Dictionary) -> void:
 	runs_played = int(data.get("runs_played", 0))
 	generator_level = int(data.get("generator_level", 1))
 	global_mult_level = int(data.get("global_mult_level", 1))
+	passive_level = int(data.get("passive_level", 1))
 	equipped_theme = String(data.get("equipped_theme", "neon"))
 	no_ads = bool(data.get("no_ads", false))
 	auto_tap = bool(data.get("auto_tap", false))

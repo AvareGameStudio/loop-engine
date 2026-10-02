@@ -17,15 +17,16 @@ Main.tscn                          boot composition
 │   │   ├── Pointer (RingPointer)  rotated pointer + direction chevron, hit_flash
 │   │   └── Burst (GPUParticles2D)
 │   ├── InputProcessor
-│   ├── IdleTick                   offline-style energy drip
-│   └── Juice                      hitstop / shake / punch
+│   ├── MetaUpgrade                idle energy + upgrade market economy
+│   └── Juice                      hitstop / shake / punch / haptics
 ├── UIManager.tscn
-│   ├── HUD                        score, combo, stage bar
-│   ├── Meta                       Zeigarnik loops + upgrades
-│   ├── RunOver                    end-of-run + 3x rewarded
+│   ├── HUD                        score, combo, stage bar, wallet (energy, coins, idle rate)
+│   ├── Meta                       Zeigarnik quest rings + Market / Auto-Tap
+│   ├── RunOver                    end-of-run + 3x rewarded + Market
 │   ├── SettingsButton             gear, top-right, reachable over RunOver
-│   ├── RevivePopup.tscn           near-miss second chance
-│   └── SettingsPopup.tscn         language / sound / vibration, pauses the game
+│   ├── RevivePopup.tscn           near-miss second chance, gated by record proximity
+│   ├── SettingsPopup.tscn         language / sound / vibration, pauses the game
+│   └── MarketPopup.tscn           spend energy / coins on MetaUpgrade items
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
@@ -34,7 +35,10 @@ Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_
 
 | Path | Role |
 |---|---|
-| `scripts/core/TimingEngine.gd` | Angle delta → Perfect / Good / Near-Miss / Miss |
+| `scripts/core/TimingEngine.gd` | Angle delta → Perfect / Good / Near-Miss / Miss, plus per-hit pitch and haptic profile |
+| `scripts/meta/MetaUpgrade.gd` | Idle production, market catalog, prices, purchases, multipliers |
+| `scripts/ui/QuestRing.gd` | Circular "unfinished quest" bar for one Zeigarnik loop |
+| `scripts/ui/MarketPopup.gd` | Market popup; pauses an active run only |
 | `scripts/core/InputProcessor.gd` | One-tap + hold-and-release, Focus meter |
 | `scripts/autoload/TimeScale.gd` | Hitstop + slow-mo arbitration |
 | `scripts/autoload/Settings.gd` | Language, sound (Master bus mute), vibration; `user://settings.cfg` |
@@ -43,7 +47,7 @@ Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_
 | `scripts/world/RingPointer.gd` | Pointer, direction telegraph, flash |
 | `scripts/behavioral/VariableRatioSchedule.gd` | Skinner VR payouts / jackpots |
 | `scripts/behavioral/DynamicDifficulty.gd` | Flow-channel RPM + windows |
-| `scripts/behavioral/ZeigarnikTracker.gd` | Unfinished ~82% meta bars |
+| `scripts/behavioral/ZeigarnikTracker.gd` | Unfinished ~82% meta loops + focus quest |
 | `scripts/monetization/AdsManager.gd` | Mock rewarded placements |
 | `scripts/monetization/IAPCatalog.gd` | No-Ads, Auto-Tap, cosmetics |
 | `shaders/ring_glow.gdshader` | Additive ring glow on jackpot |
@@ -57,7 +61,7 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
 ## 2. Core timing engine
 
-`TimingEngine.evaluate(pointer, target)` uses `angle_difference` so wrap-around at 0° is correct.
+`TimingEngine.evaluate(pointer, target, streak)` uses `angle_difference` so wrap-around at 0° is correct.
 
 | Grade | Default window | Intent |
 |---|---|---|
@@ -66,7 +70,12 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 | Near-Miss | Good + 1–3% of the circle (~3.6–10.8°) | Loss aversion / revive |
 | Miss | Outside near | Hard fail |
 
-Result payload includes `delta_deg`, `full_circle_pct`, `accuracy`, and `in_loss_aversion_band` so UI and ads never re-derive policy.
+Result payload includes `delta_deg`, `full_circle_pct`, `accuracy`, `overshoot_deg` / `overshoot_pct` (distance past the Good edge, the real "missed by"), `near_miss_margin` (0 at the Good edge, 1 at the band edge), and `in_loss_aversion_band`, so UI and ads never re-derive policy.
+
+**Feedback.** `TimingEngine` also decides how each hit feels, and `SoundManager` / `Juice` only render it:
+
+- `pitch`: each consecutive hit climbs one step of a major pentatonic ladder, so a streak sounds like a rising melody. It plateaus at about 2.2× after six steps, and failures play at base pitch.
+- `haptic_ms` / `haptic_amplitude`: failures buzz longer and harder than wins. Successes scale with accuracy, so a dead-center Perfect lands harder than an edge one. Amplitude works on Android only.
 
 Input: short press = tap lock. Hold past 120ms = slow-mo, release commits. Auto-Tap IAP locks only inside the Good window and goes through the same grading path; it never feeds DDA. Input is disarmed during the respawn delay, and a revive resumes after a 3-2-1 countdown.
 
@@ -81,10 +90,24 @@ Successes decrement a random interval in `[3, 9]`. On fire, a weighted table ret
 Rolling 12-hit window. Target ~72% Good-or-better and ~28% Perfect. High success raises RPM and tightens Perfect; high error lowers RPM and opens the window. Near-miss band stays a 1–3% ring *beyond* Good so Prospect Theory does not collide with the success window.
 
 **Zeigarnik**  
-`ZeigarnikTracker.loops()` caps visible fill at **0.82** unless a loop is actually complete. Generator, global multiplier, current ring, and theme collection all persist via `user://loop_engine_save.json`. Run-over copy names how many loops are still open.
+`ZeigarnikTracker.loops()` caps visible fill at **0.82** unless a loop is actually complete. Generator, global multiplier, current ring, and theme collection all persist via `user://loop_engine_save.json`. The HUD shows each loop as a circular quest ring (`QuestRing`). The *focus quest*, the unfinished loop closest to done, pulses gold so the gap is what the eye lands on. Affordable upgrades read 100% green. Run-over copy names how many loops are still open.
 
 **Near-miss (Kahneman / loss aversion)**  
-Grade → 180ms hitstop → “SO CLOSE!” with exact degrees/% → Rewarded **Second Chance**. One revive per run. Skip ends the run so the almost-win is not cheap.
+Grade → 180ms hitstop → “SO CLOSE!” with the exact degrees past the zone and the player's record pace → Rewarded **Second Chance**. One revive per run. Skip ends the run so the almost-win is not cheap.
+
+The revive is gated by how close the run is to the record, because loss aversion peaks when a personal best is on the line:
+
+| Run score vs record | Near-miss that qualifies |
+|---|---|
+| Below 50% (`min_record_pct`) | None. The run just ends. |
+| 50% | Only the tightest 35% of the band (`tight_band_pct`) |
+| 50% → 100% | Widens linearly |
+| ≥ 100%, or no record yet | The whole near-miss band |
+
+Both thresholds are exported on `RevivePopup` for tuning.
+
+**Idle meta (`MetaUpgrade`)**  
+Between runs (whenever no run is active) the node produces energy at `passive_rate()`, which is 0.67/s × Generator × Passive Yield bonuses. Fractions carry over between ticks. The market sells three upgrades. Generator (+18% energy from hits and idle) and Global Multiplier (+12% score) are priced in energy. Passive Yield (+30% idle energy) is priced in coins, which gives coins their first sink. Prices grow geometrically per level. The Market is reachable from the HUD and from the run-over sheet, so energy earned while idle can be spent before the next run.
 
 ---
 
@@ -92,7 +115,7 @@ Grade → 180ms hitstop → “SO CLOSE!” with exact degrees/% → Rewarded **
 
 | Placement | Trigger | Reward |
 |---|---|---|
-| `near_miss_revive` | Near-miss popup | Continue run |
+| `near_miss_revive` | Near-miss close to the record (see the revive gate) | Continue run |
 | `end_multiplier` | Run-over 3× | Extra energy/coins |
 | IAP `no_ads_bundle` | Shop | Skip non-revive ads |
 | IAP `auto_tap` | Shop button in prototype | Idle lock cadence |

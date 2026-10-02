@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
 [ext_resource type="PackedScene" path="res://scenes/SettingsPopup.tscn" id="3_settings"]
 [ext_resource type="Texture2D" path="res://assets/icons/settings.svg" id="4_gear"]
+[ext_resource type="PackedScene" path="res://scenes/MarketPopup.tscn" id="5_market"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -103,10 +104,28 @@ step = 0.0
 value = 1.0
 show_percentage = false
 
-[node name="Energy" type="Label" parent="HUD/Bottom"]
+[node name="Wallet" type="HBoxContainer" parent="HUD/Bottom"]
 layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Energy" type="Label" parent="HUD/Bottom/Wallet"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 16
 text = "ENERGY  0"
+
+[node name="Coins" type="Label" parent="HUD/Bottom/Wallet"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 16
+text = "COINS  0"
+
+[node name="Passive" type="Label" parent="HUD/Bottom/Wallet"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.95, 0.45, 1)
+theme_override_font_sizes/font_size = 16
+text = "PASSIVE  +0.7/s"
 
 [node name="Meta" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -120,26 +139,21 @@ offset_right = -24.0
 offset_bottom = -24.0
 theme_override_constants/separation = 10
 
-[node name="Loops" type="VBoxContainer" parent="Meta"]
+[node name="Loops" type="HBoxContainer" parent="Meta"]
 layout_mode = 2
 size_flags_vertical = 3
+mouse_filter = 2
 theme_override_constants/separation = 8
 
 [node name="Actions" type="HBoxContainer" parent="Meta"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Gen" type="Button" parent="Meta/Actions"]
+[node name="Market" type="Button" parent="Meta/Actions"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Upgrade Generator"
-
-[node name="Glob" type="Button" parent="Meta/Actions"]
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Upgrade Multiplier"
+text = "HUD_MARKET"
 
 [node name="Shop" type="Button" parent="Meta/Actions"]
 custom_minimum_size = Vector2(0, 48)
@@ -205,6 +219,11 @@ custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 text = "Claim 3x Energy"
 
+[node name="Market" type="Button" parent="RunOver/Panel/VBox"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "HUD_MARKET"
+
 [node name="SettingsButton" type="Button" parent="."]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 1
@@ -223,3 +242,5 @@ expand_icon = true
 [node name="RevivePopup" parent="." instance=ExtResource("2_revive")]
 
 [node name="SettingsPopup" parent="." instance=ExtResource("3_settings")]
+
+[node name="MarketPopup" parent="." instance=ExtResource("5_market")]

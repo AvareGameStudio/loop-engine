@@ -4,9 +4,6 @@ extends Node
 const MIX_RATE: int = 22050
 const VOICES: int = 6
 const ATTACK: float = 0.005
-## Pitch rises per combo step on hits, capped so it stays musical.
-const COMBO_PITCH_STEP: float = 0.03
-const COMBO_PITCH_CAP: int = 20
 
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
@@ -27,8 +24,10 @@ func _ready() -> void:
 	EventBus.countdown.connect(_on_countdown)
 
 
+## Pitch comes from TimingEngine's streak ladder; baked per frequency, so a
+## ladder step is cached once and stays the same length at any pitch.
 func _on_tap(result: Dictionary) -> void:
-	var pitch: float = 1.0 + float(mini(GameState.session_combo, COMBO_PITCH_CAP)) * COMBO_PITCH_STEP
+	var pitch: float = float(result.get("pitch", 1.0))
 	match String(result.get("grade_name", "")):
 		"perfect":
 			play_tone(740.0 * pitch, 0.09, 0.32)
