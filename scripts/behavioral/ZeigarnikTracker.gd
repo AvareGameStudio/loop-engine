@@ -18,30 +18,30 @@ func loops() -> Array:
 	return [
 		{
 			"id": "generator",
-			"title": "Generator Speed",
-			"subtitle": "Lv %d  ·  %d / %d energy" % [GameState.generator_level, GameState.energy, gen_cost],
+			"title": tr("LOOP_GENERATOR_TITLE"),
+			"subtitle": tr("LOOP_GENERATOR_SUB") % [GameState.generator_level, GameState.energy, gen_cost],
 			"progress": gen_fill,
 			"complete": GameState.energy >= gen_cost,
 		},
 		{
 			"id": "global_mult",
-			"title": "Global Multiplier",
-			"subtitle": "Lv %d  ·  next at %d" % [GameState.global_mult_level, mult_cost],
+			"title": tr("LOOP_MULT_TITLE"),
+			"subtitle": tr("LOOP_MULT_SUB") % [GameState.global_mult_level, mult_cost],
 			"progress": mult_fill,
 			"complete": GameState.energy >= mult_cost,
 		},
 		{
 			"id": "stage",
-			"title": "Ring %d" % GameState.current_stage,
-			"subtitle": "%d / %d locks" % [GameState.hits_in_stage, GameState.hits_needed],
+			"title": tr("LOOP_RING_TITLE") % GameState.current_stage,
+			"subtitle": tr("LOOP_RING_SUB") % [GameState.hits_in_stage, GameState.hits_needed],
 			# Not teased: the HUD stage bar shows the same value, and they must agree.
 			"progress": clampf(stage_fill, 0.0, 1.0),
 			"complete": stage_fill >= 1.0,
 		},
 		{
 			"id": "collection",
-			"title": "Theme Collection",
-			"subtitle": "%d / %d rings" % [GameState.unlocked_themes.size(), theme_goal],
+			"title": tr("LOOP_THEMES_TITLE"),
+			"subtitle": tr("LOOP_THEMES_SUB") % [GameState.unlocked_themes.size(), theme_goal],
 			"progress": theme_fill,
 			"complete": GameState.unlocked_themes.size() >= theme_goal,
 		},

@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 EventBus="*res://scripts/autoload/EventBus.gd"
+Settings="*res://scripts/autoload/Settings.gd"
 GameState="*res://scripts/autoload/GameState.gd"
 TimeScale="*res://scripts/autoload/TimeScale.gd"
 
@@ -45,6 +46,10 @@ tap={
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://translations/strings.en.translation", "res://translations/strings.tr.translation")
 
 [physics]
 

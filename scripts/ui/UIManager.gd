@@ -7,7 +7,6 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 	"near_miss": Color(1.0, 0.35, 0.55),
 	"miss": Color(0.8, 0.25, 0.3),
 }
-const RUN_HINT := "TAP ON GOLD  ·  HOLD FOR SLOW-MO"
 
 @onready var score_label: Label = $HUD/Top/Score
 @onready var combo_label: Label = $HUD/Top/Combo
@@ -26,11 +25,19 @@ const RUN_HINT := "TAP ON GOLD  ·  HOLD FOR SLOW-MO"
 @onready var gen_btn: Button = $Meta/Actions/Gen
 @onready var glob_btn: Button = $Meta/Actions/Glob
 @onready var shop_btn: Button = $Meta/Actions/Shop
+@onready var settings_btn: Button = $SettingsButton
+@onready var settings_popup: SettingsPopup = $SettingsPopup
 
 var zeigarnik := ZeigarnikTracker.new()
 ## id -> {"bar": ProgressBar, "caption": Label}
 var _loop_rows: Dictionary[String, Dictionary] = {}
 var _grade_tween: Tween
+## Translation keys behind code-set texts, re-rendered on language change.
+var _hint_key: String = "HINT_RUN"
+var _hint_args: Array = []
+var _x3_key: String = "RUN_CLAIM_X3"
+var _run_end_reason: String = ""
+var _run_end_stats: Dictionary = {}
 
 
 func _ready() -> void:
@@ -41,6 +48,7 @@ func _ready() -> void:
 	gen_btn.pressed.connect(func() -> void: _upgrade("generator"))
 	glob_btn.pressed.connect(func() -> void: _upgrade("global_mult"))
 	shop_btn.pressed.connect(_toggle_auto_tap)
+	settings_btn.pressed.connect(settings_popup.open)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.multiplier_changed.connect(_on_mult)
@@ -58,6 +66,33 @@ func _ready() -> void:
 	_refresh_upgrades()
 	_refresh_session()
 	_refresh_shop()
+	_render_hint()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready():
+		_refresh_texts()
+
+
+func _refresh_texts() -> void:
+	grade_label.text = ""
+	_render_hint()
+	_refresh_currency()
+	_refresh_upgrades()
+	_refresh_shop()
+	_on_loops(zeigarnik.loops())
+	if run_over.visible:
+		_render_run_over()
+
+
+func _set_hint(key: String, args: Array = []) -> void:
+	_hint_key = key
+	_hint_args = args
+	_render_hint()
+
+
+func _render_hint() -> void:
+	hint_label.text = tr(_hint_key) % _hint_args if not _hint_args.is_empty() else tr(_hint_key)
 
 
 func _refresh_session() -> void:
@@ -69,7 +104,7 @@ func _refresh_session() -> void:
 
 func _on_tap(result: Dictionary) -> void:
 	var grade_name: String = String(result.grade_name)
-	_show_grade(grade_name.replace("_", " ").to_upper(), GRADE_COLORS.get(grade_name, Color.WHITE))
+	_show_grade(tr("GRADE_" + grade_name.to_upper()), GRADE_COLORS.get(grade_name, Color.WHITE))
 
 
 func _show_grade(text: String, color: Color) -> void:
@@ -84,18 +119,18 @@ func _show_grade(text: String, color: Color) -> void:
 
 
 func _on_jackpot(mult: float, label: String) -> void:
-	_show_grade("%s  x%.0f" % [label, mult], Color(1.0, 0.84, 0.2))
+	_show_grade("%s  x%.0f" % [tr(label), mult], Color(1.0, 0.84, 0.2))
 
 
 func _on_countdown(step: int) -> void:
 	if step > 0:
 		_show_grade(str(step), Color.WHITE)
 	else:
-		_show_grade("GO", GRADE_COLORS.good)
+		_show_grade(tr("COUNTDOWN_GO"), GRADE_COLORS.good)
 
 
 func _on_mult(value: float) -> void:
-	mult_label.text = "PAYOUT x%.1f" % value
+	mult_label.text = tr("HUD_PAYOUT") % value
 
 
 func _on_focus(value: float) -> void:
@@ -103,7 +138,7 @@ func _on_focus(value: float) -> void:
 
 
 func _on_energy(amount: int, delta: int) -> void:
-	energy_label.text = "ENERGY  %d" % amount + ("  +%d" % delta if delta > 0 else "")
+	energy_label.text = tr("HUD_ENERGY") % amount + ("  +%d" % delta if delta > 0 else "")
 	_refresh_upgrades()
 
 
@@ -135,30 +170,36 @@ func _make_loop_row(id: String) -> Dictionary:
 
 
 func _on_run_end(reason: String, stats: Dictionary) -> void:
-	run_over.visible = true
-	run_over_title.text = "ALMOST" if reason == "near_miss" else "LOOP BROKEN"
-	run_over_body.text = "Score %d   ·   Combo %d\n%d unfinished loops waiting." % [
-		int(stats.get("score", 0)),
-		int(stats.get("combo", 0)),
-		zeigarnik.open_count(),
-	]
+	_run_end_reason = reason
+	_run_end_stats = stats
+	_x3_key = "RUN_BOOST_AUTO" if GameState.no_ads else "RUN_CLAIM_X3"
 	x3_btn.disabled = GameState.no_ads
-	x3_btn.text = "Claim 3x Energy" if not GameState.no_ads else "Boost auto-claimed"
+	run_over.visible = true
+	_render_run_over()
+
+
+func _render_run_over() -> void:
+	run_over_title.text = tr("RUN_OVER_ALMOST" if _run_end_reason == "near_miss" else "RUN_OVER_BROKEN")
+	run_over_body.text = "%s\n%s" % [
+		tr("RUN_OVER_STATS") % [int(_run_end_stats.get("score", 0)), int(_run_end_stats.get("combo", 0))],
+		tr("RUN_OVER_LOOPS") % zeigarnik.open_count(),
+	]
+	x3_btn.text = tr(_x3_key)
 
 
 func _on_run_start() -> void:
 	run_over.visible = false
-	hint_label.text = RUN_HINT
+	_set_hint("HINT_RUN")
 	grade_label.text = ""
 	focus_bar.value = 1.0
 
 
 func _on_stage(index: int, _payout: int) -> void:
-	hint_label.text = "RING %d UNLOCKED" % (index + 1)
+	_set_hint("HINT_RING_UNLOCKED", [index + 1])
 
 
 func _on_dda(profile: Dictionary) -> void:
-	hint_label.text = "FLOW  %.2f rps" % float(profile.rpm)
+	_set_hint("HINT_FLOW", [float(profile.rpm)])
 
 
 func _retry() -> void:
@@ -177,7 +218,8 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 	if placement == "end_multiplier":
 		x3_btn.disabled = false
 		if rewarded:
-			x3_btn.text = "Boost claimed"
+			_x3_key = "RUN_BOOST_CLAIMED"
+			x3_btn.text = tr(_x3_key)
 			x3_btn.disabled = true
 
 
@@ -190,15 +232,15 @@ func _upgrade(stat: String) -> void:
 func _refresh_upgrades() -> void:
 	var gen_cost: int = GameState.upgrade_cost("generator")
 	var mult_cost: int = GameState.upgrade_cost("global_mult")
-	gen_btn.text = "Upgrade Generator  %d" % gen_cost
-	glob_btn.text = "Upgrade Multiplier  %d" % mult_cost
+	gen_btn.text = tr("UPGRADE_GENERATOR") % gen_cost
+	glob_btn.text = tr("UPGRADE_MULTIPLIER") % mult_cost
 	gen_btn.disabled = GameState.energy < gen_cost
 	glob_btn.disabled = GameState.energy < mult_cost
 
 
 func _refresh_currency() -> void:
-	energy_label.text = "ENERGY  %d" % GameState.energy
-	mult_label.text = "PAYOUT x%.1f" % GameState.session_multiplier
+	energy_label.text = tr("HUD_ENERGY") % GameState.energy
+	mult_label.text = tr("HUD_PAYOUT") % GameState.session_multiplier
 
 
 ## Prototype-only: toggles the Auto-Tap entitlement so idle can be felt in-session.
@@ -209,4 +251,4 @@ func _toggle_auto_tap() -> void:
 
 
 func _refresh_shop() -> void:
-	shop_btn.text = "Auto-Tap ON" if GameState.auto_tap else "Auto-Tap OFF"
+	shop_btn.text = tr("AUTO_TAP_ON" if GameState.auto_tap else "AUTO_TAP_OFF")

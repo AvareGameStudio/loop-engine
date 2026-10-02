@@ -1,0 +1,45 @@
+keys,en,tr
+HINT_RUN,TAP ON GOLD  ·  HOLD FOR SLOW-MO,ALTIN BÖLGEDE DOKUN  ·  BASILI TUT: YAVAŞ ÇEKİM
+HINT_RING_UNLOCKED,RING %d UNLOCKED,HALKA %d AÇILDI
+HINT_FLOW,FLOW  %.2f rps,AKIŞ  %.2f tur/sn
+HUD_PAYOUT,PAYOUT x%.1f,ÖDÜL x%.1f
+HUD_ENERGY,ENERGY  %d,ENERJİ  %d
+GRADE_PERFECT,PERFECT,MÜKEMMEL
+GRADE_GOOD,GOOD,İYİ
+GRADE_NEAR_MISS,NEAR MISS,KIL PAYI
+GRADE_MISS,MISS,ISKA
+JACKPOT,JACKPOT,BÜYÜK İKRAMİYE
+COUNTDOWN_GO,GO,BAŞLA
+UPGRADE_GENERATOR,Upgrade Generator  %d,Jeneratörü Geliştir  %d
+UPGRADE_MULTIPLIER,Upgrade Multiplier  %d,Çarpanı Geliştir  %d
+AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
+AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
+LOOP_GENERATOR_TITLE,Generator Speed,Jeneratör Hızı
+LOOP_GENERATOR_SUB,Lv %d  ·  %d / %d energy,Sv %d  ·  %d / %d enerji
+LOOP_MULT_TITLE,Global Multiplier,Genel Çarpan
+LOOP_MULT_SUB,Lv %d  ·  next at %d,Sv %d  ·  sonraki: %d
+LOOP_RING_TITLE,Ring %d,Halka %d
+LOOP_RING_SUB,%d / %d locks,%d / %d kilit
+LOOP_THEMES_TITLE,Theme Collection,Tema Koleksiyonu
+LOOP_THEMES_SUB,%d / %d rings,%d / %d halka
+RUN_OVER_ALMOST,ALMOST,NEREDEYSE
+RUN_OVER_BROKEN,LOOP BROKEN,DÖNGÜ KIRILDI
+RUN_OVER_STATS,Score %d   ·   Combo %d,Skor %d   ·   Kombo %d
+RUN_OVER_LOOPS,%d unfinished loops waiting.,%d yarım kalan hedef seni bekliyor.
+RUN_RETRY,Spin again,Tekrar çevir
+RUN_CLAIM_X3,Claim 3x Energy,3x Enerji Al
+RUN_BOOST_AUTO,Boost auto-claimed,Bonus otomatik alındı
+RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
+REVIVE_TITLE,SO CLOSE!,ÇOK YAKINDIN!
+REVIVE_BODY,You missed by %.1f°  (%.1f%% of the ring),%.1f° farkla kaçırdın  (halkanın %%%.1f kadarı)
+REVIVE_PROMPT,Watch to revive this run.,İzle ve bu turu kurtar.
+REVIVE_LAST,This near-miss is the last one this run.,Bu turdaki son kıl payın buydu.
+REVIVE_WATCH,Second Chance,İkinci Şans
+REVIVE_SKIP,Let it go,Boş ver
+REVIVE_USED,Revive already used,Canlanma hakkı kullanıldı
+REVIVE_LOADING,Loading ad…,Reklam yükleniyor…
+SETTINGS_TITLE,SETTINGS,AYARLAR
+SETTINGS_LANGUAGE,Language,Dil
+SETTINGS_SOUND,Sound,Ses
+SETTINGS_VIBRATION,Vibration,Titreşim
+SETTINGS_CLOSE,Close,Kapat

@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
+[ext_resource type="PackedScene" path="res://scenes/SettingsPopup.tscn" id="3_settings"]
+[ext_resource type="Texture2D" path="res://assets/icons/settings.svg" id="4_gear"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -22,7 +24,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_left = 28.0
 offset_top = 36.0
-offset_right = -28.0
+offset_right = -104.0
 offset_bottom = 100.0
 mouse_filter = 2
 theme_override_constants/separation = 16
@@ -53,9 +55,9 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
+offset_left = -320.0
 offset_top = 210.0
-offset_right = 200.0
+offset_right = 320.0
 offset_bottom = 320.0
 mouse_filter = 2
 
@@ -63,13 +65,13 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 horizontal_alignment = 1
-pivot_offset = Vector2(200, 20)
+pivot_offset = Vector2(320, 20)
 
 [node name="Hint" type="Label" parent="HUD/Center"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 0.8)
 theme_override_font_sizes/font_size = 16
-text = "TAP ON GOLD  ·  HOLD FOR SLOW-MO"
+text = "HINT_RUN"
 horizontal_alignment = 1
 
 [node name="Bottom" type="VBoxContainer" parent="HUD"]
@@ -196,11 +198,28 @@ autowrap_mode = 3
 [node name="Retry" type="Button" parent="RunOver/Panel/VBox"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "Spin again"
+text = "RUN_RETRY"
 
 [node name="X3" type="Button" parent="RunOver/Panel/VBox"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 text = "Claim 3x Energy"
 
+[node name="SettingsButton" type="Button" parent="."]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -92.0
+offset_top = 36.0
+offset_right = -28.0
+offset_bottom = 100.0
+grow_horizontal = 0
+icon = ExtResource("4_gear")
+icon_alignment = 1
+expand_icon = true
+
 [node name="RevivePopup" parent="." instance=ExtResource("2_revive")]
+
+[node name="SettingsPopup" parent="." instance=ExtResource("3_settings")]

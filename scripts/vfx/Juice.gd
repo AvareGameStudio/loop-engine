@@ -43,29 +43,29 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_punch(1.06)
 			_burst(28, Color(0.35, 1.0, 0.85))
 			_flash_pointer()
-			_vibrate(15)
+			Settings.vibrate(15)
 		"good":
 			_add_shake(4.0 * intensity)
 			_punch(1.03)
 			_burst(16, Color(0.45, 0.75, 1.0))
-			_vibrate(8)
+			Settings.vibrate(8)
 		"near_miss":
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
 			_punch(0.94)
 			_burst(36, Color(1.0, 0.35, 0.55))
-			_vibrate(40)
+			Settings.vibrate(40)
 		"miss":
 			_add_shake(18.0)
 			_punch(0.9)
 			_burst(22, Color(0.7, 0.2, 0.3))
-			_vibrate(60)
+			Settings.vibrate(60)
 		"jackpot":
 			TimeScale.hitstop(0.1)
 			_add_shake(12.0)
 			_burst(48, Color(1.0, 0.84, 0.2))
 			_pulse_glow()
-			_vibrate(30)
+			Settings.vibrate(30)
 
 
 func _add_shake(amount: float) -> void:
@@ -109,8 +109,3 @@ func _pulse_glow() -> void:
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
-
-func _vibrate(ms: int) -> void:
-	# Android exports also need the VIBRATE permission enabled in the export preset.
-	if OS.has_feature("mobile"):
-		Input.vibrate_handheld(ms)
