@@ -11,7 +11,7 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 @onready var score_label: Label = $HUD/Top/Score
 @onready var combo_label: Label = $HUD/Top/Combo
 @onready var mult_label: Label = $HUD/Top/Mult
-@onready var grade_label: Label = $HUD/Center/Grade
+@onready var grade_label: Label = $HUD/Grade
 @onready var hint_label: Label = $HUD/Center/Hint
 @onready var tap_prompt: Label = $HUD/TapPrompt
 @onready var stage_bar: ProgressBar = $HUD/Bottom/StageBar
@@ -205,14 +205,22 @@ func _on_vault(_amount: int, _delta: int) -> void:
 
 func _on_loops(loops: Array) -> void:
 	var focus: String = ZeigarnikTracker.focus_id(loops)
+	var live: Dictionary = {}
 	for loop: Dictionary in loops:
 		var id: String = String(loop.id)
+		live[id] = true
 		if not _loop_rows.has(id):
 			_loop_rows[id] = _make_loop_row(id)
 		var row: Dictionary = _loop_rows[id]
 		(row.ring as QuestRing).set_state(float(loop.progress), bool(loop.complete), id == focus)
 		(row.title as Label).text = String(loop.title)
 		(row.subtitle as Label).text = String(loop.subtitle)
+	for id: String in _loop_rows.keys():
+		if live.has(id):
+			continue
+		var stale: Dictionary = _loop_rows[id]
+		(stale.column as Node).queue_free()
+		_loop_rows.erase(id)
 
 
 func _make_loop_row(id: String) -> Dictionary:
@@ -231,7 +239,7 @@ func _make_loop_row(id: String) -> Dictionary:
 	column.add_child(title)
 	column.add_child(subtitle)
 	loops_box.add_child(column)
-	return {"ring": ring, "title": title, "subtitle": subtitle}
+	return {"ring": ring, "title": title, "subtitle": subtitle, "column": column}
 
 
 func _make_caption(font_size: int, color: Color) -> Label:

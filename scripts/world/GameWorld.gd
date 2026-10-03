@@ -205,8 +205,6 @@ func _fail_run(reason: String, result: Dictionary) -> void:
 	_busy = false
 	input_proc.clear_buffer()
 	TimeScale.reset()
-	if GameState.unclaimed_energy > 0:
-		EventBus.vault_ready.emit.call_deferred(GameState.unclaimed_energy)
 
 
 func _on_revive(success: bool) -> void:

@@ -50,6 +50,21 @@ theme_override_font_sizes/font_size = 18
 text = "PAYOUT x1.0"
 horizontal_alignment = 2
 
+[node name="Grade" type="Label" parent="HUD"]
+layout_mode = 1
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -320.0
+offset_top = 108.0
+offset_right = 320.0
+offset_bottom = 168.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+vertical_alignment = 1
+pivot_offset = Vector2(320, 30)
+
 [node name="Center" type="VBoxContainer" parent="HUD"]
 layout_mode = 1
 anchors_preset = 8
@@ -62,12 +77,6 @@ offset_top = 210.0
 offset_right = 320.0
 offset_bottom = 320.0
 mouse_filter = 2
-
-[node name="Grade" type="Label" parent="HUD/Center"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-horizontal_alignment = 1
-pivot_offset = Vector2(320, 20)
 
 [node name="Hint" type="Label" parent="HUD/Center"]
 visible = false

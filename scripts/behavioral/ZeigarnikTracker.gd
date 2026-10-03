@@ -49,9 +49,6 @@ func loops() -> Array:
 	var stage_fill := 0.0
 	if GameState.hits_needed > 0:
 		stage_fill = float(GameState.hits_in_stage) / float(GameState.hits_needed)
-	var theme_goal: int = GameState.THEME_GOAL
-	var theme_fill := _teased(float(GameState.unlocked_themes.size()) / float(theme_goal))
-
 	# Prefer the piggy when it has something to collect: that's the return hook.
 	var pulse_loop: Dictionary
 	if vault_n > 0:
@@ -86,13 +83,6 @@ func loops() -> Array:
 			"subtitle": tr("LOOP_RING_SUB") % [GameState.hits_in_stage, GameState.hits_needed],
 			"progress": clampf(stage_fill, 0.0, 1.0),
 			"complete": stage_fill >= 1.0,
-		},
-		{
-			"id": "collection",
-			"title": tr("LOOP_THEMES_TITLE"),
-			"subtitle": tr("LOOP_THEMES_SUB") % [GameState.unlocked_themes.size(), theme_goal],
-			"progress": theme_fill,
-			"complete": GameState.unlocked_themes.size() >= theme_goal,
 		},
 	]
 
