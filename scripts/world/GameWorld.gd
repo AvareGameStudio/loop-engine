@@ -2,6 +2,7 @@ extends Node2D
 ## Core session loop: spin → tap → grade → payout → DDA → stage/meta.
 
 const RESPAWN_DELAY: float = 0.22
+const VAULT_BEAT: float = 0.55
 const REVIVE_STEP: float = 0.45
 const END_BOOST_ENERGY: float = 0.16
 const END_BOOST_COINS: float = 0.05
@@ -161,7 +162,8 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 
 
 func _after_hit() -> void:
-	if GameState.hits_in_stage >= GameState.hits_needed:
+	var cleared := GameState.hits_in_stage >= GameState.hits_needed
+	if cleared:
 		var bonus: int = 25 * GameState.current_stage
 		GameState.add_energy(bonus)
 		EventBus.stage_cleared.emit(GameState.current_stage, bonus)
@@ -172,7 +174,7 @@ func _after_hit() -> void:
 	EventBus.session_changed.emit()
 	_push_zeigarnik()
 	# Real seconds: ignore_time_scale so unlock slow-mo cannot stretch the armed window.
-	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
+	await get_tree().create_timer(VAULT_BEAT if cleared else RESPAWN_DELAY, true, false, true).timeout
 	if not GameState.run_active:
 		return
 	TimeScale.set_slowmo(1.0)
