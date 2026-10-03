@@ -48,12 +48,17 @@ var _rim := Color(0.15, 0.17, 0.22, 1.0)
 var _gate := Color(0.2, 0.95, 0.4, 0.85)
 var _bezel_flash: float = 0.0
 var _door: float = 0.0
+var _coach_hot: bool = false
+var _coach_done: bool = false
+var _coach_pulse: float = 0.0
 
 
 func _ready() -> void:
 	pointer.direction = direction
 	EventBus.direction_flipped.connect(func(_d: float) -> void: _bezel_flash = 1.0)
 	EventBus.stage_cleared.connect(func(_index: int, _payout: int) -> void: _door = 1.0)
+	EventBus.run_started.connect(func() -> void: _coach_done = false)
+	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _coach_done = true)
 	EventBus.cosmetic_equipped.connect(_apply_skin)
 	_apply_skin(GameState.equipped_dial)
 	randomize_target(true)
@@ -66,9 +71,13 @@ func _process(delta: float) -> void:
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
 	pointer.rotation = pointer_angle
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
-	if _bezel_flash > 0.0 or _door > 0.0:
+	var coach_now: bool = _in_coach_window()
+	if coach_now:
+		_coach_pulse = wrapf(_coach_pulse + real_dt * 7.0, 0.0, TAU)
+	if _bezel_flash > 0.0 or _door > 0.0 or coach_now != _coach_hot or coach_now:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
-		_door = maxf(0.0, _door - real_dt * 1.4)
+		_door = maxf(0.0, _door - real_dt * 0.7)
+		_coach_hot = coach_now
 		queue_redraw()
 
 
@@ -110,14 +119,16 @@ func _draw() -> void:
 		draw_circle(bolt, 7.0, Color(0.28, 0.3, 0.34, 1.0))
 		draw_circle(bolt, 2.4, Color(0.06, 0.06, 0.08, 1.0))
 	draw_circle(center, radius - 28.0, Color(0.08, 0.09, 0.12, 1.0))
-	if _door > 0.0:
-		draw_circle(center, 26.0, Color(1.0, 0.78, 0.25, _door))
+	draw_arc(center, radius - 78.0, 0.0, TAU, 40, Color(0.9, 0.68, 0.18, 0.22 + 0.45 * _door), 16.0, true)
 	var rim: Color = _rim.lerp(Color.WHITE, _bezel_flash)
 	draw_arc(center, radius, 0.0, TAU, 96, rim, 16.0 + 2.0 * _bezel_flash, true)
 	draw_arc(center, radius - 18.0, 0.0, TAU, 64, Color(0.05, 0.05, 0.07, 1.0), 4.0, true)
 	_draw_ticks()
-	draw_circle(center, 36.0, Color(0.16, 0.17, 0.2, 1.0))
-	draw_arc(center, 36.0, 0.0, TAU, 28, Color(0.45, 0.47, 0.52, 1.0), 2.0, true)
+	draw_arc(center, 36.0, 0.0, TAU, 28, Color(0.45, 0.47, 0.52, 1.0), 3.0, true)
+	_draw_hoard(center)
+	if _door > 0.0:
+		draw_circle(center, 78.0 * _door, Color(1.0, 0.78, 0.25, 0.25 + 0.6 * _door))
+		_draw_hoard(center)
 
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
@@ -126,6 +137,46 @@ func _draw() -> void:
 	# The gate the pick has to hit.
 	_draw_window_arc(float(windows.good), _gate, 20.0)
 	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), 8.0)
+	_draw_tap_hand()
+
+
+func _in_coach_window() -> bool:
+	if _coach_done or GameState.current_stage != 1 or not spinning:
+		return false
+	var err: float = absf(rad_to_deg(angle_difference(pointer_angle, target_angle)))
+	return err <= float(windows.get("good", 16.0))
+
+
+func _draw_hoard(center: Vector2) -> void:
+	var shine: float = 0.45 + 0.55 * _door
+	for i in 3:
+		draw_rect(Rect2(center.x - 16.0, center.y - 14.0 + float(i) * 8.0, 32.0, 5.0), Color(0.92, 0.68, 0.16, shine), true)
+	_draw_diamond(center + Vector2(-10.0, 12.0), 5.0, Color(0.78, 0.94, 1.0, shine))
+	_draw_diamond(center + Vector2(10.0, 12.0), 5.0, Color(0.9, 0.96, 1.0, shine))
+
+
+func _draw_diamond(center: Vector2, extent: float, color: Color) -> void:
+	draw_colored_polygon(PackedVector2Array([
+		center + Vector2(0.0, -extent),
+		center + Vector2(extent, 0.0),
+		center + Vector2(0.0, extent),
+		center + Vector2(-extent, 0.0),
+	]), color)
+
+
+func _draw_tap_hand() -> void:
+	if not _coach_hot:
+		return
+	var dir := Vector2.from_angle(target_angle)
+	var palm := dir * (radius + 72.0)
+	var bob: float = 6.0 * sin(_coach_pulse)
+	palm -= dir * bob
+	draw_circle(palm, 18.0, Color(1.0, 0.9, 0.45, 0.95))
+	draw_line(palm, palm - dir * 26.0, Color(1.0, 0.82, 0.28, 1.0), 7.0, true)
+	var font: Font = ThemeDB.fallback_font
+	var text := "TAP!"
+	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	draw_string(font, palm + Vector2(-width * 0.5, -26.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1.0, 0.95, 0.7, 1.0))
 
 
 func _draw_ticks() -> void:

@@ -276,7 +276,8 @@ func _on_run_start() -> void:
 	hint_label.text = ""
 	grade_label.text = ""
 	focus_bar.value = 1.0
-	_show_tap_prompt()
+	# The dial shows a TAP hand on the gate. A banner here covers the vault.
+	_hide_tap_prompt()
 
 
 func _show_tap_prompt() -> void:
