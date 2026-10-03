@@ -32,6 +32,8 @@ func _ready() -> void:
 	if burst:
 		burst.amount = max_burst
 		burst.texture = _spark_texture()
+		burst.position = Vector2.ZERO
+		burst.visibility_rect = Rect2(-900, -1400, 1800, 2800)
 	if alarm:
 		alarm.modulate.a = 0.0
 	EventBus.juice_hit.connect(_on_juice)
@@ -65,8 +67,7 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_add_shake(7.0 * power)
 			_zoom_punch_success()
 			_bounce_zone()
-			spawn_hit_sparks(_contact_point())
-			_burst(int(28.0 * power), Color(1.0, 0.84, 0.28).lerp(Color(1.0, 0.95, 0.55), clampf(power - 1.0, 0.0, 1.0)))
+			_burst(int(36.0 * power), Color(1.0, 0.86, 0.35).lerp(Color(1.0, 0.96, 0.7), clampf(power - 1.0, 0.0, 1.0)))
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
 			_flash_pin(0.18, 1.0)
 			_pulse_glow(1.4 * power)
@@ -75,8 +76,7 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_add_shake(4.0 * intensity)
 			_zoom_punch_success()
 			_bounce_zone()
-			spawn_hit_sparks(_contact_point())
-			_burst(16, Color(1.0, 0.84, 0.28))
+			_burst(24, Color(0.95, 0.78, 0.32))
 			_flash_pointer(0.1, 0.65)
 			_flash_pin(0.12, 0.8)
 			_pulse_glow(0.9)
@@ -85,12 +85,12 @@ func _on_juice(grade: String, intensity: float) -> void:
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
 			_punch(0.94)
-			_burst(36, Color(1.0, 0.35, 0.55))
+			_burst(12, Color(1.0, 0.35, 0.42))
 			_police_alarm()
 		"miss":
 			_add_shake(18.0)
 			_punch(0.9)
-			_burst(22, Color(0.7, 0.2, 0.3))
+			_burst(8, Color(0.75, 0.22, 0.28))
 			_police_alarm()
 			Settings.vibrate(28)
 		"tension":
@@ -99,13 +99,13 @@ func _on_juice(grade: String, intensity: float) -> void:
 		"jackpot":
 			TimeScale.hitstop(0.1)
 			_add_shake(12.0)
-			_burst(48, Color(1.0, 0.84, 0.2))
+			_burst(22, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.5)
 			Settings.vibrate(30)
 		"claim":
 			# Idle Vault collect: gold explosion so the piggy emptying is a reward, not a number.
 			_add_shake(10.0)
-			_burst(48, Color(1.0, 0.84, 0.2))
+			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
 		"combo_break":
@@ -198,16 +198,16 @@ func spawn_vault_coins(global_pos: Vector2) -> void:
 	var coins := CPUParticles2D.new()
 	coins.name = "VaultCoins"
 	coins.one_shot = true
-	coins.amount = 28
-	coins.lifetime = 0.75
-	coins.explosiveness = 0.92
+	coins.amount = 16
+	coins.lifetime = 0.7
+	coins.explosiveness = 0.8
 	coins.direction = Vector2(0, -1)
-	coins.spread = 36.0
-	coins.gravity = Vector2(0, 260)
-	coins.initial_velocity_min = 320.0
-	coins.initial_velocity_max = 560.0
-	coins.scale_amount_min = 1.8
-	coins.scale_amount_max = 3.2
+	coins.spread = 24.0
+	coins.gravity = Vector2(0, 420)
+	coins.initial_velocity_min = 420.0
+	coins.initial_velocity_max = 760.0
+	coins.scale_amount_min = 0.55
+	coins.scale_amount_max = 0.95
 	coins.color = Color(1.0, 0.843, 0.0, 1.0)
 	coins.texture = _spark_texture()
 	coins.z_index = 9
@@ -224,14 +224,26 @@ func _contact_point() -> Vector2:
 	return pointer.to_global(Vector2(pointer.length, 0.0))
 
 
+func _vault_origin() -> Vector2:
+	# Arena origin is the hub. The needle only rotates around it.
+	var arena := pointer.get_parent() as Node2D if pointer else null
+	var world_pos := arena.global_position if arena else Vector2.ZERO
+	if glow is CanvasItem and camera:
+		var screen := camera.get_canvas_transform() * world_pos
+		return (glow as CanvasItem).get_global_transform_with_canvas().affine_inverse() * screen
+	return world_pos
+
+
 func _spark_texture() -> Texture2D:
-	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var center := Vector2(3.5, 3.5)
-	for y in 8:
-		for x in 8:
-			if Vector2(x, y).distance_to(center) <= 3.2:
-				img.set_pixel(x, y, Color(1, 0.9, 0.45, 1))
+	var center := Vector2(7.5, 7.5)
+	for y in 16:
+		for x in 16:
+			var d: float = Vector2(x, y).distance_to(center) / 7.5
+			if d <= 1.0:
+				var a: float = pow(1.0 - d, 2.0)
+				img.set_pixel(x, y, Color(1, 1, 1, a))
 	return ImageTexture.create_from_image(img)
 
 
@@ -241,9 +253,8 @@ func _burst(amount: int, color: Color) -> void:
 	# Changing `amount` reallocates the particle buffer; amount_ratio does not.
 	burst.amount_ratio = clampf(float(amount) / float(max_burst), 0.0, 1.0)
 	burst.modulate = color
-	# Perfect Power / Claim: grow the gold burst without reallocating the GPU buffer.
-	var size_scale: float = clampf(float(amount) / 28.0, 0.7, 2.2)
-	burst.scale = Vector2(size_scale, size_scale)
+	burst.scale = Vector2.ONE
+	burst.position = Vector2.ZERO
 	burst.restart()
 
 
@@ -304,7 +315,9 @@ func _pulse_glow(peak: float = 2.5) -> void:
 		_glow_tween.kill()
 	_glow_tween = create_tween()
 	_glow_tween.set_ignore_time_scale(true)
+	mat.set_shader_parameter("rect_size", glow.size)
+	mat.set_shader_parameter("origin", _vault_origin())
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
-	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 0.72, 0.32).from(0.18)
-	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 1.15, 0.45).from(0.02)
+	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

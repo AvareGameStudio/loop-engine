@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/GameWorld.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/world/RingArena.gd" id="2_arena"]
@@ -8,7 +8,6 @@
 [ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="6_flash"]
 [ext_resource type="Shader" path="res://shaders/ring_glow.gdshader" id="7_glow"]
 [ext_resource type="Script" path="res://scripts/meta/MetaUpgrade.gd" id="8_meta"]
-[ext_resource type="Shader" path="res://shaders/vault_wall.gdshader" id="9_wall"]
 [ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="10_vig"]
 [ext_resource type="Script" path="res://scripts/world/LockPin.gd" id="11_pin"]
 
@@ -23,9 +22,9 @@ shader_parameter/glow_color = Color(0.2, 0.9, 0.4, 1)
 shader_parameter/pulse = 0.0
 shader_parameter/intensity = 0.0
 shader_parameter/ripple = 0.0
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_wall"]
-shader = ExtResource("9_wall")
+shader_parameter/origin = Vector2(360, 580)
+shader_parameter/rect_size = Vector2(720, 1280)
+shader_parameter/reach = 1100.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vig"]
 shader = ExtResource("10_vig")
@@ -40,14 +39,16 @@ shader_parameter/amount = 0.0
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_burst"]
 particle_flag_disable_z = true
 emission_shape = 1
-emission_sphere_radius = 14.0
+emission_sphere_radius = 8.0
 spread = 180.0
-initial_velocity_min = 70.0
-initial_velocity_max = 260.0
-gravity = Vector3(0, 240, 0)
-scale_min = 2.0
-scale_max = 6.0
-color = Color(1, 0.84, 0.28, 1)
+initial_velocity_min = 900.0
+initial_velocity_max = 1600.0
+gravity = Vector3(0, 40, 0)
+damping_min = 0.2
+damping_max = 0.8
+scale_min = 0.4
+scale_max = 1.0
+color = Color(1, 0.9, 0.55, 1)
 
 [node name="GameWorld" type="Node2D" groups=["game_world"]]
 script = ExtResource("1_world")
@@ -56,7 +57,6 @@ script = ExtResource("1_world")
 layer = -1
 
 [node name="Fill" type="ColorRect" parent="Background"]
-material = SubResource("ShaderMaterial_wall")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -67,6 +67,15 @@ color = Color(0.043137, 0.047059, 0.062745, 1)
 
 [node name="FX" type="CanvasLayer" parent="."]
 layer = 6
+
+[node name="Glow" type="ColorRect" parent="FX"]
+material = SubResource("ShaderMaterial_glow")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="Vignette" type="ColorRect" parent="FX"]
 material = SubResource("ShaderMaterial_vig")
@@ -97,14 +106,6 @@ position_smoothing_speed = 8.0
 position = Vector2(360, 500)
 script = ExtResource("2_arena")
 
-[node name="Glow" type="ColorRect" parent="Arena"]
-material = SubResource("ShaderMaterial_glow")
-offset_left = -260.0
-offset_top = -260.0
-offset_right = 260.0
-offset_bottom = 260.0
-mouse_filter = 2
-
 [node name="LockPin" type="Node2D" parent="Arena"]
 material = SubResource("ShaderMaterial_pin")
 script = ExtResource("11_pin")
@@ -115,11 +116,12 @@ material = SubResource("ShaderMaterial_flash")
 script = ExtResource("5_pointer")
 
 [node name="Burst" type="GPUParticles2D" parent="Arena"]
+visibility_rect = Rect2(-900, -1400, 1800, 2800)
 emitting = false
 amount = 64
-lifetime = 0.45
+lifetime = 0.7
 one_shot = true
-explosiveness = 1.0
+explosiveness = 0.95
 process_material = SubResource("ParticleProcessMaterial_burst")
 
 [node name="InputProcessor" type="Node" parent="."]
@@ -133,7 +135,7 @@ script = ExtResource("4_juice")
 camera = NodePath("../Camera2D")
 burst = NodePath("../Arena/Burst")
 pointer = NodePath("../Arena/Pointer")
-glow = NodePath("../Arena/Glow")
+glow = NodePath("../FX/Glow")
 lock_pin = NodePath("../Arena/LockPin")
 alarm = NodePath("../FX/Alarm")
 vignette = NodePath("../FX/Vignette")

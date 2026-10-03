@@ -1,6 +1,6 @@
 class_name MetaUpgrade
 extends Node
-## Idle meta loop. Auto-Pulse fills the Idle Vault while no run is active;
+## Idle meta loop. Auto-Pulse fills the vault only while the app is closed.
 ## Perfect Power scales Perfect juice. The market sells both.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
@@ -8,7 +8,6 @@ signal produced(amount: int)
 
 ## Matches the old idle drip (2 energy / 3 s) at level 1.
 const PASSIVE_BASE: float = 0.67
-const TICK_SECONDS: float = 1.0
 ## Cap so a week away does not dump a week's numbers onto the Claim screen.
 const OFFLINE_CAP_SECONDS: int = 8 * 3600
 ## One minute of idle = a "full" piggy. Zeigarnik teases this at 90%.
@@ -21,16 +20,10 @@ const CATALOG := [
 	{"id": "passive_yield", "currency": "coins", "base_cost": 30, "growth": 1.45, "effect_pct": 30},
 ]
 
-var _carry: float = 0.0
-var _elapsed: float = 0.0
-
-
 func _ready() -> void:
-	EventBus.run_started.connect(func() -> void: set_process(false))
-	EventBus.run_ended.connect(func(_reason: String, _stats: Dictionary) -> void: set_process(true))
-	# Offline hours become a Claim-able vault, not a silent wallet bump.
+	# Foreground play, popups included, must not drip. Only a closed app does.
+	set_process(false)
 	accrue_offline()
-	set_process(not GameState.run_active)
 
 
 func _notification(what: int) -> void:
@@ -41,26 +34,7 @@ func _notification(what: int) -> void:
 			EventBus.vault_ready.emit(GameState.unclaimed_energy)
 
 
-func _process(delta: float) -> void:
-	if GameState.run_active:
-		_elapsed = 0.0
-		return
-	_carry += passive_rate() * delta
-	_elapsed += delta
-	if _elapsed < TICK_SECONDS:
-		return
-	_elapsed = 0.0
-	var whole: int = floori(_carry)
-	if whole <= 0:
-		return
-	# Fractions carry so slow rates still pay out exactly. Vault, not wallet:
-	# Instant Gratification happens at Claim, not on a live ticker.
-	_carry -= whole
-	GameState.add_vault(whole)
-	produced.emit(whole)
-
-
-## Credits time spent in the background into the vault. Returns energy added.
+## Credits time spent with the app closed. Returns energy added.
 func accrue_offline() -> int:
 	var now: int = int(Time.get_unix_time_from_system())
 	var last: int = GameState.last_seen_unix
