@@ -1,5 +1,7 @@
 class_name LockPin
 extends Node2D
+
+const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 ## Tumbler sitting in the combination notch. A hit seats it; the flash shader
 ## is what the player reads as the pin catching.
 
@@ -7,19 +9,34 @@ extends Node2D
 
 var locked: bool = false
 var _flash_tween: Tween
+var _eject_tween: Tween
+var _bolt: Sprite2D
+
+
+func _ready() -> void:
+	VaultArt.ensure()
+	_bolt = Sprite2D.new()
+	_bolt.name = "Bolt"
+	_bolt.texture = VaultArt.pin
+	_bolt.scale = Vector2(0.72, 0.72)
+	_bolt.use_parent_material = true
+	add_child(_bolt)
+	_layout()
+	EventBus.stage_cleared.connect(_eject)
 
 
 func place(angle: float) -> void:
 	rotation = angle
-	queue_redraw()
+	_layout()
 
 
 func set_locked(is_locked: bool) -> void:
-	if locked == is_locked:
-		queue_redraw()
-		return
 	locked = is_locked
-	queue_redraw()
+	if _eject_tween:
+		_eject_tween.kill()
+	if _bolt:
+		_bolt.modulate.a = 1.0
+	_layout()
 
 
 func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
@@ -34,15 +51,21 @@ func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
 	_flash_tween.tween_property(mat, "shader_parameter/amount", 0.0, seconds)
 
 
-func _draw() -> void:
-	var seat := radius - 6.0
-	# Brass collar set into the dial, then a steel bolt that sinks when it catches.
-	draw_rect(Rect2(seat - 34.0, -16.0, 40.0, 32.0), Color(0.28, 0.2, 0.08, 1.0), true)
-	draw_rect(Rect2(seat - 34.0, -16.0, 40.0, 32.0), Color(0.72, 0.58, 0.22, 1.0), false, 2.0)
-	var sunk: float = 18.0 if locked else 0.0
-	var body := Color(0.55, 0.58, 0.62, 1.0) if not locked else Color(0.95, 0.78, 0.28, 1.0)
-	draw_rect(Rect2(seat - 22.0 - sunk, -6.0, 28.0, 12.0), body, true)
-	draw_circle(Vector2(seat + 8.0 - sunk, 0.0), 10.0, body)
-	draw_line(Vector2(seat + 4.0 - sunk, -4.0), Vector2(seat + 12.0 - sunk, 4.0), Color(0.12, 0.1, 0.08, 1.0), 2.0, true)
-	if locked:
-		draw_line(Vector2(seat - 8.0, -12.0), Vector2(seat + 6.0, 12.0), Color(1.0, 0.9, 0.5, 0.9), 2.0, true)
+func _layout() -> void:
+	if _bolt == null:
+		return
+	var sunk: float = 16.0 if locked else 0.0
+	_bolt.position = Vector2(radius - 28.0 - sunk, 0.0)
+	_bolt.modulate = Color(1.0, 0.86, 0.45, 1.0) if locked else Color.WHITE
+
+
+func _eject(_index: int, _payout: int) -> void:
+	if _bolt == null:
+		return
+	if _eject_tween:
+		_eject_tween.kill()
+	_eject_tween = create_tween()
+	_eject_tween.set_ignore_time_scale(true)
+	_eject_tween.tween_interval(0.1)
+	_eject_tween.tween_property(_bolt, "position:x", radius + 90.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_eject_tween.parallel().tween_property(_bolt, "modulate:a", 0.0, 0.16)

@@ -1,5 +1,7 @@
 class_name Juice
 extends Node
+
+const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 ## Hitstop, camera punch, particle bursts, pointer flash, jackpot glow, haptics.
 ## Time scale goes through the TimeScale autoload.
 
@@ -13,8 +15,9 @@ extends Node
 ## Particle buffer size; individual bursts scale down via amount_ratio.
 @export var max_burst: int = 64
 ## Ring clear: hold this scale, then restore after RING_SLOWMO_SEC real seconds.
-const RING_TIME_SCALE: float = 0.15
-const RING_SLOWMO_SEC: float = 0.25
+const RING_TIME_SCALE: float = 0.2
+const RING_SLOWMO_SEC: float = 0.15
+const LAST_PIN_FREEZE: float = 0.1
 const HIT_ZOOM := Vector2(1.05, 1.05)
 
 var _shake: float = 0.0
@@ -133,15 +136,20 @@ func _zoom_punch_success() -> void:
 	_zoom_tween.tween_property(camera, "zoom", Vector2.ONE, 0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-## Full ring cleared: 0.15 for 0.25 real seconds, then back to 1.0.
-## Deferred because the tap handler restores slow-mo at the end of the same call.
+## Last pin: freeze 100ms, then the door flies and the hoard spills.
+## The freeze is hitstop, so the tap handler's slow-mo restore cannot cancel it.
 func _on_ring_cleared(_index: int, _payout: int) -> void:
+	TimeScale.hitstop(LAST_PIN_FREEZE)
+	get_tree().create_timer(LAST_PIN_FREEZE, true, false, true).timeout.connect(_slam_vault)
+
+
+func _slam_vault() -> void:
 	_zoom_punch_success()
-	bounce_node(_dial(), 1.22)
-	_pulse_glow(2.2)
+	bounce_node(_dial(), 1.28)
+	_pulse_glow(3.0)
 	spawn_vault_rain()
-	Settings.vibrate(55, 1.0)
-	TimeScale.pulse_slowmo.call_deferred(RING_TIME_SCALE, RING_SLOWMO_SEC)
+	Settings.vibrate(70, 1.0)
+	TimeScale.pulse_slowmo(RING_TIME_SCALE, RING_SLOWMO_SEC)
 
 
 func _bounce_zone() -> void:
@@ -201,31 +209,35 @@ func spawn_hit_sparks(global_pos: Vector2) -> void:
 	get_tree().create_timer(sparks.lifetime + 0.05, true, false, true).timeout.connect(sparks.queue_free)
 
 
-## Gold and diamonds fall across the phone when the door slams open.
+## Gold bars and diamonds fill the phone when the door slams open.
 func spawn_vault_rain() -> void:
+	VaultArt.ensure()
 	var layer: Node = glow.get_parent() if glow else (get_tree().current_scene if get_tree() else self)
-	_drop_rain(layer, "VaultRainGold", Color(1.0, 0.82, 0.2, 1.0), 64, 0.0)
-	_drop_rain(layer, "VaultRainGem", Color(0.8, 0.94, 1.0, 1.0), 28, 0.08)
+	var origin := _vault_origin()
+	_drop_rain(layer, "VaultRainGold", VaultArt.gold, Color(1.0, 0.86, 0.3, 1.0), 140, 0.0)
+	_drop_rain(layer, "VaultRainGem", VaultArt.gem, Color(0.85, 0.95, 1.0, 1.0), 70, 0.05)
+	_explode_hoard(layer, "VaultBurstGold", VaultArt.gold, Color(1.0, 0.84, 0.25, 1.0), origin, 90)
+	_explode_hoard(layer, "VaultBurstGem", VaultArt.gem, Color(0.8, 0.95, 1.0, 1.0), origin, 40)
 
 
-func _drop_rain(layer: Node, rain_name: String, color: Color, count: int, delay: float) -> void:
+func _drop_rain(layer: Node, rain_name: String, texture: Texture2D, color: Color, count: int, delay: float) -> void:
 	var rain := CPUParticles2D.new()
 	rain.name = rain_name
 	rain.one_shot = true
 	rain.amount = count
-	rain.lifetime = 1.35
-	rain.explosiveness = 0.25
+	rain.lifetime = 1.8
+	rain.explosiveness = 0.2
 	rain.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	rain.emission_rect_extents = Vector2(380.0, 10.0)
+	rain.emission_rect_extents = Vector2(400.0, 16.0)
 	rain.direction = Vector2(0, 1)
-	rain.spread = 18.0
-	rain.gravity = Vector2(0, 980)
-	rain.initial_velocity_min = 80.0
-	rain.initial_velocity_max = 220.0
-	rain.scale_amount_min = 0.7
-	rain.scale_amount_max = 1.5
+	rain.spread = 24.0
+	rain.gravity = Vector2(0, 1100)
+	rain.initial_velocity_min = 60.0
+	rain.initial_velocity_max = 260.0
+	rain.scale_amount_min = 1.4
+	rain.scale_amount_max = 2.8
 	rain.color = color
-	rain.texture = _spark_texture()
+	rain.texture = texture
 	rain.z_index = 12
 	layer.add_child(rain)
 	rain.position = Vector2(360, -30)
@@ -240,6 +252,31 @@ func _drop_rain(layer: Node, rain_name: String, color: Color, count: int, delay:
 	get_tree().create_timer(rain.lifetime + delay + 0.1, true, false, true).timeout.connect(func() -> void:
 		if is_instance_valid(rain):
 			rain.queue_free()
+	)
+
+
+func _explode_hoard(layer: Node, burst_name: String, texture: Texture2D, color: Color, origin: Vector2, count: int) -> void:
+	var spill := CPUParticles2D.new()
+	spill.name = burst_name
+	spill.one_shot = true
+	spill.amount = count
+	spill.lifetime = 1.15
+	spill.explosiveness = 0.95
+	spill.spread = 180.0
+	spill.gravity = Vector2(0, 980)
+	spill.initial_velocity_min = 320.0
+	spill.initial_velocity_max = 880.0
+	spill.scale_amount_min = 1.3
+	spill.scale_amount_max = 2.6
+	spill.color = color
+	spill.texture = texture
+	spill.z_index = 13
+	layer.add_child(spill)
+	spill.position = origin
+	spill.emitting = true
+	get_tree().create_timer(spill.lifetime + 0.1, true, false, true).timeout.connect(func() -> void:
+		if is_instance_valid(spill):
+			spill.queue_free()
 	)
 
 
