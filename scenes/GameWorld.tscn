@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/GameWorld.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/world/RingArena.gd" id="2_arena"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/world/RingPointer.gd" id="5_pointer"]
 [ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="6_flash"]
 [ext_resource type="Shader" path="res://shaders/ring_glow.gdshader" id="7_glow"]
+[ext_resource type="Script" path="res://scripts/meta/MetaUpgrade.gd" id="8_meta"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
 shader = ExtResource("6_flash")
@@ -78,9 +79,8 @@ process_material = SubResource("ParticleProcessMaterial_burst")
 [node name="InputProcessor" type="Node" parent="."]
 script = ExtResource("3_input")
 
-[node name="IdleTick" type="Timer" parent="."]
-wait_time = 3.0
-autostart = true
+[node name="MetaUpgrade" type="Node" parent="."]
+script = ExtResource("8_meta")
 
 [node name="Juice" type="Node" parent="." node_paths=PackedStringArray("camera", "burst", "pointer", "glow")]
 script = ExtResource("4_juice")

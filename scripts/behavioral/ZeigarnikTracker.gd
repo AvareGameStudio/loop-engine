@@ -5,8 +5,8 @@ extends RefCounted
 const TEASE := 0.82
 
 func loops() -> Array:
-	var gen_cost := GameState.upgrade_cost("generator")
-	var mult_cost := GameState.upgrade_cost("global_mult")
+	var gen_cost := MetaUpgrade.cost("generator")
+	var mult_cost := MetaUpgrade.cost("global_mult")
 	var gen_fill := _teased(float(GameState.energy) / max(float(gen_cost), 1.0))
 	var mult_fill := _teased(float(GameState.energy) / max(float(mult_cost), 1.0))
 	var stage_fill := 0.0
@@ -46,6 +46,19 @@ func loops() -> Array:
 			"complete": GameState.unlocked_themes.size() >= theme_goal,
 		},
 	]
+
+
+## The unfinished loop closest to done: the one the UI should nag about.
+static func focus_id(loop_list: Array) -> String:
+	var best_id: String = ""
+	var best_progress: float = -1.0
+	for loop: Dictionary in loop_list:
+		if bool(loop.complete):
+			continue
+		if float(loop.progress) > best_progress:
+			best_progress = float(loop.progress)
+			best_id = String(loop.id)
+	return best_id
 
 
 func open_count() -> int:

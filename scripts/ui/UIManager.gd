@@ -1,5 +1,5 @@
 extends CanvasLayer
-## HUD, Zeigarnik bars, run-over sheet, and meta upgrades. Fully signal-driven.
+## HUD, Zeigarnik quest rings, run-over sheet, and market entry points. Fully signal-driven.
 
 const GRADE_COLORS: Dictionary[String, Color] = {
 	"perfect": Color(1.0, 0.86, 0.3),
@@ -15,21 +15,24 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 @onready var hint_label: Label = $HUD/Center/Hint
 @onready var stage_bar: ProgressBar = $HUD/Bottom/StageBar
 @onready var focus_bar: ProgressBar = $HUD/Bottom/FocusBar
-@onready var energy_label: Label = $HUD/Bottom/Energy
-@onready var loops_box: VBoxContainer = $Meta/Loops
+@onready var energy_label: Label = $HUD/Bottom/Wallet/Energy
+@onready var coins_label: Label = $HUD/Bottom/Wallet/Coins
+@onready var passive_label: Label = $HUD/Bottom/Wallet/Passive
+@onready var loops_box: HBoxContainer = $Meta/Loops
 @onready var run_over: Control = $RunOver
 @onready var run_over_title: Label = $RunOver/Panel/VBox/Title
 @onready var run_over_body: Label = $RunOver/Panel/VBox/Body
 @onready var retry_btn: Button = $RunOver/Panel/VBox/Retry
 @onready var x3_btn: Button = $RunOver/Panel/VBox/X3
-@onready var gen_btn: Button = $Meta/Actions/Gen
-@onready var glob_btn: Button = $Meta/Actions/Glob
+@onready var run_over_market_btn: Button = $RunOver/Panel/VBox/Market
+@onready var market_btn: Button = $Meta/Actions/Market
 @onready var shop_btn: Button = $Meta/Actions/Shop
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
+@onready var market_popup: MarketPopup = $MarketPopup
 
 var zeigarnik := ZeigarnikTracker.new()
-## id -> {"bar": ProgressBar, "caption": Label}
+## id -> {"ring": QuestRing, "title": Label, "subtitle": Label}
 var _loop_rows: Dictionary[String, Dictionary] = {}
 var _grade_tween: Tween
 ## Translation keys behind code-set texts, re-rendered on language change.
@@ -45,14 +48,16 @@ func _ready() -> void:
 	grade_label.text = ""
 	retry_btn.pressed.connect(_retry)
 	x3_btn.pressed.connect(_x3)
-	gen_btn.pressed.connect(func() -> void: _upgrade("generator"))
-	glob_btn.pressed.connect(func() -> void: _upgrade("global_mult"))
+	market_btn.pressed.connect(market_popup.open)
+	run_over_market_btn.pressed.connect(market_popup.open)
 	shop_btn.pressed.connect(_toggle_auto_tap)
 	settings_btn.pressed.connect(settings_popup.open)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.multiplier_changed.connect(_on_mult)
 	EventBus.energy_changed.connect(_on_energy)
+	EventBus.coins_changed.connect(_on_coins)
+	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _refresh_market())
 	EventBus.zeigarnik_updated.connect(_on_loops)
 	EventBus.run_ended.connect(_on_run_end)
 	EventBus.run_started.connect(_on_run_start)
@@ -63,7 +68,7 @@ func _ready() -> void:
 	EventBus.focus_changed.connect(_on_focus)
 	EventBus.countdown.connect(_on_countdown)
 	_refresh_currency()
-	_refresh_upgrades()
+	_refresh_market()
 	_refresh_session()
 	_refresh_shop()
 	_render_hint()
@@ -78,7 +83,7 @@ func _refresh_texts() -> void:
 	grade_label.text = ""
 	_render_hint()
 	_refresh_currency()
-	_refresh_upgrades()
+	_refresh_market()
 	_refresh_shop()
 	_on_loops(zeigarnik.loops())
 	if run_over.visible:
@@ -139,34 +144,52 @@ func _on_focus(value: float) -> void:
 
 func _on_energy(amount: int, delta: int) -> void:
 	energy_label.text = tr("HUD_ENERGY") % amount + ("  +%d" % delta if delta > 0 else "")
-	_refresh_upgrades()
+	_refresh_market()
+
+
+func _on_coins(amount: int, _delta: int) -> void:
+	coins_label.text = tr("HUD_COINS") % amount
+	_refresh_market()
 
 
 func _on_loops(loops: Array) -> void:
+	var focus: String = ZeigarnikTracker.focus_id(loops)
 	for loop: Dictionary in loops:
 		var id: String = String(loop.id)
 		if not _loop_rows.has(id):
 			_loop_rows[id] = _make_loop_row(id)
 		var row: Dictionary = _loop_rows[id]
-		(row.bar as ProgressBar).value = float(loop.progress)
-		(row.caption as Label).text = "%s\n%s" % [loop.title, loop.subtitle]
+		(row.ring as QuestRing).set_state(float(loop.progress), bool(loop.complete), id == focus)
+		(row.title as Label).text = String(loop.title)
+		(row.subtitle as Label).text = String(loop.subtitle)
 
 
 func _make_loop_row(id: String) -> Dictionary:
-	var box := VBoxContainer.new()
-	box.name = id
-	var caption := Label.new()
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	caption.add_theme_font_size_override("font_size", 14)
-	var bar := ProgressBar.new()
-	bar.min_value = 0.0
-	bar.max_value = 1.0
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 10)
-	box.add_child(caption)
-	box.add_child(bar)
-	loops_box.add_child(box)
-	return {"bar": bar, "caption": caption}
+	var column := VBoxContainer.new()
+	column.name = id
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", 4)
+	var ring := QuestRing.new()
+	ring.custom_minimum_size = Vector2(108, 108)
+	ring.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title := _make_caption(14, Color.WHITE)
+	var subtitle := _make_caption(12, Color(0.7, 0.78, 0.9, 1))
+	column.add_child(ring)
+	column.add_child(title)
+	column.add_child(subtitle)
+	loops_box.add_child(column)
+	return {"ring": ring, "title": title, "subtitle": subtitle}
+
+
+func _make_caption(font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	return label
 
 
 func _on_run_end(reason: String, stats: Dictionary) -> void:
@@ -223,23 +246,18 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 			x3_btn.disabled = true
 
 
-func _upgrade(stat: String) -> void:
-	if GameState.try_upgrade(stat):
-		_refresh_upgrades()
-		EventBus.zeigarnik_updated.emit(zeigarnik.loops())
-
-
-func _refresh_upgrades() -> void:
-	var gen_cost: int = GameState.upgrade_cost("generator")
-	var mult_cost: int = GameState.upgrade_cost("global_mult")
-	gen_btn.text = tr("UPGRADE_GENERATOR") % gen_cost
-	glob_btn.text = tr("UPGRADE_MULTIPLIER") % mult_cost
-	gen_btn.disabled = GameState.energy < gen_cost
-	glob_btn.disabled = GameState.energy < mult_cost
+## Market buttons advertise how many upgrades are affordable right now.
+func _refresh_market() -> void:
+	var affordable: int = MetaUpgrade.affordable_count()
+	var text: String = tr("HUD_MARKET_COUNT") % affordable if affordable > 0 else tr("HUD_MARKET")
+	market_btn.text = text
+	run_over_market_btn.text = text
+	passive_label.text = tr("HUD_PASSIVE") % MetaUpgrade.passive_rate()
 
 
 func _refresh_currency() -> void:
 	energy_label.text = tr("HUD_ENERGY") % GameState.energy
+	coins_label.text = tr("HUD_COINS") % GameState.coins
 	mult_label.text = tr("HUD_PAYOUT") % GameState.session_multiplier
 
 

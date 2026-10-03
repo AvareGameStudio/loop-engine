@@ -10,7 +10,7 @@ const FOCUS_GOOD: float = 0.08
 
 @onready var arena: RingArena = $Arena
 @onready var input_proc: InputProcessor = $InputProcessor
-@onready var idle_timer: Timer = $IdleTick
+@onready var meta: MetaUpgrade = $MetaUpgrade
 
 var timing := TimingEngine.new()
 var vr := VariableRatioSchedule.new()
@@ -25,7 +25,8 @@ func _ready() -> void:
 	dda.seed_from_state()
 	_apply_difficulty()
 	input_proc.committed.connect(_on_commit)
-	idle_timer.timeout.connect(_idle_tick)
+	meta.produced.connect(func(_amount: int) -> void: _push_zeigarnik())
+	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _push_zeigarnik())
 	EventBus.revive_resolved.connect(_on_revive)
 	EventBus.ad_finished.connect(_on_ad)
 	if not GameState.run_active:
@@ -64,7 +65,7 @@ func _on_commit(mode: String, _held: float) -> void:
 	# Disarmed until respawn: the new target is ≥90° away, so any tap in between is a sure miss.
 	input_proc.arm(false)
 	arena.spinning = false
-	var result: Dictionary = timing.evaluate(arena.pointer_angle, arena.target_angle)
+	var result: Dictionary = timing.evaluate(arena.pointer_angle, arena.target_angle, GameState.session_combo)
 	result["mode"] = mode
 	arena.last_grade = String(result.grade_name)
 	EventBus.tap_evaluated.emit(result)
@@ -126,10 +127,10 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 		* grade_mult
 		* combo_mult
 		* GameState.session_multiplier
-		* GameState.global_multiplier()
+		* MetaUpgrade.global_multiplier()
 	)
 	GameState.session_score += payout
-	GameState.add_energy(ceili(float(payout) * 0.12 * GameState.generator_rate()))
+	GameState.add_energy(ceili(float(payout) * 0.12 * MetaUpgrade.generator_rate()))
 	GameState.add_coins(maxi(1, floori(payout / 20.0)))
 
 
@@ -201,13 +202,6 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 func _grant_end_boost() -> void:
 	GameState.add_energy(int(_last_run_score * END_BOOST_ENERGY))
 	GameState.add_coins(int(_last_run_score * END_BOOST_COINS))
-
-
-func _idle_tick() -> void:
-	if GameState.run_active:
-		return
-	GameState.add_energy(ceili(2.0 * GameState.generator_rate()))
-	_push_zeigarnik()
 
 
 func _push_zeigarnik() -> void:

@@ -36,10 +36,11 @@ func set_vibration_enabled(enabled: bool) -> void:
 	_save()
 
 
-func vibrate(ms: int) -> void:
+## `amplitude` is 0..1 (Android only; -1 uses the device default).
+func vibrate(ms: int, amplitude: float = -1.0) -> void:
 	# Android exports also need the VIBRATE permission enabled in the export preset.
 	if vibration_enabled and OS.has_feature("mobile"):
-		Input.vibrate_handheld(ms)
+		Input.vibrate_handheld(ms, amplitude)
 
 
 func _apply_sound() -> void:

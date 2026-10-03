@@ -4,14 +4,17 @@ HINT_RING_UNLOCKED,RING %d UNLOCKED,HALKA %d AÇILDI
 HINT_FLOW,FLOW  %.2f rps,AKIŞ  %.2f tur/sn
 HUD_PAYOUT,PAYOUT x%.1f,ÖDÜL x%.1f
 HUD_ENERGY,ENERGY  %d,ENERJİ  %d
+HUD_COINS,COINS  %d,JETON  %d
+HUD_PASSIVE,IDLE  +%.1f/s,BOŞTA  +%.1f/sn
+HUD_MARKET,Market,Pazar
+HUD_MARKET_COUNT,Market (%d),Pazar (%d)
+QUEST_PERCENT,%d%%,%%%d
 GRADE_PERFECT,PERFECT,MÜKEMMEL
 GRADE_GOOD,GOOD,İYİ
 GRADE_NEAR_MISS,NEAR MISS,KIL PAYI
 GRADE_MISS,MISS,ISKA
 JACKPOT,JACKPOT,BÜYÜK İKRAMİYE
 COUNTDOWN_GO,GO,BAŞLA
-UPGRADE_GENERATOR,Upgrade Generator  %d,Jeneratörü Geliştir  %d
-UPGRADE_MULTIPLIER,Upgrade Multiplier  %d,Çarpanı Geliştir  %d
 AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
 AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
 LOOP_GENERATOR_TITLE,Generator Speed,Jeneratör Hızı
@@ -31,7 +34,10 @@ RUN_CLAIM_X3,Claim 3x Energy,3x Enerji Al
 RUN_BOOST_AUTO,Boost auto-claimed,Bonus otomatik alındı
 RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
 REVIVE_TITLE,SO CLOSE!,ÇOK YAKINDIN!
-REVIVE_BODY,You missed by %.1f°  (%.1f%% of the ring),%.1f° farkla kaçırdın  (halkanın %%%.1f kadarı)
+REVIVE_BODY,You missed the zone by just %.1f°,Bölgeyi sadece %.1f° farkla kaçırdın
+REVIVE_RECORD,Record pace: %d%%  ·  Best: %d,Rekora yakınlık: %%%d  ·  Rekor: %d
+REVIVE_NEW_RECORD,You're on a NEW RECORD pace!,YENİ REKOR yolundasın!
+REVIVE_FIRST_RECORD,Your first record is on the line!,İlk rekorun elinden kaçmasın!
 REVIVE_PROMPT,Watch to revive this run.,İzle ve bu turu kurtar.
 REVIVE_LAST,This near-miss is the last one this run.,Bu turdaki son kıl payın buydu.
 REVIVE_WATCH,Second Chance,İkinci Şans
@@ -43,3 +49,16 @@ SETTINGS_LANGUAGE,Language,Dil
 SETTINGS_SOUND,Sound,Ses
 SETTINGS_VIBRATION,Vibration,Titreşim
 SETTINGS_CLOSE,Close,Kapat
+MARKET_TITLE,MARKET,PAZAR
+MARKET_BALANCE,Energy %d  ·  Coins %d,Enerji %d  ·  Jeton %d
+MARKET_PASSIVE,Idle production: +%.1f energy/s,Boşta üretim: +%.1f enerji/sn
+MARKET_LEVEL,Lv %d,Sv %d
+MARKET_COST_ENERGY,%d energy,%d enerji
+MARKET_COST_COINS,%d coins,%d jeton
+MARKET_GENERATOR_NAME,Generator Speed,Jeneratör Hızı
+MARKET_GENERATOR_EFFECT,+%d%% energy from hits and idle,Vuruş ve boşta enerji +%%%d
+MARKET_GLOBAL_MULT_NAME,Global Multiplier,Genel Çarpan
+MARKET_GLOBAL_MULT_EFFECT,+%d%% score on every hit,Her vuruşta skor +%%%d
+MARKET_PASSIVE_YIELD_NAME,Passive Yield,Pasif Verim
+MARKET_PASSIVE_YIELD_EFFECT,+%d%% idle energy,Boşta enerji +%%%d
+MARKET_CLOSE,Close,Kapat
