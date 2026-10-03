@@ -92,13 +92,13 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 
 func _refresh() -> void:
 	balance_label.text = tr("MARKET_BALANCE") % [GameState.energy, GameState.coins]
-	passive_label.text = tr("MARKET_PASSIVE") % MetaUpgrade.passive_rate()
+	passive_label.text = tr("MARKET_PASSIVE")
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()
 		var row: Dictionary = _rows[id]
 		(row.name as Label).text = "%s  ·  %s" % [tr("MARKET_%s_NAME" % key), tr("MARKET_LEVEL") % MetaUpgrade.level(id)]
-		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key) % int(item.effect_pct)
+		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key)
 		var cost_key: String = "MARKET_COST_ENERGY" if item.currency == "energy" else "MARKET_COST_COINS"
 		var buy: Button = row.buy
 		buy.text = tr(cost_key) % MetaUpgrade.cost(id)

@@ -1,17 +1,20 @@
 class_name MetaUpgrade
 extends Node
-## Idle meta loop. Produces passive energy whenever no run is active, and owns the
-## upgrade marketplace: catalog, prices, purchases, and the multipliers they buy.
-## Levels persist in GameState; everything here is derived from them, so the
-## economy math is static and callable without a node reference.
+## Idle meta loop. Auto-Pulse fills the Idle Vault while no run is active;
+## Perfect Power scales Perfect juice. The market sells both.
+## Levels persist in GameState; economy math is static so UI can call it without a node.
 
 signal produced(amount: int)
 
 ## Matches the old idle drip (2 energy / 3 s) at level 1.
 const PASSIVE_BASE: float = 0.67
 const TICK_SECONDS: float = 1.0
+## Cap so a week away does not dump a week's numbers onto the Claim screen.
+const OFFLINE_CAP_SECONDS: int = 8 * 3600
+## One minute of idle = a "full" piggy. Zeigarnik teases this at 90%.
+const VAULT_FULL_SECONDS: float = 60.0
 
-## `effect_pct` is both the per-level bonus and the number the market shows.
+## `id` values are save keys. UI names live in translations (Auto-Pulse / Perfect Power).
 const CATALOG := [
 	{"id": "generator", "currency": "energy", "base_cost": 40, "growth": 1.35, "effect_pct": 18},
 	{"id": "global_mult", "currency": "energy", "base_cost": 40, "growth": 1.35, "effect_pct": 12},
@@ -20,6 +23,19 @@ const CATALOG := [
 
 var _carry: float = 0.0
 var _elapsed: float = 0.0
+
+
+func _ready() -> void:
+	# Offline hours become a Claim-able vault, not a silent wallet bump.
+	accrue_offline()
+
+
+func _notification(what: int) -> void:
+	# Don't pop the vault over an active run or the player loses their tap.
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and not GameState.run_active:
+		accrue_offline()
+		if GameState.unclaimed_energy > 0:
+			EventBus.vault_ready.emit(GameState.unclaimed_energy)
 
 
 func _process(delta: float) -> void:
@@ -34,10 +50,29 @@ func _process(delta: float) -> void:
 	var whole: int = floori(_carry)
 	if whole <= 0:
 		return
-	# Fractions carry over so slow rates still pay out exactly over time.
+	# Fractions carry so slow rates still pay out exactly. Vault, not wallet:
+	# Instant Gratification happens at Claim, not on a live ticker.
 	_carry -= whole
-	GameState.add_energy(whole)
+	GameState.add_vault(whole)
 	produced.emit(whole)
+
+
+## Credits time spent in the background into the vault. Returns energy added.
+func accrue_offline() -> int:
+	var now: int = int(Time.get_unix_time_from_system())
+	var last: int = GameState.last_seen_unix
+	GameState.last_seen_unix = now
+	if last <= 0 or GameState.run_active:
+		GameState.request_save()
+		return 0
+	var dt: int = clampi(now - last, 0, OFFLINE_CAP_SECONDS)
+	if dt < 5:
+		return 0
+	var gain: int = floori(passive_rate() * float(dt))
+	if gain > 0:
+		GameState.add_vault(gain)
+		produced.emit(gain)
+	return gain
 
 
 static func entry(id: String) -> Dictionary:
@@ -108,10 +143,28 @@ static func generator_rate() -> float:
 	return bonus("generator")
 
 
-static func global_multiplier() -> float:
+## Perfect Power: score + juice scale for Perfect hits. Instant Gratification lever.
+static func perfect_power() -> float:
 	return bonus("global_mult")
 
 
-## Energy per second while idle.
+static func global_multiplier() -> float:
+	return perfect_power()
+
+
+## Energy per second while idle (fills the vault, not the wallet).
 static func passive_rate() -> float:
 	return PASSIVE_BASE * bonus("generator") * bonus("passive_yield")
+
+
+## 0..1 fill of the Idle Vault piggy. Caps at 0.9 unless actually overflowing.
+static func vault_progress() -> float:
+	var full: float = maxf(passive_rate() * VAULT_FULL_SECONDS, 10.0)
+	var raw: float = float(GameState.unclaimed_energy) / full
+	if raw >= 1.0:
+		return 1.0
+	if raw > 0.9:
+		return 0.9
+	if raw <= 0.0:
+		return 0.04
+	return raw

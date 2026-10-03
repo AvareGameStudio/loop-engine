@@ -28,3 +28,7 @@ signal focus_changed(value: float)
 signal countdown(step: int)
 signal direction_flipped(direction: float)
 signal session_changed()
+## Idle Vault: unclaimed Auto-Pulse earnings waiting to be collected.
+signal vault_changed(amount: int, delta: int)
+signal vault_ready(amount: int)
+signal vault_resolved(claimed: bool)

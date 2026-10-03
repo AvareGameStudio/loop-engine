@@ -8,6 +8,8 @@ const ATTACK: float = 0.005
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _cache: Dictionary[Vector2i, AudioStreamWAV] = {}
+## Consecutive Perfects this run. Any other grade resets it (combo-break → pitch 1.0).
+var _perfect_streak: int = 0
 
 
 func _ready() -> void:
@@ -19,22 +21,34 @@ func _ready() -> void:
 	EventBus.jackpot.connect(func(_m: float, _l: String) -> void: play_tone(880.0, 0.22, 0.35))
 	EventBus.near_miss.connect(func(_r: Dictionary) -> void: play_tone(140.0, 0.28, 0.4))
 	EventBus.stage_cleared.connect(func(_i: int, _p: int) -> void: play_tone(523.25, 0.18, 0.3))
-	EventBus.run_started.connect(func() -> void: play_tone(392.0, 0.12, 0.2))
+	EventBus.run_started.connect(_on_run_started)
 	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
 	EventBus.countdown.connect(_on_countdown)
 
 
-## Pitch comes from TimingEngine's streak ladder; baked per frequency, so a
-## ladder step is cached once and stays the same length at any pitch.
+func _on_run_started() -> void:
+	_perfect_streak = 0
+	play_tone(392.0, 0.12, 0.2)
+
+
+## Pitch: Perfects use the consecutive-Perfect ladder (resets on any non-Perfect).
+## Good hits keep the pentatonic streak from TimingEngine. Volume swells with Perfect Power
+## so buying the upgrade is heard on the very next Perfect (Instant Gratification).
 func _on_tap(result: Dictionary) -> void:
-	var pitch: float = float(result.get("pitch", 1.0))
-	match String(result.get("grade_name", "")):
+	var grade_name: String = String(result.get("grade_name", ""))
+	match grade_name:
 		"perfect":
-			play_tone(740.0 * pitch, 0.09, 0.32)
+			_perfect_streak += 1
+			var pitch: float = TimingEngine.perfect_combo_pitch(_perfect_streak)
+			var power: float = MetaUpgrade.perfect_power()
+			play_tone(740.0 * pitch, 0.09, 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0)))
 		"good":
-			play_tone(520.0 * pitch, 0.08, 0.26)
-		"miss":
-			play_tone(110.0, 0.2, 0.35)
+			_perfect_streak = 0
+			play_tone(520.0 * float(result.get("pitch", 1.0)), 0.08, 0.26)
+		"near_miss", "miss":
+			_perfect_streak = 0
+			if grade_name == "miss":
+				play_tone(110.0, 0.2, 0.35)
 
 
 func _on_countdown(step: int) -> void:

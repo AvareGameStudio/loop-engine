@@ -57,6 +57,7 @@ func _ready() -> void:
 	EventBus.multiplier_changed.connect(_on_mult)
 	EventBus.energy_changed.connect(_on_energy)
 	EventBus.coins_changed.connect(_on_coins)
+	EventBus.vault_changed.connect(_on_vault)
 	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _refresh_market())
 	EventBus.zeigarnik_updated.connect(_on_loops)
 	EventBus.run_ended.connect(_on_run_end)
@@ -150,6 +151,11 @@ func _on_energy(amount: int, delta: int) -> void:
 func _on_coins(amount: int, _delta: int) -> void:
 	coins_label.text = tr("HUD_COINS") % amount
 	_refresh_market()
+
+
+func _on_vault(_amount: int, _delta: int) -> void:
+	_refresh_currency()
+	_on_loops(zeigarnik.loops())
 
 
 func _on_loops(loops: Array) -> void:
@@ -252,13 +258,22 @@ func _refresh_market() -> void:
 	var text: String = tr("HUD_MARKET_COUNT") % affordable if affordable > 0 else tr("HUD_MARKET")
 	market_btn.text = text
 	run_over_market_btn.text = text
-	passive_label.text = tr("HUD_PASSIVE") % MetaUpgrade.passive_rate()
+	passive_label.text = (
+		tr("HUD_VAULT") % GameState.unclaimed_energy
+		if GameState.unclaimed_energy > 0
+		else tr("HUD_PULSE")
+	)
 
 
 func _refresh_currency() -> void:
 	energy_label.text = tr("HUD_ENERGY") % GameState.energy
 	coins_label.text = tr("HUD_COINS") % GameState.coins
 	mult_label.text = tr("HUD_PAYOUT") % GameState.session_multiplier
+	passive_label.text = (
+		tr("HUD_VAULT") % GameState.unclaimed_energy
+		if GameState.unclaimed_energy > 0
+		else tr("HUD_PULSE")
+	)
 
 
 ## Prototype-only: toggles the Auto-Tap entitlement so idle can be felt in-session.

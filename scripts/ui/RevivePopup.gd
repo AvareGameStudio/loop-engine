@@ -1,14 +1,10 @@
 extends CanvasLayer
-## Near-miss revive: loss-aversion copy + rewarded placement.
-## The trigger is dynamic: the closer the run is to the player's record, the wider
-## the slice of the near-miss band that earns a second chance. Far from the record
-## only razor-thin misses qualify; below `min_record_pct` the run just ends.
+## Near-miss revive, gated on record proximity (Near-Miss monetization).
+## Ordinary deaths skip this and go straight to run-over. Only a death at ≥85%
+## of the personal best earns the ad, so ads stay scarce and conversion stays high.
 
-## Runs scoring under this share of the record never get a revive.
-@export_range(0.0, 100.0) var min_record_pct: float = 50.0
-## Share of the near-miss band (measured past the Good edge) that qualifies at
-## `min_record_pct`. It widens linearly to the whole band at 100% of the record.
-@export_range(0.0, 100.0) var tight_band_pct: float = 35.0
+## Session score must reach this share of the record before a revive is even considered.
+@export_range(0.0, 100.0) var min_record_pct: float = 85.0
 
 @onready var root: Control = $Root
 @onready var title: Label = $Root/Panel/VBox/Title
@@ -32,7 +28,7 @@ func _ready() -> void:
 func present(result: Dictionary) -> void:
 	var ratio: float = record_ratio()
 	if not should_offer(result, ratio):
-		# Deferred so the near-miss hitstop and juice land before the run-over sheet.
+		# Deferred so the near-miss hitstop lands before the run-over sheet.
 		EventBus.revive_resolved.emit.call_deferred(false)
 		return
 	_result = result
@@ -53,31 +49,37 @@ func present(result: Dictionary) -> void:
 	_punch()
 
 
-## Session score as a share of the record. With no record yet, every run is on record pace.
+## Session score as a share of the record. No record yet → every run is on record pace.
 static func record_ratio() -> float:
 	if GameState.best_score <= 0:
 		return 1.0
 	return float(GameState.session_score) / float(GameState.best_score)
 
 
-## Widest `near_miss_margin` (0 = Good edge, 1 = band edge) that still earns a revive.
-func allowed_margin(ratio: float) -> float:
-	var t: float = clampf(inverse_lerp(min_record_pct / 100.0, 1.0, ratio), 0.0, 1.0)
-	return lerpf(tight_band_pct / 100.0, 1.0, t)
+func should_offer(_result: Dictionary, ratio: float) -> bool:
+	return ratio >= min_record_pct / 100.0
 
 
-func should_offer(result: Dictionary, ratio: float) -> bool:
-	if ratio < min_record_pct / 100.0:
-		return false
-	return float(result.get("near_miss_margin", 1.0)) <= allowed_margin(ratio)
+## Remaining Perfect-paced hits to beat the record. "Only 2 hits left" is the hook.
+static func hits_to_record() -> int:
+	if GameState.best_score <= 0:
+		return 0
+	var remaining: int = GameState.best_score - GameState.session_score
+	if remaining <= 0:
+		return 0
+	var avg: float = float(GameState.session_score) / float(maxi(GameState.session_hits, 1))
+	return ceili(float(remaining) / maxf(avg, 1.0))
 
 
 func _record_line(ratio: float) -> String:
 	if GameState.best_score <= 0:
 		return tr("REVIVE_FIRST_RECORD")
-	if ratio >= 1.0:
+	var left: int = hits_to_record()
+	if left <= 0:
 		return tr("REVIVE_NEW_RECORD")
-	return tr("REVIVE_RECORD") % [roundi(ratio * 100.0), GameState.best_score]
+	if left == 1:
+		return tr("REVIVE_HITS_LEFT_ONE")
+	return tr("REVIVE_HITS_LEFT") % left
 
 
 func _punch() -> void:

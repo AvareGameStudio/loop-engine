@@ -70,7 +70,7 @@ script = ExtResource("5_pointer")
 
 [node name="Burst" type="GPUParticles2D" parent="Arena"]
 emitting = false
-amount = 48
+amount = 64
 lifetime = 0.45
 one_shot = true
 explosiveness = 1.0

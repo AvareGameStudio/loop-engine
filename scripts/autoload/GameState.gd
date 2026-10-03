@@ -12,6 +12,10 @@ var runs_played: int = 0
 var generator_level: int = 1
 var global_mult_level: int = 1
 var passive_level: int = 1
+## Unclaimed Auto-Pulse earnings. Shown as a piggy bank, never a live ticker.
+var unclaimed_energy: int = 0
+## Unix time of last backgrounding; used to fill the vault while the app is closed.
+var last_seen_unix: int = 0
 var unlocked_themes: PackedStringArray = PackedStringArray(["neon"])
 var equipped_theme: String = "neon"
 var no_ads: bool = false
@@ -46,6 +50,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			stamp_seen()
 			if _save_pending:
 				save_game()
 
@@ -59,6 +64,31 @@ func add_energy(delta: int) -> void:
 func add_coins(delta: int) -> void:
 	coins = max(0, coins + delta)
 	EventBus.coins_changed.emit(coins, delta)
+	request_save()
+
+
+## Instant Gratification is deferred until Claim: idle income lands here, not the wallet.
+func add_vault(delta: int) -> void:
+	if delta == 0:
+		return
+	unclaimed_energy = max(0, unclaimed_energy + delta)
+	EventBus.vault_changed.emit(unclaimed_energy, delta)
+	request_save()
+
+
+## Empties the piggy into the wallet. Returns how much was claimed (0 if empty).
+func claim_vault() -> int:
+	var n: int = unclaimed_energy
+	unclaimed_energy = 0
+	if n > 0:
+		add_energy(n)
+		EventBus.vault_changed.emit(0, -n)
+	save_game()
+	return n
+
+
+func stamp_seen() -> void:
+	last_seen_unix = int(Time.get_unix_time_from_system())
 	request_save()
 
 
@@ -81,6 +111,7 @@ func end_run() -> void:
 	run_active = false
 	best_combo = max(best_combo, session_combo)
 	best_score = max(best_score, session_score)
+	stamp_seen()
 	save_game()
 
 
@@ -95,6 +126,8 @@ func to_dict() -> Dictionary:
 		"generator_level": generator_level,
 		"global_mult_level": global_mult_level,
 		"passive_level": passive_level,
+		"unclaimed_energy": unclaimed_energy,
+		"last_seen_unix": last_seen_unix,
 		"unlocked_themes": Array(unlocked_themes),
 		"equipped_theme": equipped_theme,
 		"no_ads": no_ads,
@@ -113,9 +146,11 @@ func from_dict(data: Dictionary) -> void:
 	best_combo = int(data.get("best_combo", 0))
 	best_score = int(data.get("best_score", 0))
 	runs_played = int(data.get("runs_played", 0))
-	generator_level = int(data.get("generator_level", 1))
-	global_mult_level = int(data.get("global_mult_level", 1))
-	passive_level = int(data.get("passive_level", 1))
+	generator_level = maxi(int(data.get("generator_level", 1)), 1)
+	global_mult_level = maxi(int(data.get("global_mult_level", 1)), 1)
+	passive_level = maxi(int(data.get("passive_level", 1)), 1)
+	unclaimed_energy = int(data.get("unclaimed_energy", 0))
+	last_seen_unix = int(data.get("last_seen_unix", 0))
 	equipped_theme = String(data.get("equipped_theme", "neon"))
 	no_ads = bool(data.get("no_ads", false))
 	auto_tap = bool(data.get("auto_tap", false))

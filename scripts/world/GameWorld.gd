@@ -24,13 +24,19 @@ var _last_run_score: int = 0
 func _ready() -> void:
 	dda.seed_from_state()
 	_apply_difficulty()
+	input_proc.arm(false)
 	input_proc.committed.connect(_on_commit)
-	meta.produced.connect(func(_amount: int) -> void: _push_zeigarnik())
+	if meta:
+		meta.produced.connect(func(_amount: int) -> void: _push_zeigarnik())
 	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _push_zeigarnik())
 	EventBus.revive_resolved.connect(_on_revive)
 	EventBus.ad_finished.connect(_on_ad)
+	# Never block the core loop on the vault. A missing Claim popup used to
+	# leave the ring spinning with taps ignored (run_active == false).
 	if not GameState.run_active:
 		start_run.call_deferred()
+	if GameState.unclaimed_energy > 0:
+		EventBus.vault_ready.emit.call_deferred(GameState.unclaimed_energy)
 
 
 func _process(_delta: float) -> void:
@@ -44,6 +50,7 @@ func _process(_delta: float) -> void:
 
 
 func start_run() -> void:
+	GameState.stamp_seen()
 	GameState.reset_run()
 	TimeScale.reset()
 	_busy = false
@@ -79,7 +86,7 @@ func _on_commit(mode: String, _held: float) -> void:
 			_apply_success(result, 1.35)
 			input_proc.add_focus(FOCUS_PERFECT)
 			EventBus.perfect.emit(result)
-			EventBus.juice_hit.emit("perfect", 1.0)
+			EventBus.juice_hit.emit("perfect", MetaUpgrade.perfect_power())
 		TimingEngine.Grade.GOOD:
 			_apply_success(result, 1.0)
 			input_proc.add_focus(FOCUS_GOOD)
@@ -122,12 +129,15 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 		if GameState.session_multiplier < 1.08:
 			GameState.session_multiplier = 1.0
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
+	# Perfect Power is felt on Perfects (score + juice). Other grades get a whisper of it.
+	var power: float = MetaUpgrade.perfect_power()
+	var power_mult: float = power if grade == TimingEngine.Grade.PERFECT else lerpf(1.0, power, 0.15)
 	var payout: int = int(
 		float(TimingEngine.grade_score(grade))
 		* grade_mult
 		* combo_mult
 		* GameState.session_multiplier
-		* MetaUpgrade.global_multiplier()
+		* power_mult
 	)
 	GameState.session_score += payout
 	GameState.add_energy(ceili(float(payout) * 0.12 * MetaUpgrade.generator_rate()))
@@ -147,7 +157,8 @@ func _after_hit() -> void:
 			GameState.save_game()
 	EventBus.session_changed.emit()
 	_push_zeigarnik()
-	await get_tree().create_timer(RESPAWN_DELAY).timeout
+	# Real-time delay: hitstop must not stretch the armed window or leave _busy stuck.
+	await get_tree().create_timer(RESPAWN_DELAY, true, true).timeout
 	if not GameState.run_active:
 		return
 	arena.randomize_target(false)
@@ -159,6 +170,11 @@ func _after_hit() -> void:
 func _fail_run(reason: String, result: Dictionary) -> void:
 	input_proc.arm(false)
 	arena.spinning = false
+	# Instant deaths were persisting a too-hard DDA profile and making the
+	# next run feel broken (10° window at 0.73 rps, one miss → game over).
+	if GameState.session_hits <= 2:
+		dda.forgive()
+		_apply_difficulty()
 	_last_run_score = GameState.session_score
 	GameState.end_run()
 	if GameState.no_ads:
