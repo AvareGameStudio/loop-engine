@@ -39,8 +39,8 @@ var last_grade: String = "":
 var danger := Color(1.0, 0.28, 0.42, 1)
 ## Outside the near window is a Miss, so this band stays dull steel, never "safe".
 var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
-
-
+var _rim := Color(0.15, 0.17, 0.22, 1.0)
+var _bezel_flash: float = 0.0
 var _tap: Label
 var _show_tap: bool = false
 var _blink: float = 0.0
@@ -48,9 +48,10 @@ var _blink: float = 0.0
 
 func _ready() -> void:
 	pointer.direction = direction
+	EventBus.direction_flipped.connect(func(_d: float) -> void: _bezel_flash = 1.0)
 	_tap = Label.new()
 	_tap.name = "TapPrompt"
-	_tap.text = "TAP TO CRACK"
+	_tap.text = tr("COACH_TAP")
 	_tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -71,13 +72,21 @@ func _ready() -> void:
 	randomize_target(true)
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and _tap != null:
+		_tap.text = tr("COACH_TAP")
+
+
 func _process(delta: float) -> void:
 	if spinning:
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
 	pointer.rotation = pointer_angle
+	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+	if _bezel_flash > 0.0:
+		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
+		queue_redraw()
 	if not _show_tap or _tap == null:
 		return
-	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
 	_blink = wrapf(_blink + real_dt * 8.0, 0.0, TAU)
 	_tap.modulate.a = 1.0 if sin(_blink) > 0.0 else 0.25
 	var pulse: float = 1.0 + 0.08 * maxf(sin(_blink), 0.0)
@@ -88,6 +97,7 @@ func _begin_coach() -> void:
 	_show_tap = true
 	_blink = 0.0
 	if _tap:
+		_tap.text = tr("COACH_TAP")
 		_tap.visible = true
 
 
@@ -113,8 +123,9 @@ func _draw() -> void:
 	var center := Vector2.ZERO
 	# Inner mechanism sits under the rim so the dial has depth.
 	draw_circle(center, radius - 28.0, Color(0.08, 0.09, 0.12, 1.0))
-	# Outer metal rim of the combination lock.
-	draw_arc(center, radius, 0.0, TAU, 96, Color(0.15, 0.17, 0.22, 1.0), 16.0, true)
+	# Outer metal rim of the combination lock; flashes white on a direction flip.
+	var rim: Color = _rim.lerp(Color.WHITE, _bezel_flash)
+	draw_arc(center, radius, 0.0, TAU, 96, rim, 16.0 + 2.0 * _bezel_flash, true)
 	_draw_ticks()
 
 	var near: float = float(windows.near)

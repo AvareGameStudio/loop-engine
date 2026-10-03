@@ -35,16 +35,22 @@ func _ready() -> void:
 	# leave the ring spinning with taps ignored (run_active == false).
 	if not GameState.run_active:
 		start_run.call_deferred()
-	if GameState.unclaimed_energy > 0:
-		EventBus.vault_ready.emit.call_deferred(GameState.unclaimed_energy)
+	# Cold-start vault stays a HUD peek; the full sheet waits for run-over.
 
 
 func _process(_delta: float) -> void:
-	if not GameState.auto_tap or not GameState.run_active or _busy:
+	if not GameState.run_active or _busy:
+		return
+	var err: float = absf(rad_to_deg(angle_difference(arena.pointer_angle, arena.target_angle)))
+	# Early tap during respawn: fire once the pointer reaches the Good gate.
+	if input_proc.peek_buffer() and err <= timing.good_deg:
+		input_proc.take_buffer()
+		_on_commit("buffer", 0.0)
+		return
+	if not GameState.auto_tap:
 		return
 	# Auto-Tap only fires inside the Good window: it keeps runs alive,
 	# Perfects stay a manual skill reward.
-	var err: float = absf(rad_to_deg(angle_difference(arena.pointer_angle, arena.target_angle)))
 	if err <= timing.good_deg:
 		_on_commit("auto", 0.0)
 
@@ -55,6 +61,7 @@ func start_run() -> void:
 	TimeScale.reset()
 	_busy = false
 	input_proc.reset_focus()
+	input_proc.clear_buffer()
 	input_proc.arm(true)
 	arena.last_grade = ""
 	arena.spinning = true
@@ -69,6 +76,7 @@ func _on_commit(mode: String, _held: float) -> void:
 	if _busy or not GameState.run_active:
 		return
 	_busy = true
+	input_proc.clear_buffer()
 	# Disarmed until respawn: the new target is ≥90° away, so any tap in between is a sure miss.
 	input_proc.arm(false)
 	arena.spinning = false
@@ -76,8 +84,8 @@ func _on_commit(mode: String, _held: float) -> void:
 	result["mode"] = mode
 	arena.last_grade = String(result.grade_name)
 	EventBus.tap_evaluated.emit(result)
-	# DDA must see failures too, and must not learn from Auto-Tap.
-	if mode != "auto":
+	# DDA must see failures too, and must not learn from Auto-Tap or the early-tap buffer.
+	if mode != "auto" and mode != "buffer":
 		EventBus.dda_changed.emit(dda.record(result))
 		_apply_difficulty()
 
@@ -92,11 +100,13 @@ func _on_commit(mode: String, _held: float) -> void:
 			input_proc.add_focus(FOCUS_GOOD)
 			EventBus.juice_hit.emit("good", 0.7)
 		TimingEngine.Grade.NEAR_MISS:
+			_combo_break_if_needed()
 			EventBus.near_miss.emit(result)
 			EventBus.juice_hit.emit("near_miss", 1.0)
 			EventBus.revive_offered.emit(result)
 			return
 		_:
+			_combo_break_if_needed()
 			EventBus.miss.emit(result)
 			EventBus.juice_hit.emit("miss", 1.0)
 			_fail_run("miss", result)
@@ -129,6 +139,7 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 		if GameState.session_multiplier < 1.08:
 			GameState.session_multiplier = 1.0
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
+	EventBus.vr_tension.emit(vr.peek_tension())
 	# Perfect Power is felt on Perfects (score + juice). Other grades get a whisper of it.
 	var power: float = MetaUpgrade.perfect_power()
 	var power_mult: float = power if grade == TimingEngine.Grade.PERFECT else lerpf(1.0, power, 0.15)
@@ -152,15 +163,14 @@ func _after_hit() -> void:
 		GameState.current_stage += 1
 		GameState.hits_in_stage = 0
 		GameState.hits_needed = mini(8 + GameState.current_stage, 14)
-		if GameState.current_stage == 3 and not GameState.unlocked_themes.has("aurora"):
-			GameState.unlocked_themes.append("aurora")
-			GameState.save_game()
+		GameState.unlock_theme_for_stage(GameState.current_stage)
 	EventBus.session_changed.emit()
 	_push_zeigarnik()
-	# Real-time delay: hitstop must not stretch the armed window or leave _busy stuck.
-	await get_tree().create_timer(RESPAWN_DELAY, true, true).timeout
+	# Real seconds: ignore_time_scale so unlock slow-mo cannot stretch the armed window.
+	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
 	if not GameState.run_active:
 		return
+	TimeScale.set_slowmo(1.0)
 	arena.randomize_target(false)
 	arena.spinning = true
 	_busy = false
@@ -187,7 +197,10 @@ func _fail_run(reason: String, result: Dictionary) -> void:
 		"result": result,
 	})
 	_busy = false
+	input_proc.clear_buffer()
 	TimeScale.reset()
+	if GameState.unclaimed_energy > 0:
+		EventBus.vault_ready.emit.call_deferred(GameState.unclaimed_energy)
 
 
 func _on_revive(success: bool) -> void:
@@ -218,6 +231,11 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 func _grant_end_boost() -> void:
 	GameState.add_energy(int(_last_run_score * END_BOOST_ENERGY))
 	GameState.add_coins(int(_last_run_score * END_BOOST_COINS))
+
+
+func _combo_break_if_needed() -> void:
+	if GameState.session_combo >= 2:
+		EventBus.juice_hit.emit("combo_break", 1.0)
 
 
 func _push_zeigarnik() -> void:

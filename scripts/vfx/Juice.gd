@@ -19,7 +19,6 @@ var _base_zoom: Vector2 = Vector2.ONE
 var _zoom_tween: Tween
 var _glow_tween: Tween
 var _zone_tween: Tween
-var _slowmo_token: int = 0
 
 
 func _ready() -> void:
@@ -88,6 +87,13 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(48, Color(1.0, 0.84, 0.2))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"combo_break":
+			_add_shake(6.0)
+			_punch(0.97)
+			Settings.vibrate(18)
+		"empty_focus":
+			_add_shake(3.0)
+			Settings.vibrate(12)
 
 
 func _add_shake(amount: float) -> void:
@@ -111,19 +117,7 @@ func _zoom_punch_success() -> void:
 func _on_ring_cleared(_index: int, _payout: int) -> void:
 	_zoom_punch_success()
 	_bounce_zone()
-	_slowmo_token += 1
-	_apply_ring_slowmo.call_deferred(_slowmo_token)
-
-
-func _apply_ring_slowmo(token: int) -> void:
-	if token != _slowmo_token:
-		return
-	TimeScale.set_time_scale(RING_TIME_SCALE)
-	get_tree().create_timer(RING_SLOWMO_SEC, true, false, true).timeout.connect(func() -> void:
-		if token != _slowmo_token:
-			return
-		TimeScale.set_time_scale(1.0)
-	)
+	TimeScale.pulse_slowmo.call_deferred(RING_TIME_SCALE, RING_SLOWMO_SEC)
 
 
 func _bounce_zone() -> void:
@@ -221,4 +215,3 @@ func _pulse_glow(peak: float = 2.5) -> void:
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-

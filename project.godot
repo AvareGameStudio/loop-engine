@@ -23,6 +23,7 @@ EventBus="*res://scripts/autoload/EventBus.gd"
 Settings="*res://scripts/autoload/Settings.gd"
 GameState="*res://scripts/autoload/GameState.gd"
 TimeScale="*res://scripts/autoload/TimeScale.gd"
+OverlayPause="*res://scripts/autoload/OverlayPause.gd"
 
 [display]
 
@@ -50,10 +51,6 @@ pointing/emulate_touch_from_mouse=true
 [internationalization]
 
 locale/translations=PackedStringArray("res://translations/strings.en.translation", "res://translations/strings.tr.translation")
-
-[physics]
-
-3d/physics_engine="Jolt Physics"
 
 [rendering]
 

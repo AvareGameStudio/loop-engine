@@ -16,6 +16,11 @@ GRADE_GOOD,GOOD,İYİ
 GRADE_NEAR_MISS,NEAR MISS,KIL PAYI
 GRADE_MISS,MISS,ISKA
 JACKPOT,JACKPOT,BÜYÜK İKRAMİYE
+VR_X2,x2,x2
+VR_X3,x3,x3
+VR_X5,x5,x5
+VR_X8,x8,x8
+COACH_TAP,TAP TO CRACK,KIRMAK İÇİN DOKUN
 COUNTDOWN_GO,GO,BAŞLA
 AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
 AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
@@ -37,6 +42,7 @@ RUN_CLAIM_X3,Claim 3x Energy,3x Enerji Al
 RUN_BOOST_AUTO,Boost auto-claimed,Bonus otomatik alındı
 RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
 REVIVE_TITLE,SO CLOSE!,ÇOK YAKINDIN!
+REVIVE_TITLE_FAR,ALMOST,NEREDEYSE
 REVIVE_BODY,You missed the zone by just %.1f°,Bölgeyi sadece %.1f° farkla kaçırdın
 REVIVE_RECORD,Record pace: %d%%  ·  Best: %d,Rekora yakınlık: %%%d  ·  Rekor: %d
 REVIVE_HITS_LEFT,Only %d hits from your record!,Rekoruna sadece %d atış kaldı!
@@ -53,6 +59,7 @@ SETTINGS_TITLE,SETTINGS,AYARLAR
 SETTINGS_LANGUAGE,Language,Dil
 SETTINGS_SOUND,Sound,Ses
 SETTINGS_VIBRATION,Vibration,Titreşim
+SETTINGS_AUTO_TAP,Auto-Tap,Oto-Tık
 SETTINGS_CLOSE,Close,Kapat
 MARKET_TITLE,MARKET,PAZAR
 MARKET_BALANCE,Energy %d  ·  Coins %d,Enerji %d  ·  Jeton %d

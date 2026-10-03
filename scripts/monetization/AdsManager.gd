@@ -7,7 +7,9 @@ extends Node
 
 var _busy := false
 
+
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	EventBus.ad_requested.connect(_on_requested)
 
 
@@ -26,9 +28,7 @@ func _on_requested(placement: String, _payload: Dictionary) -> void:
 		EventBus.ad_finished.emit(placement, false)
 		return
 	_busy = true
-	await get_tree().create_timer(float(mock_latency_ms) / 1000.0).timeout
-	var rewarded := randf() <= mock_fill_rate
-	if GameState.no_ads:
-		rewarded = true
+	await get_tree().create_timer(float(mock_latency_ms) / 1000.0, true, false, true).timeout
+	var rewarded: bool = GameState.no_ads or randf() <= mock_fill_rate
 	_busy = false
 	EventBus.ad_finished.emit(placement, rewarded)

@@ -6,6 +6,7 @@ const HITSTOP_SCALE: float = 0.08
 
 var slowmo: float = 1.0
 var _hitstop_left: float = 0.0
+var _pulse_token: int = 0
 
 
 func _ready() -> void:
@@ -36,7 +37,21 @@ func set_time_scale(scale: float) -> void:
 	set_slowmo(scale)
 
 
+## Real-time pulse. A later pulse or reset() cancels the previous restore.
+func pulse_slowmo(scale: float, real_seconds: float) -> void:
+	_pulse_token += 1
+	var token: int = _pulse_token
+	set_slowmo(scale)
+	get_tree().create_timer(real_seconds, true, false, true).timeout.connect(
+		func() -> void:
+			if token != _pulse_token:
+				return
+			set_slowmo(1.0)
+	)
+
+
 func reset() -> void:
+	_pulse_token += 1
 	slowmo = 1.0
 	_hitstop_left = 0.0
 	_apply()
