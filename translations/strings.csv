@@ -20,7 +20,7 @@ VR_X2,x2,x2
 VR_X3,x3,x3
 VR_X5,x5,x5
 VR_X8,x8,x8
-COACH_TAP,TAP TO CRACK,KIRMAK İÇİN DOKUN
+COACH_TAP,TAP TO HACK,HACKLEMEK İÇİN DOKUN
 COUNTDOWN_GO,GO,BAŞLA
 AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
 AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
@@ -41,7 +41,7 @@ RUN_RETRY,Spin again,Tekrar çevir
 RUN_CLAIM_X3,Claim 3x Energy,3x Enerji Al
 RUN_BOOST_AUTO,Boost auto-claimed,Bonus otomatik alındı
 RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
-REVIVE_TITLE,SO CLOSE!,ÇOK YAKINDIN!
+REVIVE_TITLE,BRIBE THE COPS,POLİSE RÜŞVET VER
 REVIVE_TITLE_FAR,ALMOST,NEREDEYSE
 REVIVE_BODY,You missed the zone by just %.1f°,Bölgeyi sadece %.1f° farkla kaçırdın
 REVIVE_RECORD,Record pace: %d%%  ·  Best: %d,Rekora yakınlık: %%%d  ·  Rekor: %d
@@ -49,10 +49,10 @@ REVIVE_HITS_LEFT,Only %d hits from your record!,Rekoruna sadece %d atış kaldı
 REVIVE_HITS_LEFT_ONE,Only 1 hit from your record!,Rekoruna sadece 1 atış kaldı!
 REVIVE_NEW_RECORD,You're on a NEW RECORD pace!,YENİ REKOR yolundasın!
 REVIVE_FIRST_RECORD,Your first record is on the line!,İlk rekorun elinden kaçmasın!
-REVIVE_PROMPT,Watch to revive this run.,İzle ve bu turu kurtar.
+REVIVE_PROMPT,Pay them off and slip out with the take.,Rüşveti ver ve ganimetle sıvış.
 REVIVE_LAST,This near-miss is the last one this run.,Bu turdaki son kıl payın buydu.
-REVIVE_WATCH,Second Chance,İkinci Şans
-REVIVE_SKIP,Let it go,Boş ver
+REVIVE_WATCH,BRIBE & ESCAPE,RÜŞVET VER / KAÇ
+REVIVE_SKIP,GET CAUGHT,YAKALAN
 REVIVE_USED,Revive already used,Canlanma hakkı kullanıldı
 REVIVE_LOADING,Loading ad…,Reklam yükleniyor…
 SETTINGS_TITLE,SETTINGS,AYARLAR
@@ -74,6 +74,13 @@ MARKET_GLOBAL_MULT_EFFECT,"Bigger gold bursts, confetti, and score pop on Perfec
 MARKET_PASSIVE_YIELD_NAME,Vault Yield,Kumbara Verimi
 MARKET_PASSIVE_YIELD_EFFECT,The piggy fills faster while you're away.,Sen yokken kumbara daha çabuk dolar.
 MARKET_CLOSE,Close,Kapat
+MARKET_SKIN_STEEL,Steel Dial,Çelik Kadran
+MARKET_SKIN_GOLD,Gold Dial,Altın Kadran
+MARKET_SKIN_OBSIDIAN,Obsidian Dial,Obsidyen Kadran
+MARKET_SKIN_EFFECT,Changes the vault face and the tumbler glow.,Kasa kapağını ve kilit piminin ışığını değiştirir.
+MARKET_SKIN_EQUIP,Equip,Kuşan
+MARKET_SKIN_EQUIPPED,Equipped,Kuşanıldı
+CLAIM_MARKET,Safe Skins,Kasa Görünümleri
 CLAIM_TITLE,IDLE VAULT,OTO-KUMBARA
 CLAIM_AMOUNT,+%d energy,+%d enerji
 CLAIM_BODY,The ring kept spinning while you were gone.,Sen yokken halka dönmeye ve birikim yapmaya devam etti.

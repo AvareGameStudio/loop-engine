@@ -33,12 +33,12 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -300.0
-offset_top = -280.0
+offset_top = -360.0
 offset_right = 300.0
-offset_bottom = 280.0
+offset_bottom = 360.0
 grow_horizontal = 2
 grow_vertical = 2
-pivot_offset = Vector2(300, 280)
+pivot_offset = Vector2(300, 360)
 
 [node name="Margin" type="MarginContainer" parent="Root/Panel"]
 layout_mode = 2

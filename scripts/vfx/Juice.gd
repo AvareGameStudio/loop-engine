@@ -7,6 +7,9 @@ extends Node
 @export var burst: GPUParticles2D
 @export var pointer: RingPointer
 @export var glow: CanvasItem
+@export var lock_pin: LockPin
+@export var alarm: CanvasItem
+@export var vignette: CanvasItem
 ## Particle buffer size; individual bursts scale down via amount_ratio.
 @export var max_burst: int = 64
 ## Ring clear: hold this scale, then restore after RING_SLOWMO_SEC real seconds.
@@ -19,6 +22,8 @@ var _base_zoom: Vector2 = Vector2.ONE
 var _zoom_tween: Tween
 var _glow_tween: Tween
 var _zone_tween: Tween
+var _alarm_tween: Tween
+var _vig_tween: Tween
 
 
 func _ready() -> void:
@@ -26,7 +31,11 @@ func _ready() -> void:
 		_base_zoom = camera.zoom
 	if burst:
 		burst.amount = max_burst
+		burst.texture = _spark_texture()
+	if alarm:
+		alarm.modulate.a = 0.0
 	EventBus.juice_hit.connect(_on_juice)
+	EventBus.run_started.connect(_stop_alarm)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.stage_cleared.connect(_on_ring_cleared)
 
@@ -59,22 +68,34 @@ func _on_juice(grade: String, intensity: float) -> void:
 			spawn_hit_sparks(_contact_point())
 			_burst(int(28.0 * power), Color(1.0, 0.84, 0.28).lerp(Color(1.0, 0.95, 0.55), clampf(power - 1.0, 0.0, 1.0)))
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
+			_flash_pin(0.18, 1.0)
 			_pulse_glow(1.4 * power)
+			Settings.vibrate(16)
 		"good":
 			_add_shake(4.0 * intensity)
 			_zoom_punch_success()
 			_bounce_zone()
 			spawn_hit_sparks(_contact_point())
-			_burst(16, Color(0.45, 0.75, 1.0))
+			_burst(16, Color(1.0, 0.84, 0.28))
+			_flash_pointer(0.1, 0.65)
+			_flash_pin(0.12, 0.8)
+			_pulse_glow(0.9)
+			Settings.vibrate(12)
 		"near_miss":
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
 			_punch(0.94)
 			_burst(36, Color(1.0, 0.35, 0.55))
+			_police_alarm()
 		"miss":
 			_add_shake(18.0)
 			_punch(0.9)
 			_burst(22, Color(0.7, 0.2, 0.3))
+			_police_alarm()
+			Settings.vibrate(28)
+		"tension":
+			_show_vignette()
+			_add_shake(3.0)
 		"jackpot":
 			TimeScale.hitstop(0.1)
 			_add_shake(12.0)
@@ -117,6 +138,8 @@ func _zoom_punch_success() -> void:
 func _on_ring_cleared(_index: int, _payout: int) -> void:
 	_zoom_punch_success()
 	_bounce_zone()
+	_pulse_glow(2.2)
+	spawn_vault_coins(_contact_point())
 	TimeScale.pulse_slowmo.call_deferred(RING_TIME_SCALE, RING_SLOWMO_SEC)
 
 
@@ -131,8 +154,8 @@ func _bounce_zone() -> void:
 	zone.scale = Vector2.ONE
 	_zone_tween = create_tween()
 	_zone_tween.set_ignore_time_scale(true)
-	_zone_tween.tween_property(zone, "scale", Vector2(1.045, 1.045), 0.04).set_trans(Tween.TRANS_QUAD)
-	_zone_tween.tween_property(zone, "scale", Vector2.ONE, 0.04).set_trans(Tween.TRANS_BACK)
+	_zone_tween.tween_property(zone, "scale", Vector2(1.18, 1.18), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_zone_tween.tween_property(zone, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _punch(scale: float) -> void:
@@ -170,6 +193,31 @@ func spawn_hit_sparks(global_pos: Vector2) -> void:
 	get_tree().create_timer(sparks.lifetime + 0.05, true, false, true).timeout.connect(sparks.queue_free)
 
 
+## Gold spray toward the HUD counter when the vault door opens.
+func spawn_vault_coins(global_pos: Vector2) -> void:
+	var coins := CPUParticles2D.new()
+	coins.name = "VaultCoins"
+	coins.one_shot = true
+	coins.amount = 28
+	coins.lifetime = 0.75
+	coins.explosiveness = 0.92
+	coins.direction = Vector2(0, -1)
+	coins.spread = 36.0
+	coins.gravity = Vector2(0, 260)
+	coins.initial_velocity_min = 320.0
+	coins.initial_velocity_max = 560.0
+	coins.scale_amount_min = 1.8
+	coins.scale_amount_max = 3.2
+	coins.color = Color(1.0, 0.843, 0.0, 1.0)
+	coins.texture = _spark_texture()
+	coins.z_index = 9
+	var host: Node = get_tree().current_scene if get_tree() else self
+	host.add_child(coins)
+	coins.global_position = global_pos
+	coins.emitting = true
+	get_tree().create_timer(coins.lifetime + 0.05, true, false, true).timeout.connect(coins.queue_free)
+
+
 func _contact_point() -> Vector2:
 	if pointer == null:
 		return Vector2.ZERO
@@ -204,6 +252,50 @@ func _flash_pointer(seconds: float = 0.16, peak: float = 1.0) -> void:
 		pointer.flash(seconds, peak)
 
 
+func _flash_pin(seconds: float = 0.16, peak: float = 1.0) -> void:
+	if lock_pin:
+		lock_pin.flash(seconds, peak)
+
+
+func _police_alarm() -> void:
+	if alarm == null:
+		return
+	if _alarm_tween:
+		_alarm_tween.kill()
+	alarm.visible = true
+	_alarm_tween = create_tween()
+	_alarm_tween.set_ignore_time_scale(true)
+	_alarm_tween.tween_method(_set_alarm_phase, 0.0, 6.0, 1.15)
+
+
+func _set_alarm_phase(t: float) -> void:
+	if alarm == null:
+		return
+	var red: bool = int(t * 2.0) % 2 == 0
+	alarm.modulate = Color(0.95, 0.08, 0.1, 0.48) if red else Color(0.1, 0.28, 0.95, 0.42)
+	if t > 5.0:
+		alarm.modulate.a = lerpf(0.42, 0.0, (t - 5.0) / 1.0)
+
+
+func _stop_alarm() -> void:
+	if _alarm_tween:
+		_alarm_tween.kill()
+	if alarm:
+		alarm.modulate.a = 0.0
+
+
+func _show_vignette() -> void:
+	if vignette == null or not (vignette.material is ShaderMaterial):
+		return
+	var mat := vignette.material as ShaderMaterial
+	if _vig_tween:
+		_vig_tween.kill()
+	_vig_tween = create_tween()
+	_vig_tween.set_ignore_time_scale(true)
+	_vig_tween.tween_property(mat, "shader_parameter/strength", 0.9, 0.06)
+	_vig_tween.tween_property(mat, "shader_parameter/strength", 0.0, 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
 func _pulse_glow(peak: float = 2.5) -> void:
 	if glow == null or not (glow.material is ShaderMaterial):
 		return
@@ -214,4 +306,5 @@ func _pulse_glow(peak: float = 2.5) -> void:
 	_glow_tween.set_ignore_time_scale(true)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
+	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 0.72, 0.32).from(0.18)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

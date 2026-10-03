@@ -10,6 +10,7 @@ extends CanvasLayer
 @onready var body_label: Label = $Root/Panel/Margin/VBox/Body
 @onready var claim_btn: Button = $Root/Panel/Margin/VBox/Claim
 @onready var later_btn: Button = $Root/Panel/Margin/VBox/Later
+@onready var market_btn: Button = $Root/Panel/Margin/VBox/Market
 @onready var coin_confetti: CPUParticles2D = $CoinConfetti
 
 var _open: bool = false
@@ -25,6 +26,7 @@ func _ready() -> void:
 	coin_confetti.emitting = false
 	claim_btn.pressed.connect(_claim)
 	later_btn.pressed.connect(_later)
+	market_btn.pressed.connect(_open_market)
 	# Tapping the dim (the spinning ring behind it) used to do nothing, so
 	# the game felt frozen. Treat that tap as "Later".
 	$Root/Dim.gui_input.connect(_on_dim_input)
@@ -78,6 +80,7 @@ func _on_vault(amount: int, _delta: int) -> void:
 
 func _refresh() -> void:
 	body_label.text = tr("CLAIM_BODY")
+	market_btn.text = tr("CLAIM_MARKET")
 	_count_amount(GameState.unclaimed_energy)
 
 
@@ -98,10 +101,17 @@ func _set_counted_amount(value: float) -> void:
 func _claim() -> void:
 	var n: int = GameState.claim_vault()
 	if n > 0:
+		GameState.add_coins(maxi(1, n / 5))
 		EventBus.juice_hit.emit("claim", 1.0)
 		coin_confetti.restart()
 	_close()
 	EventBus.vault_resolved.emit(true)
+
+
+func _open_market() -> void:
+	var ui := get_parent()
+	if ui and ui.get_node_or_null("MarketPopup"):
+		ui.get_node("MarketPopup").open()
 
 
 func _later() -> void:

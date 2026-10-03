@@ -12,14 +12,19 @@ extends CanvasLayer
 
 ## id -> {"name": Label, "effect": Label, "buy": Button}
 var _rows: Dictionary[String, Dictionary] = {}
+var _skin_rows: Dictionary[String, Dictionary] = {}
 var _holding_pause: bool = false
+const _SKINS: Array[String] = ["steel", "gold", "obsidian"]
 
 
 func _ready() -> void:
 	root.visible = false
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		_rows[String(item.id)] = _make_row(String(item.id))
+	for skin_id: String in _SKINS:
+		_skin_rows[skin_id] = _make_skin_row(skin_id)
 	close_btn.pressed.connect(close)
+	EventBus.cosmetic_equipped.connect(func(_id: String) -> void: _refresh())
 	EventBus.energy_changed.connect(_on_wallet_changed)
 	EventBus.coins_changed.connect(_on_wallet_changed)
 
@@ -79,6 +84,21 @@ func _make_row(id: String) -> Dictionary:
 	return {"name": name_label, "effect": effect, "buy": buy}
 
 
+func _make_skin_row(id: String) -> Dictionary:
+	var row: Dictionary = _make_row("dial_%s" % id)
+	var buy: Button = row.buy
+	for conn: Dictionary in buy.pressed.get_connections():
+		buy.pressed.disconnect(conn.callable)
+	buy.pressed.connect(_buy_skin.bind(id))
+	return row
+
+
+func _buy_skin(id: String) -> void:
+	if GameState.buy_dial(id):
+		_refresh()
+		_punch(_skin_rows[id].buy as Control, 1.15)
+
+
 func _buy(id: String) -> void:
 	if MetaUpgrade.purchase(id):
 		_refresh()
@@ -103,6 +123,21 @@ func _refresh() -> void:
 		var buy: Button = row.buy
 		buy.text = tr(cost_key) % MetaUpgrade.cost(id)
 		buy.disabled = not MetaUpgrade.can_afford(id)
+	for skin_id: String in _SKINS:
+		var skin_row: Dictionary = _skin_rows[skin_id]
+		(skin_row.name as Label).text = tr("MARKET_SKIN_%s" % skin_id.to_upper())
+		(skin_row.effect as Label).text = tr("MARKET_SKIN_EFFECT")
+		var skin_buy: Button = skin_row.buy
+		if GameState.equipped_dial == skin_id:
+			skin_buy.text = tr("MARKET_SKIN_EQUIPPED")
+			skin_buy.disabled = true
+		elif GameState.owns_dial(skin_id):
+			skin_buy.text = tr("MARKET_SKIN_EQUIP")
+			skin_buy.disabled = false
+		else:
+			var skin_cost: int = 0 if skin_id == "steel" else (80 if skin_id == "gold" else 140)
+			skin_buy.text = tr("MARKET_COST_COINS") % skin_cost
+			skin_buy.disabled = GameState.coins < skin_cost
 
 
 func _punch(target: Control, from_scale: float) -> void:

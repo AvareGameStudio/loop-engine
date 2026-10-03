@@ -99,7 +99,11 @@ func _watch() -> void:
 		return
 	watch.disabled = true
 	watch.text = tr("REVIVE_LOADING")
-	EventBus.ad_requested.emit("near_miss_revive", _result)
+	var ads := get_tree().root.get_node_or_null("Main/AdsManager")
+	if ads and ads.has_method("show_rewarded"):
+		ads.show_rewarded("near_miss_revive", _result)
+	else:
+		EventBus.ad_requested.emit("near_miss_revive", _result)
 
 
 func _skip() -> void:

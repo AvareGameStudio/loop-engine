@@ -32,5 +32,6 @@ signal session_changed()
 signal vault_changed(amount: int, delta: int)
 signal vault_ready(amount: int)
 signal vault_resolved(claimed: bool)
+signal cosmetic_equipped(id: String)
 ## 0..1 tease for the next variable-ratio drop. UI pulses Focus without revealing the interval.
 signal vr_tension(value: float)

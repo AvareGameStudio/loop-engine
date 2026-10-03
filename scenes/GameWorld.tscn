@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/GameWorld.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/world/RingArena.gd" id="2_arena"]
@@ -8,6 +8,9 @@
 [ext_resource type="Shader" path="res://shaders/hit_flash.gdshader" id="6_flash"]
 [ext_resource type="Shader" path="res://shaders/ring_glow.gdshader" id="7_glow"]
 [ext_resource type="Script" path="res://scripts/meta/MetaUpgrade.gd" id="8_meta"]
+[ext_resource type="Shader" path="res://shaders/vault_wall.gdshader" id="9_wall"]
+[ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="10_vig"]
+[ext_resource type="Script" path="res://scripts/world/LockPin.gd" id="11_pin"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
 shader = ExtResource("6_flash")
@@ -19,6 +22,20 @@ shader = ExtResource("7_glow")
 shader_parameter/glow_color = Color(0.2, 0.9, 0.4, 1)
 shader_parameter/pulse = 0.0
 shader_parameter/intensity = 0.0
+shader_parameter/ripple = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wall"]
+shader = ExtResource("9_wall")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vig"]
+shader = ExtResource("10_vig")
+shader_parameter/strength = 0.0
+shader_parameter/tint = Color(0.55, 0.08, 0.1, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pin"]
+shader = ExtResource("6_flash")
+shader_parameter/flash_color = Color(1, 0.95, 0.7, 1)
+shader_parameter/amount = 0.0
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_burst"]
 particle_flag_disable_z = true
@@ -30,7 +47,7 @@ initial_velocity_max = 260.0
 gravity = Vector3(0, 240, 0)
 scale_min = 2.0
 scale_max = 6.0
-color = Color(0.4, 1, 0.92, 1)
+color = Color(1, 0.84, 0.28, 1)
 
 [node name="GameWorld" type="Node2D" groups=["game_world"]]
 script = ExtResource("1_world")
@@ -39,6 +56,7 @@ script = ExtResource("1_world")
 layer = -1
 
 [node name="Fill" type="ColorRect" parent="Background"]
+material = SubResource("ShaderMaterial_wall")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -46,6 +64,29 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.043137, 0.047059, 0.062745, 1)
+
+[node name="FX" type="CanvasLayer" parent="."]
+layer = 6
+
+[node name="Vignette" type="ColorRect" parent="FX"]
+material = SubResource("ShaderMaterial_vig")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+
+[node name="Alarm" type="ColorRect" parent="FX"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.9, 0.05, 0.08, 1)
+modulate = Color(1, 1, 1, 0)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(360, 560)
@@ -64,7 +105,12 @@ offset_right = 260.0
 offset_bottom = 260.0
 mouse_filter = 2
 
+[node name="LockPin" type="Node2D" parent="Arena"]
+material = SubResource("ShaderMaterial_pin")
+script = ExtResource("11_pin")
+
 [node name="Pointer" type="Node2D" parent="Arena"]
+z_index = 2
 material = SubResource("ShaderMaterial_flash")
 script = ExtResource("5_pointer")
 
@@ -82,9 +128,12 @@ script = ExtResource("3_input")
 [node name="MetaUpgrade" type="Node" parent="."]
 script = ExtResource("8_meta")
 
-[node name="Juice" type="Node" parent="." node_paths=PackedStringArray("camera", "burst", "pointer", "glow")]
+[node name="Juice" type="Node" parent="." node_paths=PackedStringArray("camera", "burst", "pointer", "glow", "lock_pin", "alarm", "vignette")]
 script = ExtResource("4_juice")
 camera = NodePath("../Camera2D")
 burst = NodePath("../Arena/Burst")
 pointer = NodePath("../Arena/Pointer")
 glow = NodePath("../Arena/Glow")
+lock_pin = NodePath("../Arena/LockPin")
+alarm = NodePath("../FX/Alarm")
+vignette = NodePath("../FX/Vignette")
