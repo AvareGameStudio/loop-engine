@@ -36,8 +36,10 @@ var zeigarnik := ZeigarnikTracker.new()
 var _loop_rows: Dictionary[String, Dictionary] = {}
 var _grade_tween: Tween
 ## Translation keys behind code-set texts, re-rendered on language change.
-var _hint_key: String = "HINT_RUN"
+var _hint_key: String = ""
 var _hint_args: Array = []
+## Opening coach is a blinking TAP! on the pick. Written hints stay hidden until it ends.
+var _coach_left: float = 0.0
 var _x3_key: String = "RUN_CLAIM_X3"
 var _run_end_reason: String = ""
 var _run_end_stats: Dictionary = {}
@@ -91,6 +93,14 @@ func _refresh_texts() -> void:
 		_render_run_over()
 
 
+func _process(delta: float) -> void:
+	if _coach_left <= 0.0:
+		return
+	_coach_left -= delta / maxf(Engine.time_scale, 0.001)
+	if _coach_left <= 0.0:
+		_render_hint()
+
+
 func _set_hint(key: String, args: Array = []) -> void:
 	_hint_key = key
 	_hint_args = args
@@ -98,6 +108,9 @@ func _set_hint(key: String, args: Array = []) -> void:
 
 
 func _render_hint() -> void:
+	if _hint_key.is_empty() or _coach_left > 0.0:
+		hint_label.text = ""
+		return
 	hint_label.text = tr(_hint_key) % _hint_args if not _hint_args.is_empty() else tr(_hint_key)
 
 
@@ -218,7 +231,11 @@ func _render_run_over() -> void:
 
 func _on_run_start() -> void:
 	run_over.visible = false
-	_set_hint("HINT_RUN")
+	# No written directive. The pick carries a blinking TAP! for the first 3 seconds.
+	_hint_key = ""
+	_hint_args = []
+	_coach_left = 3.0
+	hint_label.text = ""
 	grade_label.text = ""
 	focus_bar.value = 1.0
 

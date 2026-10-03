@@ -10,6 +10,7 @@ extends CanvasLayer
 @onready var body_label: Label = $Root/Panel/Margin/VBox/Body
 @onready var claim_btn: Button = $Root/Panel/Margin/VBox/Claim
 @onready var later_btn: Button = $Root/Panel/Margin/VBox/Later
+@onready var coins: CPUParticles2D = $Root/Coins
 
 var _open: bool = false
 var _was_paused: bool = false
@@ -17,6 +18,8 @@ var _was_paused: bool = false
 
 func _ready() -> void:
 	root.visible = false
+	coins.texture = _make_coin_texture()
+	coins.emitting = false
 	claim_btn.pressed.connect(_claim)
 	later_btn.pressed.connect(_later)
 	# Tapping the dim (the spinning ring behind it) used to do nothing, so
@@ -56,6 +59,8 @@ func open(_amount: int = 0) -> void:
 	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# Vault win: scatter gold coins across the reward screen.
+	coins.restart()
 
 
 func _on_vault(amount: int, _delta: int) -> void:
@@ -82,6 +87,24 @@ func _claim() -> void:
 func _later() -> void:
 	_close()
 	EventBus.vault_resolved.emit(false)
+
+
+func _make_coin_texture() -> Texture2D:
+	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var center := Vector2(15.5, 15.5)
+	for y in 32:
+		for x in 32:
+			var d: float = Vector2(x, y).distance_to(center)
+			if d > 14.0:
+				continue
+			var col := Color(1.0, 0.84, 0.28, 1)
+			if d > 11.2:
+				col = Color(0.62, 0.4, 0.08, 1)
+			elif d < 4.5:
+				col = Color(1.0, 0.96, 0.7, 1)
+			img.set_pixel(x, y, col)
+	return ImageTexture.create_from_image(img)
 
 
 func _close() -> void:
