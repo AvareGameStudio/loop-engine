@@ -9,9 +9,10 @@ extends Node
 @export var glow: CanvasItem
 ## Particle buffer size; individual bursts scale down via amount_ratio.
 @export var max_burst: int = 64
-## Ring clear: world drops to this scale, then returns before the next beat.
-const RING_TIME_SCALE: float = 0.2
-const RING_SLOWMO_SEC: float = 0.3
+## Ring clear: hold this scale, then restore after RING_SLOWMO_SEC real seconds.
+const RING_TIME_SCALE: float = 0.15
+const RING_SLOWMO_SEC: float = 0.2
+const HIT_ZOOM := Vector2(1.05, 1.05)
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
@@ -56,16 +57,17 @@ func _on_juice(grade: String, intensity: float) -> void:
 	match grade:
 		"perfect":
 			_add_shake(7.0 * power)
-			_zoom_punch(1.06 + 0.02 * (power - 1.0))
+			_zoom_punch_success()
 			_bounce_zone()
-			_emit_perfect_sparks()
+			_emit_contact_sparks()
 			_burst(int(28.0 * power), Color(1.0, 0.84, 0.28).lerp(Color(1.0, 0.95, 0.55), clampf(power - 1.0, 0.0, 1.0)))
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
 			_pulse_glow(1.4 * power)
 		"good":
 			_add_shake(4.0 * intensity)
-			_zoom_punch(1.04)
+			_zoom_punch_success()
 			_bounce_zone()
+			_emit_contact_sparks()
 			_burst(16, Color(0.45, 0.75, 1.0))
 		"near_miss":
 			TimeScale.hitstop(0.18)
@@ -94,15 +96,22 @@ func _add_shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
-## 0.08s camera punch. Real time, so a victory slow-mo doesn't stretch it.
-func _zoom_punch(scale: float) -> void:
-	_punch(scale)
+## Successful timing: zoom to 1.05, then ease back to 1.0 over 0.1s.
+func _zoom_punch_success() -> void:
+	if camera == null:
+		return
+	if _zoom_tween:
+		_zoom_tween.kill()
+	camera.zoom = HIT_ZOOM
+	_zoom_tween = create_tween()
+	_zoom_tween.set_ignore_time_scale(true)
+	_zoom_tween.tween_property(camera, "zoom", Vector2.ONE, 0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-## Full ring cleared: TimeScale 0.2 for 0.3s, then back to 1 before the next beat.
+## Full ring cleared: 0.15 for 0.2 real seconds, then back to 1.0.
 ## Deferred because the tap handler restores slow-mo at the end of the same call.
 func _on_ring_cleared(_index: int, _payout: int) -> void:
-	_zoom_punch(1.08)
+	_zoom_punch_success()
 	_bounce_zone()
 	_slowmo_token += 1
 	_apply_ring_slowmo.call_deferred(_slowmo_token)
@@ -150,9 +159,9 @@ func _make_sparks() -> CPUParticles2D:
 	sparks.name = "PerfectSparks"
 	sparks.one_shot = true
 	sparks.emitting = false
-	sparks.amount = 24
+	sparks.amount = 15
 	sparks.lifetime = 0.4
-	sparks.explosiveness = 0.95
+	sparks.explosiveness = 1.0
 	sparks.randomness = 0.4
 	sparks.spread = 180.0
 	sparks.gravity = Vector2(0, 280)
@@ -179,7 +188,7 @@ func _spark_texture() -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 
-func _emit_perfect_sparks() -> void:
+func _emit_contact_sparks() -> void:
 	if pointer == null or _sparks == null:
 		return
 	_sparks.global_position = pointer.to_global(Vector2(pointer.length, 0.0))

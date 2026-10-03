@@ -36,13 +36,10 @@ var last_grade: String = "":
 		if is_node_ready():
 			pointer.grade = value
 
-var accent := Color(0.55, 0.86, 0.95, 1)
 var danger := Color(1.0, 0.28, 0.42, 1)
 var gold := Color(1.0, 0.78, 0.28, 1)
 ## Outside the near window is a Miss, so this band stays dull steel, never "safe".
 var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
-var _steel_dark := Color(0.14, 0.15, 0.17, 1)
-var _steel := Color(0.42, 0.45, 0.48, 1)
 var _steel_hi := Color(0.78, 0.81, 0.84, 1)
 
 
@@ -55,11 +52,11 @@ func _ready() -> void:
 	pointer.direction = direction
 	_tap = Label.new()
 	_tap.name = "TapPrompt"
-	_tap.text = "TAP!"
+	_tap.text = "TAP TO CRACK"
 	_tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_tap.size = Vector2(140, 52)
+	_tap.size = Vector2(320, 56)
 	_tap.add_theme_font_size_override("font_size", 34)
 	_tap.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	_tap.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02))
@@ -67,6 +64,8 @@ func _ready() -> void:
 	_tap.visible = false
 	_tap.z_index = 4
 	_tap.pivot_offset = _tap.size * 0.5
+	# Fixed above the dial, not chasing the gate.
+	_tap.position = Vector2(-160.0, -(radius + 78.0))
 	add_child(_tap)
 	EventBus.run_started.connect(_begin_coach)
 	EventBus.run_ended.connect(_end_coach)
@@ -82,10 +81,7 @@ func _process(delta: float) -> void:
 		return
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
 	_blink = wrapf(_blink + real_dt * 8.0, 0.0, TAU)
-	# Sit on the gate, not the needle, so the eye learns the target.
-	var spot: Vector2 = Vector2.from_angle(target_angle) * (radius * 0.55)
-	_tap.position = spot - _tap.size * 0.5
-	_tap.modulate.a = 1.0 if sin(_blink) > 0.0 else 0.2
+	_tap.modulate.a = 1.0 if sin(_blink) > 0.0 else 0.25
 	var pulse: float = 1.0 + 0.08 * maxf(sin(_blink), 0.0)
 	_tap.scale = Vector2(pulse, pulse)
 
@@ -117,26 +113,24 @@ func randomize_target(snap_pointer: bool = false) -> void:
 
 func _draw() -> void:
 	var center := Vector2.ZERO
-	# Housing: dark well, brushed bezel, machined lip.
-	draw_circle(center, radius + 52.0, Color(0.03, 0.035, 0.04, 1))
-	draw_arc(center, radius + 36.0, 0.0, TAU, 96, _steel_dark, 30.0, true)
-	draw_arc(center, radius + 50.0, 0.0, TAU, 96, _steel_hi, 2.5, true)
-	draw_arc(center, radius + 22.0, 0.0, TAU, 80, Color(0.07, 0.08, 0.09, 1), 5.0, true)
-	draw_circle(center, radius - 4.0, Color(0.18, 0.19, 0.21, 1))
-	draw_arc(center, radius - 40.0, 0.0, TAU, 64, Color(_steel, 0.45), 1.5, true)
-	draw_arc(center, radius - 82.0, 0.0, TAU, 48, Color(_steel_hi, 0.22), 1.2, true)
+	var dial := Color(0.15, 0.17, 0.2)
+	var gate := Color(0.2, 0.9, 0.4, 0.8)
+	# Vault well, then a thick steel combination dial.
+	draw_circle(center, radius + 34.0, Color(0.05, 0.055, 0.07, 1))
+	draw_arc(center, radius, 0.0, TAU, 128, dial, 42.0, true)
+	draw_arc(center, radius + 20.0, 0.0, TAU, 96, Color(0.32, 0.35, 0.4), 3.0, true)
+	draw_arc(center, radius - 20.0, 0.0, TAU, 96, Color(0.07, 0.08, 0.1), 5.0, true)
 	_draw_ticks()
 
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
 	_draw_side_bands(near, near + red_band * outer_band_ratio, outer_band_color, ring_width + 8.0)
-	_draw_window_arc(near, danger.lerp(Color(0.25, 0.08, 0.1, 0.5), 0.35), ring_width + 12.0)
-	_draw_window_arc(float(windows.good), accent, ring_width + 4.0)
-	_draw_window_arc(float(windows.perfect), gold, ring_width - 2.0)
+	_draw_window_arc(near, danger.lerp(Color(0.25, 0.08, 0.1, 0.5), 0.35), ring_width + 10.0)
+	_draw_window_arc(float(windows.good), gate, ring_width + 8.0)
+	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), ring_width)
 	_draw_gate_tooth()
-	_draw_bolts()
-	draw_circle(center, 36.0, Color(0.09, 0.1, 0.11, 1))
-	draw_arc(center, 36.0, 0.0, TAU, 32, _steel_hi, 2.0, true)
+	draw_circle(center, 28.0, Color(0.08, 0.09, 0.11, 1))
+	draw_arc(center, 28.0, 0.0, TAU, 32, Color(0.35, 0.38, 0.42), 2.0, true)
 
 
 func _draw_ticks() -> void:
@@ -148,14 +142,6 @@ func _draw_ticks() -> void:
 		var outer := radius + 10.0
 		var col := _steel_hi if major else Color(0.5, 0.53, 0.56, 0.75)
 		draw_line(Vector2.from_angle(angle) * inner, Vector2.from_angle(angle) * outer, col, 2.8 if major else 1.2, true)
-
-
-func _draw_bolts() -> void:
-	for i in 8:
-		var p: Vector2 = Vector2.from_angle(float(i) * TAU / 8.0 + PI / 8.0) * (radius + 42.0)
-		draw_circle(p, 8.0, Color(0.28, 0.3, 0.32, 1))
-		draw_circle(p, 6.2, _steel)
-		draw_circle(p, 2.1, Color(0.1, 0.11, 0.12, 1))
 
 
 ## Inward tooth at the gate: the notch the pick is aiming for.
