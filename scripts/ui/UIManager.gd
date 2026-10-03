@@ -13,6 +13,7 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 @onready var mult_label: Label = $HUD/Top/Mult
 @onready var grade_label: Label = $HUD/Center/Grade
 @onready var hint_label: Label = $HUD/Center/Hint
+@onready var tap_prompt: Label = $HUD/TapPrompt
 @onready var stage_bar: ProgressBar = $HUD/Bottom/StageBar
 @onready var focus_bar: ProgressBar = $HUD/Bottom/FocusBar
 @onready var energy_label: Label = $HUD/Bottom/Wallet/Energy
@@ -39,11 +40,16 @@ var _grade_tween: Tween
 var _x3_key: String = "RUN_CLAIM_X3"
 var _run_end_reason: String = ""
 var _run_end_stats: Dictionary = {}
+var _show_tap: bool = false
+var _tap_pulse: float = 0.0
 
 
 func _ready() -> void:
 	run_over.visible = false
 	grade_label.text = ""
+	hint_label.visible = false
+	hint_label.text = ""
+	tap_prompt.visible = false
 	retry_btn.pressed.connect(_retry)
 	x3_btn.pressed.connect(_x3)
 	market_btn.pressed.connect(market_popup.open)
@@ -86,6 +92,8 @@ func _notification(what: int) -> void:
 func _refresh_texts() -> void:
 	grade_label.text = ""
 	_render_hint()
+	if tap_prompt.visible:
+		tap_prompt.text = tr("COACH_TAP")
 	_refresh_currency()
 	_refresh_market()
 	_refresh_shop()
@@ -94,11 +102,23 @@ func _refresh_texts() -> void:
 		_render_run_over()
 
 
+func _process(delta: float) -> void:
+	if not _show_tap:
+		return
+	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+	_tap_pulse = wrapf(_tap_pulse + real_dt * 8.0, 0.0, TAU)
+	tap_prompt.modulate.a = 1.0 if sin(_tap_pulse) > 0.0 else 0.25
+	var pulse: float = 1.0 + 0.08 * maxf(sin(_tap_pulse), 0.0)
+	tap_prompt.scale = Vector2(pulse, pulse)
+
+
 func _set_hint(_key: String, _args: Array = []) -> void:
+	hint_label.visible = false
 	hint_label.text = ""
 
 
 func _render_hint() -> void:
+	hint_label.visible = false
 	hint_label.text = ""
 
 
@@ -111,6 +131,7 @@ func _refresh_session() -> void:
 
 
 func _on_tap(result: Dictionary) -> void:
+	_hide_tap_prompt()
 	var grade_name: String = String(result.grade_name)
 	_show_grade(tr("GRADE_" + grade_name.to_upper()), GRADE_COLORS.get(grade_name, Color.WHITE))
 
@@ -223,6 +244,7 @@ func _make_caption(font_size: int, color: Color) -> Label:
 
 
 func _on_run_end(reason: String, stats: Dictionary) -> void:
+	_hide_tap_prompt()
 	_run_end_reason = reason
 	_run_end_stats = stats
 	_x3_key = "RUN_BOOST_AUTO" if GameState.no_ads else "RUN_CLAIM_X3"
@@ -242,9 +264,29 @@ func _render_run_over() -> void:
 
 func _on_run_start() -> void:
 	run_over.visible = false
+	hint_label.visible = false
 	hint_label.text = ""
 	grade_label.text = ""
 	focus_bar.value = 1.0
+	_show_tap_prompt()
+
+
+func _show_tap_prompt() -> void:
+	# Level 1 only. The first registered tap retires the prompt for the run.
+	if GameState.current_stage != 1:
+		_hide_tap_prompt()
+		return
+	_show_tap = true
+	_tap_pulse = 0.0
+	tap_prompt.text = tr("COACH_TAP")
+	tap_prompt.visible = true
+	tap_prompt.scale = Vector2.ONE
+	tap_prompt.modulate.a = 1.0
+
+
+func _hide_tap_prompt() -> void:
+	_show_tap = false
+	tap_prompt.visible = false
 
 
 func _on_stage(index: int, _payout: int) -> void:

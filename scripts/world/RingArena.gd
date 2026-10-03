@@ -41,40 +41,12 @@ var danger := Color(1.0, 0.28, 0.42, 1)
 var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
 var _rim := Color(0.15, 0.17, 0.22, 1.0)
 var _bezel_flash: float = 0.0
-var _tap: Label
-var _show_tap: bool = false
-var _blink: float = 0.0
 
 
 func _ready() -> void:
 	pointer.direction = direction
 	EventBus.direction_flipped.connect(func(_d: float) -> void: _bezel_flash = 1.0)
-	_tap = Label.new()
-	_tap.name = "TapPrompt"
-	_tap.text = tr("COACH_TAP")
-	_tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_tap.size = Vector2(320, 56)
-	_tap.add_theme_font_size_override("font_size", 34)
-	_tap.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
-	_tap.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02))
-	_tap.add_theme_constant_override("outline_size", 8)
-	_tap.visible = false
-	_tap.z_index = 4
-	_tap.pivot_offset = _tap.size * 0.5
-	# Fixed above the dial, not chasing the gate.
-	_tap.position = Vector2(-160.0, -(radius + 78.0))
-	add_child(_tap)
-	EventBus.run_started.connect(_begin_coach)
-	EventBus.run_ended.connect(_end_coach)
-	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _end_coach())
 	randomize_target(true)
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_TRANSLATION_CHANGED and _tap != null:
-		_tap.text = tr("COACH_TAP")
 
 
 func _process(delta: float) -> void:
@@ -85,26 +57,6 @@ func _process(delta: float) -> void:
 	if _bezel_flash > 0.0:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
 		queue_redraw()
-	if not _show_tap or _tap == null:
-		return
-	_blink = wrapf(_blink + real_dt * 8.0, 0.0, TAU)
-	_tap.modulate.a = 1.0 if sin(_blink) > 0.0 else 0.25
-	var pulse: float = 1.0 + 0.08 * maxf(sin(_blink), 0.0)
-	_tap.scale = Vector2(pulse, pulse)
-
-
-func _begin_coach() -> void:
-	_show_tap = true
-	_blink = 0.0
-	if _tap:
-		_tap.text = tr("COACH_TAP")
-		_tap.visible = true
-
-
-func _end_coach(_reason: String = "", _stats: Dictionary = {}) -> void:
-	_show_tap = false
-	if _tap:
-		_tap.visible = false
 
 
 func randomize_target(snap_pointer: bool = false) -> void:
