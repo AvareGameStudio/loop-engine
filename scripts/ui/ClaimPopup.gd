@@ -13,7 +13,7 @@ extends CanvasLayer
 @onready var coins: CPUParticles2D = $Root/Coins
 
 var _open: bool = false
-var _was_paused: bool = false
+var _holding_pause: bool = false
 
 
 func _ready() -> void:
@@ -42,16 +42,18 @@ func _notification(what: int) -> void:
 		_refresh()
 
 
-func open(_amount: int = 0) -> void:
+## `from_player` is the HUD peek tap. Auto `vault_ready` never steals a live run.
+func open(_amount: int = 0, from_player: bool = false) -> void:
 	if GameState.unclaimed_energy <= 0:
+		return
+	if GameState.run_active and not from_player:
 		return
 	if _open:
 		_refresh()
 		return
 	_open = true
-	# Pause the run under the piggy so Auto-Tap cannot miss while the overlay is up.
-	_was_paused = get_tree().paused
-	get_tree().paused = true
+	_holding_pause = true
+	OverlayPause.push()
 	root.visible = true
 	_refresh()
 	panel.scale = Vector2(0.86, 0.86)
@@ -59,7 +61,6 @@ func open(_amount: int = 0) -> void:
 	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# Vault win: scatter gold coins across the reward screen.
 	coins.restart()
 
 
@@ -112,5 +113,6 @@ func _close() -> void:
 		return
 	_open = false
 	root.visible = false
-	get_tree().paused = _was_paused
-	_was_paused = false
+	if _holding_pause:
+		OverlayPause.pop()
+		_holding_pause = false

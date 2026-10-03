@@ -12,7 +12,7 @@ extends CanvasLayer
 
 ## id -> {"name": Label, "effect": Label, "buy": Button}
 var _rows: Dictionary[String, Dictionary] = {}
-var _paused_run: bool = false
+var _holding_pause: bool = false
 
 
 func _ready() -> void:
@@ -39,9 +39,9 @@ func open() -> void:
 	if root.visible:
 		return
 	_refresh()
-	_paused_run = GameState.run_active and not get_tree().paused
-	if _paused_run:
-		get_tree().paused = true
+	_holding_pause = GameState.run_active
+	if _holding_pause:
+		OverlayPause.push()
 	root.visible = true
 	_punch(panel, 0.86)
 
@@ -50,9 +50,9 @@ func close() -> void:
 	if not root.visible:
 		return
 	root.visible = false
-	if _paused_run:
-		get_tree().paused = false
-	_paused_run = false
+	if _holding_pause:
+		OverlayPause.pop()
+		_holding_pause = false
 
 
 func _make_row(id: String) -> Dictionary:
@@ -108,5 +108,6 @@ func _refresh() -> void:
 func _punch(target: Control, from_scale: float) -> void:
 	target.scale = Vector2(from_scale, from_scale)
 	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(target, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

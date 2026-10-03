@@ -18,11 +18,12 @@ var progress: float = 0.0
 var complete: bool = false
 var focused: bool = false
 var _pulse: float = 0.0
+var _redraw_acc: float = 0.0
 var _tween: Tween
 
 
 func _ready() -> void:
-	set_process(true)
+	set_process(false)
 
 
 func _notification(what: int) -> void:
@@ -33,6 +34,7 @@ func _notification(what: int) -> void:
 func set_state(value: float, is_complete: bool, is_focus: bool) -> void:
 	complete = is_complete
 	focused = is_focus
+	set_process(not complete)
 	value = clampf(value, 0.0, 1.0)
 	if is_equal_approx(value, progress):
 		queue_redraw()
@@ -49,12 +51,12 @@ func _set_progress(value: float) -> void:
 
 
 func _process(delta: float) -> void:
-	# Always pulse: the unfinished gap has to blink even when this ring is not the focus.
 	_pulse = wrapf(_pulse + delta * 4.0, 0.0, TAU)
-	if not complete and progress < 0.999:
-		queue_redraw()
-	elif focused:
-		queue_redraw()
+	_redraw_acc += delta
+	if _redraw_acc < 0.05:
+		return
+	_redraw_acc = 0.0
+	queue_redraw()
 
 
 func _draw() -> void:

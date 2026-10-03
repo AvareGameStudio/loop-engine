@@ -44,10 +44,12 @@ var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
 var _steel_dark := Color(0.14, 0.15, 0.17, 1)
 var _steel := Color(0.42, 0.45, 0.48, 1)
 var _steel_hi := Color(0.78, 0.81, 0.84, 1)
+var _bezel_flash: float = 0.0
 
 
 func _ready() -> void:
 	pointer.direction = direction
+	EventBus.direction_flipped.connect(func(_d: float) -> void: _bezel_flash = 1.0)
 	randomize_target(true)
 
 
@@ -55,6 +57,10 @@ func _process(delta: float) -> void:
 	if spinning:
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
 	pointer.rotation = pointer_angle
+	if _bezel_flash > 0.0:
+		var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
+		queue_redraw()
 
 
 func randomize_target(snap_pointer: bool = false) -> void:
@@ -74,7 +80,8 @@ func _draw() -> void:
 	# Housing: dark well, brushed bezel, machined lip.
 	draw_circle(center, radius + 52.0, Color(0.03, 0.035, 0.04, 1))
 	draw_arc(center, radius + 36.0, 0.0, TAU, 96, _steel_dark, 30.0, true)
-	draw_arc(center, radius + 50.0, 0.0, TAU, 96, _steel_hi, 2.5, true)
+	var bezel: Color = _steel_hi.lerp(Color.WHITE, _bezel_flash)
+	draw_arc(center, radius + 50.0, 0.0, TAU, 96, bezel, 2.5 + 2.0 * _bezel_flash, true)
 	draw_arc(center, radius + 22.0, 0.0, TAU, 80, Color(0.07, 0.08, 0.09, 1), 5.0, true)
 	draw_circle(center, radius - 4.0, Color(0.18, 0.19, 0.21, 1))
 	draw_arc(center, radius - 40.0, 0.0, TAU, 64, Color(_steel, 0.45), 1.5, true)

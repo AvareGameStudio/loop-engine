@@ -14,11 +14,14 @@ signal hold_progress(t: float)
 @export var slowmo_ramp: float = 4.0
 ## Focus spent per real second of slow-mo; a full meter lasts ~0.9 s.
 @export var focus_drain: float = 1.1
+const FOCUS_EMIT_STEP: float = 0.04
 
 var focus: float = 1.0
 var _holding: bool = false
 var _hold_time: float = 0.0
 var _armed: bool = false
+var _tap_buffered: bool = false
+var _empty_signaled: bool = false
 
 
 func arm(enabled: bool = true) -> void:
@@ -27,13 +30,37 @@ func arm(enabled: bool = true) -> void:
 		_cancel_hold()
 
 
+func peek_buffer() -> bool:
+	return _tap_buffered
+
+
+func take_buffer() -> bool:
+	if not _tap_buffered:
+		return false
+	_tap_buffered = false
+	return true
+
+
+func clear_buffer() -> void:
+	_tap_buffered = false
+
+
 func add_focus(amount: float) -> void:
+	var previous: float = focus
 	focus = clampf(focus + amount, 0.0, 1.0)
-	EventBus.focus_changed.emit(focus)
+	if focus > 0.0:
+		_empty_signaled = false
+	var crossed_edge: bool = is_zero_approx(focus) or is_equal_approx(focus, 1.0)
+	if crossed_edge or absf(focus - previous) >= FOCUS_EMIT_STEP:
+		EventBus.focus_changed.emit(focus)
+	if previous > 0.0 and focus <= 0.0 and not _empty_signaled:
+		_empty_signaled = true
+		EventBus.juice_hit.emit("empty_focus", 1.0)
 
 
 func reset_focus() -> void:
 	focus = 1.0
+	_empty_signaled = false
 	EventBus.focus_changed.emit(focus)
 
 
@@ -54,6 +81,9 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _armed:
+		if event.is_action_pressed("tap") and GameState.run_active:
+			_tap_buffered = true
+			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("tap"):
 		_begin_hold()

@@ -131,3 +131,4 @@ func _persist() -> void:
 	GameState.dda_perfect_deg = perfect_deg
 	GameState.dda_good_deg = good_deg
 	GameState.dda_near_deg = near_deg
+	GameState.request_save()

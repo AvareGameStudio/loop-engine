@@ -1,13 +1,15 @@
 extends Node
-## Procedural one-shots, baked once into PCM so nothing is synthesized at hit time.
+## Procedural one-shots, baked once into PCM. Pitch is `pitch_scale` so the
+## cache stays a handful of durations at 440 Hz.
 
 const MIX_RATE: int = 22050
-const VOICES: int = 6
+const VOICES: int = 8
 const ATTACK: float = 0.005
+const BASE_FREQ: float = 440.0
 
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
-var _cache: Dictionary[Vector2i, AudioStreamWAV] = {}
+var _cache: Dictionary[int, AudioStreamWAV] = {}
 ## Consecutive successful timings (Perfect or Good). A miss breaks the climb back to 1.0.
 var _success_streak: int = 0
 
@@ -18,12 +20,13 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	EventBus.tap_evaluated.connect(_on_tap)
-	EventBus.jackpot.connect(func(_m: float, _l: String) -> void: play_tone(880.0, 0.22, 0.35))
+	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.near_miss.connect(func(_r: Dictionary) -> void: play_tone(140.0, 0.28, 0.4))
 	EventBus.stage_cleared.connect(func(_i: int, _p: int) -> void: play_tone(523.25, 0.18, 0.3))
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
 	EventBus.countdown.connect(_on_countdown)
+	EventBus.juice_hit.connect(_on_juice)
 
 
 func _on_run_started() -> void:
@@ -31,8 +34,6 @@ func _on_run_started() -> void:
 	play_tone(392.0, 0.12, 0.2)
 
 
-## Each successful timing steps the tone up (+0.05, cap 1.5x). Perfect stays brighter
-## than Good; volume still swells with Perfect Power. A miss resets the ladder.
 func _on_tap(result: Dictionary) -> void:
 	var grade_name: String = String(result.get("grade_name", ""))
 	match grade_name:
@@ -44,11 +45,28 @@ func _on_tap(result: Dictionary) -> void:
 			if grade_name == "perfect":
 				var power: float = MetaUpgrade.perfect_power()
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
+				# Metal tumbler click under the pitch — the lock seating.
+				play_tone(2100.0, 0.035, 0.18)
 			play_tone(base * pitch, 0.09, volume)
 		"near_miss", "miss":
 			_success_streak = 0
 			if grade_name == "miss":
 				play_tone(110.0, 0.2, 0.35)
+
+
+func _on_jackpot(_mult: float, _label: String) -> void:
+	# Door-bolt thunk instead of a shriek.
+	play_tone(90.0, 0.22, 0.32)
+	play_tone(180.0, 0.14, 0.28)
+
+
+func _on_juice(grade: String, _intensity: float) -> void:
+	match grade:
+		"combo_break":
+			play_tone(196.0, 0.12, 0.26)
+			play_tone(147.0, 0.16, 0.22)
+		"empty_focus":
+			play_tone(90.0, 0.06, 0.2)
 
 
 func _on_countdown(step: int) -> void:
@@ -61,15 +79,16 @@ func _on_countdown(step: int) -> void:
 func play_tone(freq: float, seconds: float, volume: float = 0.3) -> void:
 	var player: AudioStreamPlayer = _players[_next_voice]
 	_next_voice = (_next_voice + 1) % VOICES
-	player.stream = _get_tone(freq, seconds)
+	player.stream = _get_tone(seconds)
+	player.pitch_scale = freq / BASE_FREQ
 	player.volume_db = linear_to_db(volume)
 	player.play()
 
 
-func _get_tone(freq: float, seconds: float) -> AudioStreamWAV:
-	var key := Vector2i(roundi(freq * 100.0), roundi(seconds * 1000.0))
+func _get_tone(seconds: float) -> AudioStreamWAV:
+	var key: int = roundi(seconds * 1000.0)
 	if not _cache.has(key):
-		_cache[key] = _bake(freq, seconds)
+		_cache[key] = _bake(BASE_FREQ, seconds)
 	return _cache[key]
 
 
@@ -79,7 +98,6 @@ func _bake(freq: float, seconds: float) -> AudioStreamWAV:
 	data.resize(frames * 2)
 	for i in frames:
 		var t: float = float(i) / MIX_RATE
-		# Short attack avoids the click a hard 0→1 onset produces.
 		var env: float = minf(t / ATTACK, 1.0) * (1.0 - t / seconds)
 		data.encode_s16(i * 2, int(sin(TAU * freq * t) * env * 32767.0))
 	var wav := AudioStreamWAV.new()

@@ -3,6 +3,13 @@ extends Node
 
 const SAVE_PATH := "user://loop_engine_save.json"
 const SAVE_VERSION := 1
+const THEME_GOAL: int = 5
+const THEME_BY_STAGE := {
+	3: "aurora",
+	5: "ember",
+	7: "void",
+	9: "prism",
+}
 
 var energy: int = 0
 var coins: int = 0
@@ -90,6 +97,16 @@ func claim_vault() -> int:
 func stamp_seen() -> void:
 	last_seen_unix = int(Time.get_unix_time_from_system())
 	request_save()
+
+
+func unlock_theme_for_stage(stage: int) -> void:
+	if not THEME_BY_STAGE.has(stage):
+		return
+	var theme_id: String = String(THEME_BY_STAGE[stage])
+	if unlocked_themes.has(theme_id):
+		return
+	unlocked_themes.append(theme_id)
+	save_game()
 
 
 func reset_run() -> void:

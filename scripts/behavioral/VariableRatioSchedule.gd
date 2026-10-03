@@ -10,10 +10,10 @@ var _remaining: int = 5
 var rng := RandomNumberGenerator.new()
 
 const TABLE := [
-	{"w": 40, "mult": 2.0, "label": "x2"},
-	{"w": 28, "mult": 3.0, "label": "x3"},
-	{"w": 18, "mult": 5.0, "label": "x5"},
-	{"w": 9, "mult": 8.0, "label": "x8"},
+	{"w": 40, "mult": 2.0, "label": "VR_X2"},
+	{"w": 28, "mult": 3.0, "label": "VR_X3"},
+	{"w": 18, "mult": 5.0, "label": "VR_X5"},
+	{"w": 9, "mult": 8.0, "label": "VR_X8"},
 	{"w": 5, "mult": 15.0, "label": "JACKPOT"},
 ]
 

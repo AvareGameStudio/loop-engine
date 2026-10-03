@@ -26,8 +26,11 @@ var _elapsed: float = 0.0
 
 
 func _ready() -> void:
+	EventBus.run_started.connect(func() -> void: set_process(false))
+	EventBus.run_ended.connect(func(_reason: String, _stats: Dictionary) -> void: set_process(true))
 	# Offline hours become a Claim-able vault, not a silent wallet bump.
 	accrue_offline()
+	set_process(not GameState.run_active)
 
 
 func _notification(what: int) -> void:

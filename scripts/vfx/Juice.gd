@@ -11,13 +11,13 @@ extends Node
 @export var max_burst: int = 64
 ## Successful lock: world drops to this scale, then returns after UNLOCK_SLOWMO_SEC.
 const UNLOCK_TIME_SCALE: float = 0.2
-const UNLOCK_SLOWMO_SEC: float = 0.3
+## Shorter than RESPAWN_DELAY so slow-mo ends before the next lock is armed.
+const UNLOCK_SLOWMO_SEC: float = 0.16
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
 var _zoom_tween: Tween
 var _glow_tween: Tween
-var _slowmo_token: int = 0
 
 
 func _ready() -> void:
@@ -83,6 +83,13 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(48, Color(1.0, 0.84, 0.2))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"combo_break":
+			_add_shake(6.0)
+			_punch(0.97)
+			Settings.vibrate(18)
+		"empty_focus":
+			_add_shake(3.0)
+			Settings.vibrate(12)
 
 
 func _add_shake(amount: float) -> void:
@@ -95,22 +102,9 @@ func _zoom_punch(scale: float) -> void:
 	_punch(scale)
 
 
-## Engine.time_scale = 0.2 for 0.3 real seconds, then back to 1.
-## Deferred: the tap handler resets slow-mo at the end of the same call.
+## Deferred: InputProcessor._commit writes slowmo=1.0 at the end of this frame.
 func _trigger_unlock_slowmo() -> void:
-	_slowmo_token += 1
-	_apply_unlock_slowmo.call_deferred(_slowmo_token)
-
-
-func _apply_unlock_slowmo(token: int) -> void:
-	if token != _slowmo_token:
-		return
-	TimeScale.set_slowmo(UNLOCK_TIME_SCALE)
-	get_tree().create_timer(UNLOCK_SLOWMO_SEC, true, false, true).timeout.connect(func() -> void:
-		if token != _slowmo_token:
-			return
-		TimeScale.set_slowmo(1.0)
-	)
+	TimeScale.pulse_slowmo.call_deferred(UNLOCK_TIME_SCALE, UNLOCK_SLOWMO_SEC)
 
 
 func _punch(scale: float) -> void:

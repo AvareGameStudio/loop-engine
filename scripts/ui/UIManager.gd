@@ -30,6 +30,7 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
+@onready var claim_popup: ClaimPopup = $ClaimPopup
 
 var zeigarnik := ZeigarnikTracker.new()
 ## id -> {"ring": QuestRing, "title": Label, "subtitle": Label}
@@ -52,8 +53,11 @@ func _ready() -> void:
 	x3_btn.pressed.connect(_x3)
 	market_btn.pressed.connect(market_popup.open)
 	run_over_market_btn.pressed.connect(market_popup.open)
+	shop_btn.visible = OS.is_debug_build()
 	shop_btn.pressed.connect(_toggle_auto_tap)
 	settings_btn.pressed.connect(settings_popup.open)
+	passive_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	passive_label.gui_input.connect(_on_vault_chip)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.multiplier_changed.connect(_on_mult)
@@ -70,6 +74,8 @@ func _ready() -> void:
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.focus_changed.connect(_on_focus)
 	EventBus.countdown.connect(_on_countdown)
+	EventBus.vr_tension.connect(_on_tension)
+	EventBus.juice_hit.connect(_on_juice)
 	_refresh_currency()
 	_refresh_market()
 	_refresh_session()
@@ -119,6 +125,7 @@ func _refresh_session() -> void:
 	stage_bar.value = GameState.hits_in_stage
 	score_label.text = str(GameState.session_score)
 	combo_label.text = "x%d" % GameState.session_combo
+	_refresh_shop()
 
 
 func _on_tap(result: Dictionary) -> void:
@@ -154,6 +161,28 @@ func _on_mult(value: float) -> void:
 
 func _on_focus(value: float) -> void:
 	focus_bar.value = value
+
+
+func _on_tension(value: float) -> void:
+	# Gold pulse when a VR drop is close, without revealing the interval.
+	focus_bar.modulate = Color(1.0, 0.84, 0.3, 1) if value >= 0.7 else Color.WHITE
+
+
+func _on_juice(grade: String, _intensity: float) -> void:
+	if grade != "empty_focus":
+		return
+	focus_bar.modulate = Color(1.0, 0.3, 0.35, 1)
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(focus_bar, "modulate", Color.WHITE, 0.28)
+
+
+func _on_vault_chip(event: InputEvent) -> void:
+	if GameState.unclaimed_energy <= 0:
+		return
+	if event is InputEventMouseButton and event.pressed:
+		claim_popup.open(GameState.unclaimed_energy, true)
+		get_viewport().set_input_as_handled()
 
 
 func _on_energy(amount: int, delta: int) -> void:

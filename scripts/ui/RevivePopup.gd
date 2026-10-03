@@ -34,7 +34,8 @@ func present(result: Dictionary) -> void:
 	_result = result
 	_open = true
 	root.visible = true
-	title.text = tr("REVIVE_TITLE")
+	var band: bool = bool(result.get("in_loss_aversion_band", false))
+	title.text = tr("REVIVE_TITLE" if band else "REVIVE_TITLE_FAR")
 	body.text = "\n".join([
 		tr("REVIVE_BODY") % float(result.get("overshoot_deg", 0.0)),
 		_record_line(ratio),
@@ -57,6 +58,8 @@ static func record_ratio() -> float:
 
 
 func should_offer(_result: Dictionary, ratio: float) -> bool:
+	if GameState.revive_used:
+		return false
 	return ratio >= min_record_pct / 100.0
 
 
