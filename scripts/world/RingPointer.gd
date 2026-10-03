@@ -2,9 +2,6 @@ class_name RingPointer
 extends Node2D
 ## Lockpick swept around the vault dial. The shaft is steel; the tip is a laser
 ## tooth bent along travel. RingArena drives `rotation`.
-## The first 3 seconds of a run show a blinking TAP! on the pick — no written coach.
-
-const COACH_SECONDS: float = 3.0
 
 @export var length: float = 200.0
 
@@ -26,27 +23,6 @@ var grade: String = "":
 var _pulse: float = 0.0
 var _flip_flash: float = 0.0
 var _flash_tween: Tween
-var _coach_left: float = 0.0
-var _blink: float = 0.0
-
-
-func _ready() -> void:
-	EventBus.run_started.connect(_begin_coach)
-	EventBus.run_ended.connect(_end_coach)
-	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _end_coach())
-
-
-func _begin_coach() -> void:
-	_coach_left = COACH_SECONDS
-	_blink = 0.0
-	queue_redraw()
-
-
-func _end_coach(_reason: String = "", _stats: Dictionary = {}) -> void:
-	if _coach_left <= 0.0:
-		return
-	_coach_left = 0.0
-	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -55,11 +31,6 @@ func _process(delta: float) -> void:
 	self_modulate.a = 0.88 + 0.12 * sin(_pulse)
 	if _flip_flash > 0.0:
 		_flip_flash = maxf(0.0, _flip_flash - real_dt * 2.5)
-		queue_redraw()
-	if _coach_left > 0.0:
-		_coach_left = maxf(0.0, _coach_left - real_dt)
-		_blink = wrapf(_blink + real_dt * 8.0, 0.0, TAU)
-		# Text is counter-rotated in _draw, so it has to be redrawn as the pick spins.
 		queue_redraw()
 
 
@@ -98,27 +69,6 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 13.0, Color(0.34, 0.36, 0.39))
 	draw_circle(Vector2.ZERO, 7.0, Color(0.72, 0.75, 0.78))
 	draw_line(Vector2(-6.0, 0.0), Vector2(6.0, 0.0), Color(0.08, 0.08, 0.09), 2.0, true)
-	if _coach_left > 0.0:
-		_draw_tap(tip)
-
-
-## Upright blink sitting on the pick. The opening coach is this mark only.
-func _draw_tap(tip: Vector2) -> void:
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return
-	var font_size: int = 32
-	var text := "TAP!"
-	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	var blink: float = 1.0 if sin(_blink) > 0.0 else 0.12
-	var fill := Color(1.0, 0.9, 0.4, blink)
-	var shadow := Color(0.05, 0.04, 0.02, blink)
-	draw_set_transform(tip, -rotation, Vector2.ONE)
-	var origin := Vector2(-width * 0.5, -48.0)
-	for offset in [Vector2(-1.5, 0.0), Vector2(1.5, 0.0), Vector2(0.0, -1.5), Vector2(0.0, 1.5)]:
-		draw_string(font, origin + offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, shadow)
-	draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, fill)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _grade_color() -> Color:

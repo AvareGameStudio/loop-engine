@@ -31,6 +31,11 @@ func set_slowmo(scale: float) -> void:
 	_apply()
 
 
+## Public name for a timed victory freeze. Hitstop still wins over this value.
+func set_time_scale(scale: float) -> void:
+	set_slowmo(scale)
+
+
 func reset() -> void:
 	slowmo = 1.0
 	_hitstop_left = 0.0

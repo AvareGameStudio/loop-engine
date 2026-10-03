@@ -45,7 +45,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.043, 0.063, 0.125, 1)
+color = Color(0.035, 0.032, 0.03, 1)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(360, 560)

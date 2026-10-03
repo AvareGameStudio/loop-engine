@@ -9,15 +9,17 @@ extends Node
 @export var glow: CanvasItem
 ## Particle buffer size; individual bursts scale down via amount_ratio.
 @export var max_burst: int = 64
-## Successful lock: world drops to this scale, then returns after UNLOCK_SLOWMO_SEC.
-const UNLOCK_TIME_SCALE: float = 0.2
-const UNLOCK_SLOWMO_SEC: float = 0.3
+## Ring clear: world drops to this scale, then returns before the next beat.
+const RING_TIME_SCALE: float = 0.2
+const RING_SLOWMO_SEC: float = 0.3
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
 var _zoom_tween: Tween
 var _glow_tween: Tween
+var _zone_tween: Tween
 var _slowmo_token: int = 0
+var _sparks: CPUParticles2D
 
 
 func _ready() -> void:
@@ -25,8 +27,10 @@ func _ready() -> void:
 		_base_zoom = camera.zoom
 	if burst:
 		burst.amount = max_burst
+	_sparks = _make_sparks()
 	EventBus.juice_hit.connect(_on_juice)
 	EventBus.tap_evaluated.connect(_on_tap)
+	EventBus.stage_cleared.connect(_on_ring_cleared)
 
 
 func _process(delta: float) -> void:
@@ -52,15 +56,16 @@ func _on_juice(grade: String, intensity: float) -> void:
 	match grade:
 		"perfect":
 			_add_shake(7.0 * power)
-			_zoom_punch(1.16 + 0.04 * (power - 1.0))
-			_trigger_unlock_slowmo()
+			_zoom_punch(1.06 + 0.02 * (power - 1.0))
+			_bounce_zone()
+			_emit_perfect_sparks()
 			_burst(int(28.0 * power), Color(1.0, 0.84, 0.28).lerp(Color(1.0, 0.95, 0.55), clampf(power - 1.0, 0.0, 1.0)))
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
 			_pulse_glow(1.4 * power)
 		"good":
 			_add_shake(4.0 * intensity)
-			_zoom_punch(1.1)
-			_trigger_unlock_slowmo()
+			_zoom_punch(1.04)
+			_bounce_zone()
 			_burst(16, Color(0.45, 0.75, 1.0))
 		"near_miss":
 			TimeScale.hitstop(0.18)
@@ -89,28 +94,44 @@ func _add_shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
-## Camera punches in on a cracked lock, then eases back. Ignores time scale so the
-## 0.2 slow-mo doesn't stretch the zoom.
+## 0.08s camera punch. Real time, so a victory slow-mo doesn't stretch it.
 func _zoom_punch(scale: float) -> void:
 	_punch(scale)
 
 
-## Engine.time_scale = 0.2 for 0.3 real seconds, then back to 1.
-## Deferred: the tap handler resets slow-mo at the end of the same call.
-func _trigger_unlock_slowmo() -> void:
+## Full ring cleared: TimeScale 0.2 for 0.3s, then back to 1 before the next beat.
+## Deferred because the tap handler restores slow-mo at the end of the same call.
+func _on_ring_cleared(_index: int, _payout: int) -> void:
+	_zoom_punch(1.08)
+	_bounce_zone()
 	_slowmo_token += 1
-	_apply_unlock_slowmo.call_deferred(_slowmo_token)
+	_apply_ring_slowmo.call_deferred(_slowmo_token)
 
 
-func _apply_unlock_slowmo(token: int) -> void:
+func _apply_ring_slowmo(token: int) -> void:
 	if token != _slowmo_token:
 		return
-	TimeScale.set_slowmo(UNLOCK_TIME_SCALE)
-	get_tree().create_timer(UNLOCK_SLOWMO_SEC, true, false, true).timeout.connect(func() -> void:
+	TimeScale.set_time_scale(RING_TIME_SCALE)
+	get_tree().create_timer(RING_SLOWMO_SEC, true, false, true).timeout.connect(func() -> void:
 		if token != _slowmo_token:
 			return
-		TimeScale.set_slowmo(1.0)
+		TimeScale.set_time_scale(1.0)
 	)
+
+
+func _bounce_zone() -> void:
+	if pointer == null:
+		return
+	var zone := pointer.get_parent() as Node2D
+	if zone == null:
+		return
+	if _zone_tween:
+		_zone_tween.kill()
+	zone.scale = Vector2.ONE
+	_zone_tween = create_tween()
+	_zone_tween.set_ignore_time_scale(true)
+	_zone_tween.tween_property(zone, "scale", Vector2(1.045, 1.045), 0.04).set_trans(Tween.TRANS_QUAD)
+	_zone_tween.tween_property(zone, "scale", Vector2.ONE, 0.04).set_trans(Tween.TRANS_BACK)
 
 
 func _punch(scale: float) -> void:
@@ -120,8 +141,49 @@ func _punch(scale: float) -> void:
 		_zoom_tween.kill()
 	_zoom_tween = create_tween()
 	_zoom_tween.set_ignore_time_scale(true)
-	_zoom_tween.tween_property(camera, "zoom", _base_zoom * scale, 0.05).set_trans(Tween.TRANS_QUAD)
-	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.12).set_trans(Tween.TRANS_BACK)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom * scale, 0.03).set_trans(Tween.TRANS_QUAD)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.05).set_trans(Tween.TRANS_BACK)
+
+
+func _make_sparks() -> CPUParticles2D:
+	var sparks := CPUParticles2D.new()
+	sparks.name = "PerfectSparks"
+	sparks.one_shot = true
+	sparks.emitting = false
+	sparks.amount = 24
+	sparks.lifetime = 0.4
+	sparks.explosiveness = 0.95
+	sparks.randomness = 0.4
+	sparks.spread = 180.0
+	sparks.gravity = Vector2(0, 280)
+	sparks.initial_velocity_min = 90.0
+	sparks.initial_velocity_max = 240.0
+	sparks.scale_amount_min = 1.4
+	sparks.scale_amount_max = 3.2
+	sparks.color = Color(1.0, 0.84, 0.28, 1)
+	sparks.texture = _spark_texture()
+	sparks.z_index = 6
+	var host: Node = pointer.get_parent() if pointer else self
+	host.add_child(sparks)
+	return sparks
+
+
+func _spark_texture() -> Texture2D:
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var center := Vector2(3.5, 3.5)
+	for y in 8:
+		for x in 8:
+			if Vector2(x, y).distance_to(center) <= 3.2:
+				img.set_pixel(x, y, Color(1, 0.9, 0.45, 1))
+	return ImageTexture.create_from_image(img)
+
+
+func _emit_perfect_sparks() -> void:
+	if pointer == null or _sparks == null:
+		return
+	_sparks.global_position = pointer.to_global(Vector2(pointer.length, 0.0))
+	_sparks.restart()
 
 
 func _burst(amount: int, color: Color) -> void:
