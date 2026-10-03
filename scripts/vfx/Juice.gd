@@ -15,7 +15,7 @@ extends Node
 ## Ring clear: hold this scale, then restore after RING_SLOWMO_SEC real seconds.
 const RING_TIME_SCALE: float = 0.15
 const RING_SLOWMO_SEC: float = 0.25
-const HIT_ZOOM := Vector2(1.04, 1.04)
+const HIT_ZOOM := Vector2(1.05, 1.05)
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
@@ -71,7 +71,7 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
 			_flash_pin(0.18, 1.0)
 			_pulse_glow(1.4 * power)
-			Settings.vibrate(16)
+			Settings.vibrate(40, 1.0)
 		"good":
 			_add_shake(4.0 * intensity)
 			_zoom_punch_success()
@@ -80,7 +80,7 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_flash_pointer(0.1, 0.65)
 			_flash_pin(0.12, 0.8)
 			_pulse_glow(0.9)
-			Settings.vibrate(12)
+			Settings.vibrate(26, 0.8)
 		"near_miss":
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
@@ -121,7 +121,7 @@ func _add_shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
-## Successful timing: zoom to 1.04, then ease back to 1.0 over 0.1s.
+## Successful timing: zoom to 1.05, then ease back to 1.0 over 0.1s.
 func _zoom_punch_success() -> void:
 	if camera == null:
 		return
@@ -137,25 +137,33 @@ func _zoom_punch_success() -> void:
 ## Deferred because the tap handler restores slow-mo at the end of the same call.
 func _on_ring_cleared(_index: int, _payout: int) -> void:
 	_zoom_punch_success()
-	_bounce_zone()
+	bounce_node(_dial(), 1.22)
 	_pulse_glow(2.2)
-	spawn_vault_coins(_contact_point())
+	spawn_vault_rain()
+	Settings.vibrate(55, 1.0)
 	TimeScale.pulse_slowmo.call_deferred(RING_TIME_SCALE, RING_SLOWMO_SEC)
 
 
 func _bounce_zone() -> void:
-	if pointer == null:
-		return
-	var zone := pointer.get_parent() as Node2D
-	if zone == null:
+	bounce_node(_dial(), 1.08)
+
+
+func bounce_node(node: Node2D, peak: float) -> void:
+	if node == null:
 		return
 	if _zone_tween:
 		_zone_tween.kill()
-	zone.scale = Vector2.ONE
+	node.scale = Vector2.ONE
 	_zone_tween = create_tween()
 	_zone_tween.set_ignore_time_scale(true)
-	_zone_tween.tween_property(zone, "scale", Vector2(1.18, 1.18), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_zone_tween.tween_property(zone, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_zone_tween.tween_property(node, "scale", Vector2(peak, peak), 0.06).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_zone_tween.tween_property(node, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _dial() -> Node2D:
+	if pointer == null:
+		return null
+	return pointer.get_parent() as Node2D
 
 
 func _punch(scale: float) -> void:
@@ -191,6 +199,48 @@ func spawn_hit_sparks(global_pos: Vector2) -> void:
 	sparks.global_position = global_pos
 	sparks.emitting = true
 	get_tree().create_timer(sparks.lifetime + 0.05, true, false, true).timeout.connect(sparks.queue_free)
+
+
+## Gold and diamonds fall across the phone when the door slams open.
+func spawn_vault_rain() -> void:
+	var layer: Node = glow.get_parent() if glow else (get_tree().current_scene if get_tree() else self)
+	_drop_rain(layer, "VaultRainGold", Color(1.0, 0.82, 0.2, 1.0), 64, 0.0)
+	_drop_rain(layer, "VaultRainGem", Color(0.8, 0.94, 1.0, 1.0), 28, 0.08)
+
+
+func _drop_rain(layer: Node, rain_name: String, color: Color, count: int, delay: float) -> void:
+	var rain := CPUParticles2D.new()
+	rain.name = rain_name
+	rain.one_shot = true
+	rain.amount = count
+	rain.lifetime = 1.35
+	rain.explosiveness = 0.25
+	rain.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	rain.emission_rect_extents = Vector2(380.0, 10.0)
+	rain.direction = Vector2(0, 1)
+	rain.spread = 18.0
+	rain.gravity = Vector2(0, 980)
+	rain.initial_velocity_min = 80.0
+	rain.initial_velocity_max = 220.0
+	rain.scale_amount_min = 0.7
+	rain.scale_amount_max = 1.5
+	rain.color = color
+	rain.texture = _spark_texture()
+	rain.z_index = 12
+	layer.add_child(rain)
+	rain.position = Vector2(360, -30)
+	if delay <= 0.0:
+		rain.emitting = true
+	else:
+		rain.emitting = false
+		get_tree().create_timer(delay, true, false, true).timeout.connect(func() -> void:
+			if is_instance_valid(rain):
+				rain.emitting = true
+		)
+	get_tree().create_timer(rain.lifetime + delay + 0.1, true, false, true).timeout.connect(func() -> void:
+		if is_instance_valid(rain):
+			rain.queue_free()
+	)
 
 
 ## Gold spray toward the HUD counter when the vault door opens.

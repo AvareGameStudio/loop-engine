@@ -38,7 +38,9 @@ func _on_run_started() -> void:
 
 func _on_stage_cleared(_index: int, _payout: int) -> void:
 	hit_streak = 0
-	play_tone(523.25, 0.18, 0.3)
+	play_tone(55.0, 0.32, 0.46)
+	play_tone(110.0, 0.2, 0.32)
+	play_tone(380.0, 0.1, 0.24)
 
 
 ## Successful hits climb: pitch = clamp(1 + streak * 0.08, 1, 1.8). A miss breaks it.
@@ -86,8 +88,9 @@ func _on_countdown(step: int) -> void:
 
 
 func play_click() -> void:
-	play_tone(2400.0, 0.02, 0.22)
-	play_tone(180.0, 0.045, 0.16)
+	play_tone(78.0, 0.08, 0.38)
+	play_tone(150.0, 0.06, 0.28)
+	play_tone(1480.0, 0.035, 0.2)
 
 
 func play_siren() -> void:
