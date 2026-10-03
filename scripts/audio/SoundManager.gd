@@ -50,16 +50,17 @@ func _on_tap(result: Dictionary) -> void:
 			var pitch: float = clampf(1.0 + float(hit_streak) * PITCH_STEP, 1.0, PITCH_CAP)
 			var base_freq: float = 740.0 if grade_name == "perfect" else 520.0
 			var volume: float = 0.26
+			play_click()
 			if grade_name == "perfect":
 				var power: float = MetaUpgrade.perfect_power()
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
-				# Metal tumbler click under the pitch — the lock seating.
-				play_tone(2100.0, 0.035, 0.18)
 			play_tone(base_freq, 0.09, volume, pitch)
 		"near_miss", "miss":
 			hit_streak = 0
 			if grade_name == "miss":
-				play_tone(110.0, 0.2, 0.35)
+				play_siren()
+			else:
+				play_tone(140.0, 0.16, 0.3)
 
 
 func _on_jackpot(_mult: float, _label: String) -> void:
@@ -82,6 +83,17 @@ func _on_countdown(step: int) -> void:
 		play_tone(660.0, 0.06, 0.22)
 	else:
 		play_tone(990.0, 0.1, 0.28)
+
+
+func play_click() -> void:
+	play_tone(2400.0, 0.02, 0.22)
+	play_tone(180.0, 0.045, 0.16)
+
+
+func play_siren() -> void:
+	play_tone(640.0, 0.32, 0.38)
+	get_tree().create_timer(0.16, true, false, true).timeout.connect(func() -> void: play_tone(920.0, 0.32, 0.34))
+	get_tree().create_timer(0.34, true, false, true).timeout.connect(func() -> void: play_tone(640.0, 0.28, 0.3))
 
 
 func play_tone(freq: float, seconds: float, volume: float = 0.3, pitch_scale: float = 1.0) -> void:

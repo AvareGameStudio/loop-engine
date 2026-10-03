@@ -8,8 +8,6 @@ const OPEN := Color(0.45, 0.9, 1.0, 1)
 const FOCUS := Color(1.0, 0.84, 0.3, 1)
 const DONE := Color(0.3, 0.95, 0.45, 1)
 const GAP := Color(1.0, 0.55, 1.0, 1)
-const DASH_RAD: float = 0.11
-const GAP_RAD: float = 0.07
 
 @export var thickness: float = 10.0
 @export var font_size: int = 20
@@ -61,29 +59,26 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var center: Vector2 = size * 0.5
-	var radius: float = minf(size.x, size.y) * 0.5 - thickness * 1.5
+	var radius: float = minf(size.x, size.y) * 0.5 - thickness * 1.8
 	var color: Color = DONE if complete else (FOCUS if focused else OPEN)
-	var start: float = -PI * 0.5
-	draw_arc(center, radius, 0.0, TAU, 64, TRACK, thickness, true)
-	if progress > 0.001:
-		draw_arc(center, radius, start, start + TAU * progress, 64, color, thickness, true)
-	if not complete and progress < 0.999:
-		# Zeigarnik: the missing slice is the brightest thing on the ring.
-		var blink: float = 0.45 + 0.55 * (0.5 + 0.5 * sin(_pulse))
-		_draw_dashed_arc(center, radius, start + TAU * progress, start + TAU, Color(GAP, blink), thickness + 1.5)
-	if focused:
-		var alpha: float = 0.2 + 0.4 * (0.5 + 0.5 * sin(_pulse))
-		draw_arc(center, radius + thickness, 0.0, TAU, 64, Color(FOCUS, alpha), 2.0, true)
+	var pins: int = 8
+	var seated: int = pins if complete else clampi(roundi(progress * float(pins)), 0, pins - 1 if progress < 0.999 else pins)
+	for i in pins:
+		var angle: float = -PI * 0.5 + TAU * float(i) / float(pins)
+		var pos: Vector2 = center + Vector2.from_angle(angle) * radius
+		var locked: bool = i < seated
+		draw_circle(pos, thickness * 0.95, Color(0.08, 0.09, 0.12, 1.0))
+		draw_arc(pos, thickness * 0.95, 0.0, TAU, 12, Color(0.4, 0.42, 0.46, 1.0), 1.5, true)
+		var pin_color: Color = color if locked else TRACK
+		var pin_radius: float = thickness * (0.42 if locked else 0.72)
+		draw_circle(pos, pin_radius, pin_color)
+		if locked:
+			draw_line(pos, center + Vector2.from_angle(angle) * (radius - thickness * 1.3), pin_color, 2.2, true)
+		elif focused:
+			var blink: float = 0.35 + 0.65 * (0.5 + 0.5 * sin(_pulse + float(i)))
+			draw_arc(pos, thickness * 1.15, 0.0, TAU, 12, Color(GAP, blink), 1.6, true)
 	var font: Font = get_theme_default_font()
 	var text: String = tr("QUEST_PERCENT") % roundi(progress * 100.0)
 	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	var baseline: float = center.y + (font.get_ascent(font_size) - font.get_descent(font_size)) * 0.5
 	draw_string(font, Vector2(center.x - width * 0.5, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
-
-
-func _draw_dashed_arc(center: Vector2, radius: float, from_a: float, to_a: float, color: Color, width: float) -> void:
-	var a: float = from_a
-	while a < to_a - 0.001:
-		var b: float = minf(a + DASH_RAD, to_a)
-		draw_arc(center, radius, a, b, 8, color, width, true)
-		a += DASH_RAD + GAP_RAD

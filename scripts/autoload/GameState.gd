@@ -28,6 +28,7 @@ var equipped_theme: String = "neon"
 var no_ads: bool = false
 var auto_tap: bool = false
 var cosmetics: PackedStringArray = PackedStringArray(["default"])
+var equipped_dial: String = "steel"
 
 var session_score: int = 0
 var session_combo: int = 0
@@ -150,6 +151,7 @@ func to_dict() -> Dictionary:
 		"no_ads": no_ads,
 		"auto_tap": auto_tap,
 		"cosmetics": Array(cosmetics),
+		"equipped_dial": equipped_dial,
 		"dda_rpm": dda_rpm,
 		"dda_perfect_deg": dda_perfect_deg,
 		"dda_good_deg": dda_good_deg,
@@ -179,6 +181,35 @@ func from_dict(data: Dictionary) -> void:
 	unlocked_themes = PackedStringArray(themes)
 	var skins: Array = data.get("cosmetics", ["default"])
 	cosmetics = PackedStringArray(skins)
+	equipped_dial = String(data.get("equipped_dial", "steel"))
+
+
+func owns_dial(id: String) -> bool:
+	return id == "steel" or cosmetics.has(id)
+
+
+func buy_dial(id: String) -> bool:
+	if not ["steel", "gold", "obsidian"].has(id):
+		return false
+	if owns_dial(id):
+		equip_dial(id)
+		return true
+	var cost: int = 80 if id == "gold" else 140
+	if coins < cost:
+		return false
+	add_coins(-cost)
+	cosmetics.append(id)
+	equip_dial(id)
+	save_game()
+	return true
+
+
+func equip_dial(id: String) -> void:
+	if not owns_dial(id):
+		return
+	equipped_dial = id
+	EventBus.cosmetic_equipped.emit(id)
+	request_save()
 
 
 func request_save() -> void:

@@ -6,6 +6,38 @@ extends RefCounted
 const TEASE := 0.82
 const VAULT_TEASE := 0.9
 
+var _gate_hot: bool = false
+var _gate_ready: bool = true
+var _closest: float = 180.0
+
+
+## Rearm when a new tumbler is placed. One pass per gate, so slow-mo cannot stack.
+func arm_gate() -> void:
+	_gate_hot = false
+	_gate_ready = true
+	_closest = 180.0
+
+
+func note_tap() -> void:
+	_gate_ready = false
+	_gate_hot = false
+
+
+## True once when the needle sweeps through the pin and the player never taps.
+func passed_pin(error_deg: float, near_deg: float) -> bool:
+	if not _gate_ready:
+		return false
+	var tight: float = minf(near_deg, 8.0)
+	if error_deg <= tight:
+		_gate_hot = true
+		_closest = minf(_closest, error_deg)
+		return false
+	if _gate_hot and error_deg > near_deg:
+		_gate_ready = false
+		_gate_hot = false
+		return _closest <= tight
+	return false
+
 
 func loops() -> Array:
 	var pulse_cost := MetaUpgrade.cost("generator")

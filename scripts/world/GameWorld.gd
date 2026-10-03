@@ -47,6 +47,9 @@ func _process(_delta: float) -> void:
 		input_proc.take_buffer()
 		_on_commit("buffer", 0.0)
 		return
+	if arena.spinning and zeigarnik.passed_pin(err, float(arena.windows.get("near", 22.0))):
+		TimeScale.pulse_slowmo(0.25, 0.3)
+		EventBus.juice_hit.emit("tension", 1.0)
 	if not GameState.auto_tap:
 		return
 	# Auto-Tap only fires inside the Good window: it keeps runs alive,
@@ -66,6 +69,7 @@ func start_run() -> void:
 	arena.last_grade = ""
 	arena.spinning = true
 	arena.randomize_target(true)
+	zeigarnik.arm_gate()
 	EventBus.run_started.emit()
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
 	EventBus.session_changed.emit()
@@ -76,6 +80,7 @@ func _on_commit(mode: String, _held: float) -> void:
 	if _busy or not GameState.run_active:
 		return
 	_busy = true
+	zeigarnik.note_tap()
 	input_proc.clear_buffer()
 	# Disarmed until respawn: the new target is ≥90° away, so any tap in between is a sure miss.
 	input_proc.arm(false)
@@ -172,6 +177,7 @@ func _after_hit() -> void:
 		return
 	TimeScale.set_slowmo(1.0)
 	arena.randomize_target(false)
+	zeigarnik.arm_gate()
 	arena.spinning = true
 	_busy = false
 	input_proc.arm(true)
@@ -218,6 +224,7 @@ func _on_revive(success: bool) -> void:
 		if not GameState.run_active:
 			return
 	EventBus.countdown.emit(0)
+	zeigarnik.arm_gate()
 	arena.spinning = true
 	_busy = false
 	input_proc.arm(true)
