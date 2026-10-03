@@ -32,6 +32,11 @@ func set_slowmo(scale: float) -> void:
 	_apply()
 
 
+## Public name for a timed victory freeze. Hitstop still wins over this value.
+func set_time_scale(scale: float) -> void:
+	set_slowmo(scale)
+
+
 ## Real-time pulse. A later pulse or reset() cancels the previous restore.
 func pulse_slowmo(scale: float, real_seconds: float) -> void:
 	_pulse_token += 1

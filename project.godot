@@ -57,4 +57,4 @@ locale/translations=PackedStringArray("res://translations/strings.en.translation
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.043, 0.063, 0.125, 1)
+environment/defaults/default_clear_color=Color(0.043137, 0.047059, 0.062745, 1)

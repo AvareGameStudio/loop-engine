@@ -6,12 +6,14 @@ const MIX_RATE: int = 22050
 const VOICES: int = 8
 const ATTACK: float = 0.005
 const BASE_FREQ: float = 440.0
+const PITCH_STEP: float = 0.08
+const PITCH_CAP: float = 1.8
 
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _cache: Dictionary[int, AudioStreamWAV] = {}
-## Consecutive successful timings (Perfect or Good). A miss breaks the climb back to 1.0.
-var _success_streak: int = 0
+## Consecutive successful hits. A miss or a new run resets the climb.
+var hit_streak: int = 0
 
 
 func _ready() -> void:
@@ -22,7 +24,7 @@ func _ready() -> void:
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.near_miss.connect(func(_r: Dictionary) -> void: play_tone(140.0, 0.28, 0.4))
-	EventBus.stage_cleared.connect(func(_i: int, _p: int) -> void: play_tone(523.25, 0.18, 0.3))
+	EventBus.stage_cleared.connect(_on_stage_cleared)
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
 	EventBus.countdown.connect(_on_countdown)
@@ -30,26 +32,32 @@ func _ready() -> void:
 
 
 func _on_run_started() -> void:
-	_success_streak = 0
+	hit_streak = 0
 	play_tone(392.0, 0.12, 0.2)
 
 
+func _on_stage_cleared(_index: int, _payout: int) -> void:
+	hit_streak = 0
+	play_tone(523.25, 0.18, 0.3)
+
+
+## Successful hits climb: pitch = clamp(1 + streak * 0.08, 1, 1.8). A miss breaks it.
 func _on_tap(result: Dictionary) -> void:
 	var grade_name: String = String(result.get("grade_name", ""))
 	match grade_name:
 		"perfect", "good":
-			_success_streak += 1
-			var pitch: float = TimingEngine.perfect_combo_pitch(_success_streak)
-			var base: float = 740.0 if grade_name == "perfect" else 520.0
+			hit_streak += 1
+			var pitch: float = clampf(1.0 + float(hit_streak) * PITCH_STEP, 1.0, PITCH_CAP)
+			var base_freq: float = 740.0 if grade_name == "perfect" else 520.0
 			var volume: float = 0.26
 			if grade_name == "perfect":
 				var power: float = MetaUpgrade.perfect_power()
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
 				# Metal tumbler click under the pitch — the lock seating.
 				play_tone(2100.0, 0.035, 0.18)
-			play_tone(base * pitch, 0.09, volume)
+			play_tone(base_freq, 0.09, volume, pitch)
 		"near_miss", "miss":
-			_success_streak = 0
+			hit_streak = 0
 			if grade_name == "miss":
 				play_tone(110.0, 0.2, 0.35)
 
@@ -76,11 +84,11 @@ func _on_countdown(step: int) -> void:
 		play_tone(990.0, 0.1, 0.28)
 
 
-func play_tone(freq: float, seconds: float, volume: float = 0.3) -> void:
+func play_tone(freq: float, seconds: float, volume: float = 0.3, pitch_scale: float = 1.0) -> void:
 	var player: AudioStreamPlayer = _players[_next_voice]
 	_next_voice = (_next_voice + 1) % VOICES
 	player.stream = _get_tone(seconds)
-	player.pitch_scale = freq / BASE_FREQ
+	player.pitch_scale = (freq / BASE_FREQ) * pitch_scale
 	player.volume_db = linear_to_db(volume)
 	player.play()
 
