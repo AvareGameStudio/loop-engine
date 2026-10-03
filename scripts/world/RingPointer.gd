@@ -34,13 +34,14 @@ func _process(delta: float) -> void:
 
 
 ## Drives hit_flash.gdshader; runs in real time so hitstop doesn't stretch it.
-func flash(seconds: float = 0.16) -> void:
+## `peak` is Perfect Power: a freshly bought upgrade flashes harder on the next Perfect.
+func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
 	var mat := material as ShaderMaterial
 	if mat == null:
 		return
 	if _flash_tween:
 		_flash_tween.kill()
-	mat.set_shader_parameter("amount", 1.0)
+	mat.set_shader_parameter("amount", peak)
 	_flash_tween = create_tween()
 	_flash_tween.set_ignore_time_scale(true)
 	_flash_tween.tween_property(mat, "shader_parameter/amount", 0.0, seconds)

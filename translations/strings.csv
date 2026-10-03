@@ -6,6 +6,8 @@ HUD_PAYOUT,PAYOUT x%.1f,ÖDÜL x%.1f
 HUD_ENERGY,ENERGY  %d,ENERJİ  %d
 HUD_COINS,COINS  %d,JETON  %d
 HUD_PASSIVE,IDLE  +%.1f/s,BOŞTA  +%.1f/sn
+HUD_VAULT,VAULT  %d,KUMBARA  %d
+HUD_PULSE,AUTO-PULSE,OTO-DÖNGÜ
 HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
 QUEST_PERCENT,%d%%,%%%d
@@ -17,10 +19,11 @@ JACKPOT,JACKPOT,BÜYÜK İKRAMİYE
 COUNTDOWN_GO,GO,BAŞLA
 AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
 AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
-LOOP_GENERATOR_TITLE,Generator Speed,Jeneratör Hızı
-LOOP_GENERATOR_SUB,Lv %d  ·  %d / %d energy,Sv %d  ·  %d / %d enerji
-LOOP_MULT_TITLE,Global Multiplier,Genel Çarpan
-LOOP_MULT_SUB,Lv %d  ·  next at %d,Sv %d  ·  sonraki: %d
+LOOP_GENERATOR_TITLE,Auto-Pulse,Oto-Döngü
+LOOP_GENERATOR_SUB,Lv %d  ·  %d / %d to next pulse,Sv %d  ·  sonraki darbe: %d / %d
+LOOP_VAULT_SUB,%d waiting in the vault,Kumbara: %d bekliyor
+LOOP_MULT_TITLE,Perfect Power,Perfect Gücü
+LOOP_MULT_SUB,Lv %d  ·  next burst at %d,Sv %d  ·  sonraki patlama: %d
 LOOP_RING_TITLE,Ring %d,Halka %d
 LOOP_RING_SUB,%d / %d locks,%d / %d kilit
 LOOP_THEMES_TITLE,Theme Collection,Tema Koleksiyonu
@@ -36,6 +39,8 @@ RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
 REVIVE_TITLE,SO CLOSE!,ÇOK YAKINDIN!
 REVIVE_BODY,You missed the zone by just %.1f°,Bölgeyi sadece %.1f° farkla kaçırdın
 REVIVE_RECORD,Record pace: %d%%  ·  Best: %d,Rekora yakınlık: %%%d  ·  Rekor: %d
+REVIVE_HITS_LEFT,Only %d hits from your record!,Rekoruna sadece %d atış kaldı!
+REVIVE_HITS_LEFT_ONE,Only 1 hit from your record!,Rekoruna sadece 1 atış kaldı!
 REVIVE_NEW_RECORD,You're on a NEW RECORD pace!,YENİ REKOR yolundasın!
 REVIVE_FIRST_RECORD,Your first record is on the line!,İlk rekorun elinden kaçmasın!
 REVIVE_PROMPT,Watch to revive this run.,İzle ve bu turu kurtar.
@@ -51,14 +56,19 @@ SETTINGS_VIBRATION,Vibration,Titreşim
 SETTINGS_CLOSE,Close,Kapat
 MARKET_TITLE,MARKET,PAZAR
 MARKET_BALANCE,Energy %d  ·  Coins %d,Enerji %d  ·  Jeton %d
-MARKET_PASSIVE,Idle production: +%.1f energy/s,Boşta üretim: +%.1f enerji/sn
+MARKET_PASSIVE,The vault fills while you're away.,Kumbara sen yokken dolar.
 MARKET_LEVEL,Lv %d,Sv %d
 MARKET_COST_ENERGY,%d energy,%d enerji
 MARKET_COST_COINS,%d coins,%d jeton
-MARKET_GENERATOR_NAME,Generator Speed,Jeneratör Hızı
-MARKET_GENERATOR_EFFECT,+%d%% energy from hits and idle,Vuruş ve boşta enerji +%%%d
-MARKET_GLOBAL_MULT_NAME,Global Multiplier,Genel Çarpan
-MARKET_GLOBAL_MULT_EFFECT,+%d%% score on every hit,Her vuruşta skor +%%%d
-MARKET_PASSIVE_YIELD_NAME,Passive Yield,Pasif Verim
-MARKET_PASSIVE_YIELD_EFFECT,+%d%% idle energy,Boşta enerji +%%%d
+MARKET_GENERATOR_NAME,Auto-Pulse,Oto-Döngü
+MARKET_GENERATOR_EFFECT,Keeps the ring spinning and filling your vault while you're away.,Sen yokken bile halka dönmeye ve kumbara doldurmaya devam eder.
+MARKET_GLOBAL_MULT_NAME,Perfect Power,Perfect Gücü
+MARKET_GLOBAL_MULT_EFFECT,"Bigger gold bursts, confetti, and score pop on Perfects.","Perfect vuruşlarının altın patlamasını, konfetisini ve skor coşkusunu büyütür."
+MARKET_PASSIVE_YIELD_NAME,Vault Yield,Kumbara Verimi
+MARKET_PASSIVE_YIELD_EFFECT,The piggy fills faster while you're away.,Sen yokken kumbara daha çabuk dolar.
 MARKET_CLOSE,Close,Kapat
+CLAIM_TITLE,IDLE VAULT,OTO-KUMBARA
+CLAIM_AMOUNT,+%d energy,+%d enerji
+CLAIM_BODY,The ring kept spinning while you were gone.,Sen yokken halka dönmeye ve birikim yapmaya devam etti.
+CLAIM_BUTTON,Collect the vault,Kumbarayı Topla
+CLAIM_LATER,Later,Sonra

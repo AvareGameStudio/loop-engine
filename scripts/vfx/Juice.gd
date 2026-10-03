@@ -8,7 +8,7 @@ extends Node
 @export var pointer: RingPointer
 @export var glow: CanvasItem
 ## Particle buffer size; individual bursts scale down via amount_ratio.
-@export var max_burst: int = 48
+@export var max_burst: int = 64
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
@@ -42,13 +42,17 @@ func _on_tap(result: Dictionary) -> void:
 
 
 func _on_juice(grade: String, intensity: float) -> void:
+	# Perfect Power (intensity) scales the body-feel of a Perfect: bigger flash,
+	# confetti, shake, glow. Buying the upgrade is felt on the next Perfect.
+	var power: float = intensity if grade == "perfect" else 1.0
 	match grade:
 		"perfect":
 			TimeScale.hitstop(0.06)
-			_add_shake(7.0 * intensity)
-			_punch(1.06)
-			_burst(28, Color(0.35, 1.0, 0.85))
-			_flash_pointer()
+			_add_shake(7.0 * power)
+			_punch(1.06 + 0.04 * (power - 1.0))
+			_burst(int(28.0 * power), Color(1.0, 0.84, 0.28).lerp(Color(1.0, 0.95, 0.55), clampf(power - 1.0, 0.0, 1.0)))
+			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
+			_pulse_glow(1.4 * power)
 		"good":
 			_add_shake(4.0 * intensity)
 			_punch(1.03)
@@ -66,8 +70,14 @@ func _on_juice(grade: String, intensity: float) -> void:
 			TimeScale.hitstop(0.1)
 			_add_shake(12.0)
 			_burst(48, Color(1.0, 0.84, 0.2))
-			_pulse_glow()
+			_pulse_glow(2.5)
 			Settings.vibrate(30)
+		"claim":
+			# Idle Vault collect: gold explosion so the piggy emptying is a reward, not a number.
+			_add_shake(10.0)
+			_burst(48, Color(1.0, 0.84, 0.2))
+			_pulse_glow(2.2)
+			Settings.vibrate(25)
 
 
 func _add_shake(amount: float) -> void:
@@ -91,15 +101,18 @@ func _burst(amount: int, color: Color) -> void:
 	# Changing `amount` reallocates the particle buffer; amount_ratio does not.
 	burst.amount_ratio = clampf(float(amount) / float(max_burst), 0.0, 1.0)
 	burst.modulate = color
+	# Perfect Power / Claim: grow the gold burst without reallocating the GPU buffer.
+	var size_scale: float = clampf(float(amount) / 28.0, 0.7, 2.2)
+	burst.scale = Vector2(size_scale, size_scale)
 	burst.restart()
 
 
-func _flash_pointer() -> void:
+func _flash_pointer(seconds: float = 0.16, peak: float = 1.0) -> void:
 	if pointer:
-		pointer.flash()
+		pointer.flash(seconds, peak)
 
 
-func _pulse_glow() -> void:
+func _pulse_glow(peak: float = 2.5) -> void:
 	if glow == null or not (glow.material is ShaderMaterial):
 		return
 	var mat := glow.material as ShaderMaterial
@@ -107,7 +120,7 @@ func _pulse_glow() -> void:
 		_glow_tween.kill()
 	_glow_tween = create_tween()
 	_glow_tween.set_ignore_time_scale(true)
-	_glow_tween.tween_property(mat, "shader_parameter/intensity", 2.5, 0.08)
+	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 

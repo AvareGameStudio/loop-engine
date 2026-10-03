@@ -13,10 +13,12 @@ const GRADE_NAMES := {
 	Grade.MISS: "miss",
 }
 
-## Major pentatonic: any two steps sound consonant, so a streak climbs as a melody, not a siren.
+## Major pentatonic: any two steps sound consonant, so a Good streak climbs as a melody.
 const PENTATONIC: PackedInt32Array = [0, 2, 4, 7, 9]
-## Ladder plateaus here (14 semitones, ~2.2x) so long combos never turn shrill.
 const MAX_PITCH_STEP: int = 6
+## Perfect-only combo pitch (SoundManager). Sweet climb, hard cap so it never shrieks.
+const PERFECT_PITCH_STEP: float = 0.05
+const PERFECT_PITCH_MAX: float = 1.5
 
 ## [duration_ms, amplitude]. Failures buzz longer and harder than wins: loss must be felt.
 const HAPTICS := {
@@ -90,10 +92,19 @@ func evaluate(pointer_rad: float, target_rad: float, streak: int = 0) -> Diction
 static func pitch_for(grade: Grade, streak: int) -> float:
 	if grade > Grade.GOOD:
 		return 1.0
+	if grade == Grade.PERFECT:
+		return perfect_combo_pitch(streak + 1)
 	var step: int = clampi(streak, 0, MAX_PITCH_STEP)
 	var octave: int = floori(float(step) / PENTATONIC.size())
 	var semitones: int = 12 * octave + PENTATONIC[step % PENTATONIC.size()]
 	return pow(2.0, semitones / 12.0)
+
+
+## Consecutive Perfects: +0.05 each, max 1.5x. Combo break (SoundManager) resets streak to 0.
+static func perfect_combo_pitch(perfect_streak: int) -> float:
+	if perfect_streak <= 0:
+		return 1.0
+	return minf(1.0 + PERFECT_PITCH_STEP * float(perfect_streak - 1), PERFECT_PITCH_MAX)
 
 
 static func grade_score(grade: Grade) -> int:

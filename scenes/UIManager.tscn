@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
 [ext_resource type="PackedScene" path="res://scenes/SettingsPopup.tscn" id="3_settings"]
 [ext_resource type="Texture2D" path="res://assets/icons/settings.svg" id="4_gear"]
 [ext_resource type="PackedScene" path="res://scenes/MarketPopup.tscn" id="5_market"]
+[ext_resource type="PackedScene" path="res://scenes/ClaimPopup.tscn" id="6_claim"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -244,3 +245,5 @@ expand_icon = true
 [node name="SettingsPopup" parent="." instance=ExtResource("3_settings")]
 
 [node name="MarketPopup" parent="." instance=ExtResource("5_market")]
+
+[node name="ClaimPopup" parent="." instance=ExtResource("6_claim")]

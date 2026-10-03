@@ -18,7 +18,7 @@ signal hold_progress(t: float)
 var focus: float = 1.0
 var _holding: bool = false
 var _hold_time: float = 0.0
-var _armed: bool = true
+var _armed: bool = false
 
 
 func arm(enabled: bool = true) -> void:

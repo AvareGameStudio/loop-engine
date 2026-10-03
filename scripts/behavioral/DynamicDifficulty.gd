@@ -22,10 +22,21 @@ var _errors: Array[float] = []
 
 
 func seed_from_state() -> void:
-	rpm = GameState.dda_rpm
-	perfect_deg = GameState.dda_perfect_deg
-	good_deg = GameState.dda_good_deg
-	near_deg = GameState.dda_near_deg
+	rpm = clampf(GameState.dda_rpm, rpm_min, rpm_max)
+	perfect_deg = clampf(GameState.dda_perfect_deg, perfect_min, perfect_max)
+	good_deg = clampf(GameState.dda_good_deg, 10.0, 24.0)
+	near_deg = clampf(GameState.dda_near_deg, good_deg + 3.6, good_deg + 10.8)
+	# Anxiety-floor saves (tiny window + high RPM) made the first tap a coin-flip.
+	if rpm >= 0.65 and perfect_deg <= 5.5:
+		forgive()
+
+
+## Pull difficulty back toward the flow center after a short death spiral.
+func forgive() -> void:
+	rpm = lerpf(rpm, 0.55, 0.6)
+	perfect_deg = lerpf(perfect_deg, 7.0, 0.6)
+	_sync_windows()
+	_persist()
 
 
 func record(result: Dictionary) -> Dictionary:
@@ -76,6 +87,10 @@ func _retune() -> void:
 		rpm = maxf(rpm_min, rpm - 0.05)
 		perfect_deg = minf(perfect_max, perfect_deg + 0.25)
 
+	_sync_windows()
+
+
+func _sync_windows() -> void:
 	good_deg = clampf(perfect_deg * 2.15, 10.0, 24.0)
 	## Extra 1–3% of the circle beyond the Good window (Prospect Theory band).
 	var miss_band := clampf(360.0 * 0.02, 3.6, 10.8)
