@@ -20,6 +20,8 @@ var _count_tween: Tween
 func _ready() -> void:
 	root.visible = false
 	coin_confetti.texture = _make_coin_texture()
+	coin_confetti.gravity = Vector2(0, 980)
+	coin_confetti.color = Color("ffd700")
 	coin_confetti.emitting = false
 	claim_btn.pressed.connect(_claim)
 	later_btn.pressed.connect(_later)

@@ -10,8 +10,8 @@ var _next_voice: int = 0
 var _cache: Dictionary[Vector2i, AudioStreamWAV] = {}
 const PITCH_STEP: float = 0.08
 const PITCH_CAP: float = 1.8
-## Consecutive successful hits this level. A miss or a new run resets the climb.
-var current_streak: int = 0
+## Consecutive successful hits. A miss or a new run resets the climb.
+var hit_streak: int = 0
 
 
 func _ready() -> void:
@@ -29,25 +29,25 @@ func _ready() -> void:
 
 
 func _on_run_started() -> void:
-	current_streak = 0
+	hit_streak = 0
 	play_tone(392.0, 0.12, 0.2)
 
 
 func _on_stage_cleared(_index: int, _payout: int) -> void:
-	current_streak = 0
+	hit_streak = 0
 	play_tone(523.25, 0.18, 0.3)
 
 
-## Successful hits climb: pitch = min(1 + streak * 0.08, 1.8). A miss breaks it.
+## Successful hits climb: pitch = clamp(1 + streak * 0.08, 1, 1.8). A miss breaks it.
 func _on_tap(result: Dictionary) -> void:
 	var grade_name: String = String(result.get("grade_name", ""))
 	match grade_name:
 		"perfect", "good":
-			current_streak += 1
+			hit_streak += 1
 			var base_pitch: float = 1.0
-			var pitch_increment: float = PITCH_STEP
+			var step: float = PITCH_STEP
 			var max_pitch: float = PITCH_CAP
-			var pitch: float = minf(base_pitch + float(current_streak) * pitch_increment, max_pitch)
+			var pitch: float = clampf(base_pitch + float(hit_streak) * step, base_pitch, max_pitch)
 			var base_freq: float = 740.0 if grade_name == "perfect" else 520.0
 			var volume: float = 0.26
 			if grade_name == "perfect":
@@ -55,7 +55,7 @@ func _on_tap(result: Dictionary) -> void:
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
 			play_tone(base_freq, 0.09, volume, pitch)
 		"near_miss", "miss":
-			current_streak = 0
+			hit_streak = 0
 			if grade_name == "miss":
 				play_tone(110.0, 0.2, 0.35)
 

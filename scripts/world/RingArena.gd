@@ -37,10 +37,8 @@ var last_grade: String = "":
 			pointer.grade = value
 
 var danger := Color(1.0, 0.28, 0.42, 1)
-var gold := Color(1.0, 0.78, 0.28, 1)
 ## Outside the near window is a Miss, so this band stays dull steel, never "safe".
 var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
-var _steel_hi := Color(0.78, 0.81, 0.84, 1)
 
 
 var _tap: Label
@@ -113,47 +111,31 @@ func randomize_target(snap_pointer: bool = false) -> void:
 
 func _draw() -> void:
 	var center := Vector2.ZERO
-	var dial := Color(0.15, 0.17, 0.2)
-	var gate := Color(0.2, 0.9, 0.4, 0.8)
-	# Vault well, then a thick steel combination dial.
-	draw_circle(center, radius + 34.0, Color(0.05, 0.055, 0.07, 1))
-	draw_arc(center, radius, 0.0, TAU, 128, dial, 42.0, true)
-	draw_arc(center, radius + 20.0, 0.0, TAU, 96, Color(0.32, 0.35, 0.4), 3.0, true)
-	draw_arc(center, radius - 20.0, 0.0, TAU, 96, Color(0.07, 0.08, 0.1), 5.0, true)
+	# Inner mechanism sits under the rim so the dial has depth.
+	draw_circle(center, radius - 28.0, Color(0.08, 0.09, 0.12, 1.0))
+	# Outer metal rim of the combination lock.
+	draw_arc(center, radius, 0.0, TAU, 96, Color(0.15, 0.17, 0.22, 1.0), 16.0, true)
 	_draw_ticks()
 
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
-	_draw_side_bands(near, near + red_band * outer_band_ratio, outer_band_color, ring_width + 8.0)
-	_draw_window_arc(near, danger.lerp(Color(0.25, 0.08, 0.1, 0.5), 0.35), ring_width + 10.0)
-	_draw_window_arc(float(windows.good), gate, ring_width + 8.0)
-	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), ring_width)
-	_draw_gate_tooth()
-	draw_circle(center, 28.0, Color(0.08, 0.09, 0.11, 1))
-	draw_arc(center, 28.0, 0.0, TAU, 32, Color(0.35, 0.38, 0.42), 2.0, true)
+	_draw_side_bands(near, near + red_band * outer_band_ratio, outer_band_color, 8.0)
+	_draw_window_arc(near, danger.lerp(Color(0.25, 0.08, 0.1, 0.55), 0.4), 12.0)
+	# The gate the pick has to hit.
+	_draw_window_arc(float(windows.good), Color(0.2, 0.95, 0.4, 0.85), 20.0)
+	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), 8.0)
 
 
 func _draw_ticks() -> void:
-	var steps := 72
-	for i in steps:
-		var angle := float(i) * TAU / float(steps)
-		var major := i % 6 == 0
-		var inner := radius - (28.0 if major else 14.0)
-		var outer := radius + 10.0
-		var col := _steel_hi if major else Color(0.5, 0.53, 0.56, 0.75)
-		draw_line(Vector2.from_angle(angle) * inner, Vector2.from_angle(angle) * outer, col, 2.8 if major else 1.2, true)
-
-
-## Inward tooth at the gate: the notch the pick is aiming for.
-func _draw_gate_tooth() -> void:
-	var dir := Vector2.from_angle(target_angle)
-	var side := dir.orthogonal() * 9.0
-	var base := dir * (radius + 6.0)
-	draw_colored_polygon(PackedVector2Array([
-		base + side,
-		base - side,
-		dir * (radius - 26.0),
-	]), gold)
+	# 15° steps: a mechanical safe dial, not a smooth neon ring.
+	var step := 15
+	for deg in range(0, 360, step):
+		var angle := deg_to_rad(float(deg))
+		var major := deg % 45 == 0
+		var inner := radius - (18.0 if major else 10.0)
+		var outer := radius + 8.0
+		var col := Color(0.82, 0.84, 0.88, 1.0) if major else Color(0.55, 0.58, 0.62, 0.9)
+		draw_line(Vector2.from_angle(angle) * inner, Vector2.from_angle(angle) * outer, col, 2.4 if major else 1.2, true)
 
 
 func _draw_window_arc(half_deg: float, color: Color, width: float) -> void:

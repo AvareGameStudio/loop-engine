@@ -50,20 +50,13 @@ func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
 
 func _draw() -> void:
 	var tip := Vector2(length, 0.0)
-	var tip_color := Color(1.0, 0.2, 0.2)
-	var beam := tip_color.lerp(_grade_color(), 0.2)
-	# Soft beam, then a sharp core from the hub out to the dial.
-	draw_line(Vector2(16.0, 0.0), tip, Color(beam, 0.35), 16.0, true)
-	draw_line(Vector2(16.0, 0.0), tip, beam, 3.2, true)
-	draw_line(Vector2(16.0, 0.0), tip, Color(1.0, 0.92, 0.92, 1.0), 1.2, true)
-	# Precision tip. A short tooth still shows travel direction.
-	var tooth := tip + Vector2(4.0, direction * (14.0 + 6.0 * _flip_flash))
-	draw_line(tip, tooth, tip_color, 3.0, true)
-	draw_circle(tip, 8.0, tip_color)
-	draw_circle(tip, 3.2, Color(1.0, 0.9, 0.9))
-	# Hub at the base of the needle.
-	draw_circle(Vector2.ZERO, 16.0, Color(0.1, 0.11, 0.14))
-	draw_circle(Vector2.ZERO, 7.0, Color(0.72, 0.76, 0.82))
+	# Sharp red beam from the pivot to the dial.
+	draw_line(Vector2.ZERO, tip, Color(1.0, 0.2, 0.2, 0.9), 4.0, true)
+	# Travel direction stays readable as a short tooth on the tip.
+	var tooth := tip + Vector2(0.0, direction * (12.0 + 6.0 * _flip_flash))
+	draw_line(tip, tooth, Color(1.0, 0.2, 0.2, 0.9), 3.0, true)
+	draw_circle(tip, 6.0, Color(1.0, 0.4, 0.4, 1.0))
+	draw_circle(Vector2.ZERO, 10.0, Color(0.3, 0.3, 0.35, 1.0))
 
 
 func _grade_color() -> Color:
