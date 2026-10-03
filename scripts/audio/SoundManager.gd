@@ -8,8 +8,8 @@ const ATTACK: float = 0.005
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _cache: Dictionary[Vector2i, AudioStreamWAV] = {}
-## Consecutive Perfects this run. Any other grade resets it (combo-break → pitch 1.0).
-var _perfect_streak: int = 0
+## Consecutive successful timings (Perfect or Good). A miss breaks the climb back to 1.0.
+var _success_streak: int = 0
 
 
 func _ready() -> void:
@@ -27,26 +27,26 @@ func _ready() -> void:
 
 
 func _on_run_started() -> void:
-	_perfect_streak = 0
+	_success_streak = 0
 	play_tone(392.0, 0.12, 0.2)
 
 
-## Pitch: Perfects use the consecutive-Perfect ladder (resets on any non-Perfect).
-## Good hits keep the pentatonic streak from TimingEngine. Volume swells with Perfect Power
-## so buying the upgrade is heard on the very next Perfect (Instant Gratification).
+## Each successful timing steps the tone up (+0.05, cap 1.5x). Perfect stays brighter
+## than Good; volume still swells with Perfect Power. A miss resets the ladder.
 func _on_tap(result: Dictionary) -> void:
 	var grade_name: String = String(result.get("grade_name", ""))
 	match grade_name:
-		"perfect":
-			_perfect_streak += 1
-			var pitch: float = TimingEngine.perfect_combo_pitch(_perfect_streak)
-			var power: float = MetaUpgrade.perfect_power()
-			play_tone(740.0 * pitch, 0.09, 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0)))
-		"good":
-			_perfect_streak = 0
-			play_tone(520.0 * float(result.get("pitch", 1.0)), 0.08, 0.26)
+		"perfect", "good":
+			_success_streak += 1
+			var pitch: float = TimingEngine.perfect_combo_pitch(_success_streak)
+			var base: float = 740.0 if grade_name == "perfect" else 520.0
+			var volume: float = 0.26
+			if grade_name == "perfect":
+				var power: float = MetaUpgrade.perfect_power()
+				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
+			play_tone(base * pitch, 0.09, volume)
 		"near_miss", "miss":
-			_perfect_streak = 0
+			_success_streak = 0
 			if grade_name == "miss":
 				play_tone(110.0, 0.2, 0.35)
 
