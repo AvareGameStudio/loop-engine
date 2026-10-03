@@ -46,8 +46,31 @@ var _steel := Color(0.42, 0.45, 0.48, 1)
 var _steel_hi := Color(0.78, 0.81, 0.84, 1)
 
 
+var _tap: Label
+var _show_tap: bool = false
+var _blink: float = 0.0
+
+
 func _ready() -> void:
 	pointer.direction = direction
+	_tap = Label.new()
+	_tap.name = "TapPrompt"
+	_tap.text = "TAP!"
+	_tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_tap.size = Vector2(140, 52)
+	_tap.add_theme_font_size_override("font_size", 34)
+	_tap.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+	_tap.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02))
+	_tap.add_theme_constant_override("outline_size", 8)
+	_tap.visible = false
+	_tap.z_index = 4
+	_tap.pivot_offset = _tap.size * 0.5
+	add_child(_tap)
+	EventBus.run_started.connect(_begin_coach)
+	EventBus.run_ended.connect(_end_coach)
+	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _end_coach())
 	randomize_target(true)
 
 
@@ -55,6 +78,29 @@ func _process(delta: float) -> void:
 	if spinning:
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
 	pointer.rotation = pointer_angle
+	if not _show_tap or _tap == null:
+		return
+	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+	_blink = wrapf(_blink + real_dt * 8.0, 0.0, TAU)
+	# Sit on the gate, not the needle, so the eye learns the target.
+	var spot: Vector2 = Vector2.from_angle(target_angle) * (radius * 0.55)
+	_tap.position = spot - _tap.size * 0.5
+	_tap.modulate.a = 1.0 if sin(_blink) > 0.0 else 0.2
+	var pulse: float = 1.0 + 0.08 * maxf(sin(_blink), 0.0)
+	_tap.scale = Vector2(pulse, pulse)
+
+
+func _begin_coach() -> void:
+	_show_tap = true
+	_blink = 0.0
+	if _tap:
+		_tap.visible = true
+
+
+func _end_coach(_reason: String = "", _stats: Dictionary = {}) -> void:
+	_show_tap = false
+	if _tap:
+		_tap.visible = false
 
 
 func randomize_target(snap_pointer: bool = false) -> void:
