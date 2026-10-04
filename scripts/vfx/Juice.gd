@@ -27,6 +27,7 @@ var _glow_tween: Tween
 var _zone_tween: Tween
 var _alarm_tween: Tween
 var _vig_tween: Tween
+var _cleared_stage: int = 1
 
 
 func _ready() -> void:
@@ -138,7 +139,8 @@ func _zoom_punch_success() -> void:
 
 ## Last pin: freeze 100ms, then the door flies and the hoard spills.
 ## The freeze is hitstop, so the tap handler's slow-mo restore cannot cancel it.
-func _on_ring_cleared(_index: int, _payout: int) -> void:
+func _on_ring_cleared(index: int, _payout: int) -> void:
+	_cleared_stage = index
 	TimeScale.hitstop(LAST_PIN_FREEZE)
 	get_tree().create_timer(LAST_PIN_FREEZE, true, false, true).timeout.connect(_slam_vault)
 
@@ -146,10 +148,96 @@ func _on_ring_cleared(_index: int, _payout: int) -> void:
 func _slam_vault() -> void:
 	_zoom_punch_success()
 	bounce_node(_dial(), 1.28)
+	_tint_glow(_shell_color(_cleared_stage + 1))
 	_pulse_glow(3.0)
 	spawn_vault_rain()
+	_shed_rust(_cleared_stage)
+	_shed_shell(_shell_color(_cleared_stage))
 	Settings.vibrate(70, 1.0)
 	TimeScale.pulse_slowmo(RING_TIME_SCALE, RING_SLOWMO_SEC)
+
+
+func _shell_color(stage: int) -> Color:
+	return GameState.shell_color(stage)
+
+
+func _tint_glow(color: Color) -> void:
+	if glow == null or not (glow.material is ShaderMaterial):
+		return
+	(glow.material as ShaderMaterial).set_shader_parameter("glow_color", color)
+
+
+func _shed_rust(stage: int) -> void:
+	var cover := GameState.shell_rust(stage)
+	if cover <= 0.02:
+		return
+	var layer: Node = glow.get_parent() if glow else (get_tree().current_scene if get_tree() else self)
+	var flakes := CPUParticles2D.new()
+	flakes.name = "RustFall"
+	flakes.one_shot = true
+	flakes.amount = int(lerpf(28.0, 80.0, cover))
+	flakes.lifetime = 1.15
+	flakes.explosiveness = 0.92
+	flakes.direction = Vector2(0, 1)
+	flakes.spread = 70.0
+	flakes.gravity = Vector2(0, 980)
+	flakes.initial_velocity_min = 80.0
+	flakes.initial_velocity_max = 280.0
+	flakes.angular_velocity_min = -180.0
+	flakes.angular_velocity_max = 180.0
+	flakes.scale_amount_min = 1.6
+	flakes.scale_amount_max = 3.4
+	flakes.color = Color(0.62, 0.32, 0.12, 1.0)
+	flakes.texture = _rust_texture()
+	flakes.z_index = 12
+	layer.add_child(flakes)
+	flakes.position = _vault_origin()
+	flakes.emitting = true
+	get_tree().create_timer(flakes.lifetime + 0.1, true, false, true).timeout.connect(func() -> void:
+		if is_instance_valid(flakes):
+			flakes.queue_free()
+	)
+
+
+func _rust_texture() -> Texture2D:
+	var img := Image.create(12, 10, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in 10:
+		for x in 12:
+			if _rust_on(x, y):
+				var pit := 0.75 + 0.25 * float((x * 3 + y) % 4) / 3.0
+				img.set_pixel(x, y, Color(0.55 * pit, 0.26 * pit, 0.08 * pit, 1.0))
+	return ImageTexture.create_from_image(img)
+
+
+func _rust_on(x: int, y: int) -> bool:
+	return y > 1 and y < 9 and x > 0 and x < 11 and not (y < 3 and (x < 2 or x > 9))
+
+
+func _shed_shell(color: Color) -> void:
+	var layer: Node = glow.get_parent() if glow else (get_tree().current_scene if get_tree() else self)
+	var chips := CPUParticles2D.new()
+	chips.name = "ShellChips"
+	chips.one_shot = true
+	chips.amount = 36
+	chips.lifetime = 0.7
+	chips.explosiveness = 0.95
+	chips.spread = 180.0
+	chips.gravity = Vector2(0, 520)
+	chips.initial_velocity_min = 180.0
+	chips.initial_velocity_max = 520.0
+	chips.scale_amount_min = 1.2
+	chips.scale_amount_max = 2.4
+	chips.color = color
+	chips.texture = _spark_texture()
+	chips.z_index = 11
+	layer.add_child(chips)
+	chips.position = _vault_origin()
+	chips.emitting = true
+	get_tree().create_timer(chips.lifetime + 0.1, true, false, true).timeout.connect(func() -> void:
+		if is_instance_valid(chips):
+			chips.queue_free()
+	)
 
 
 func _bounce_zone() -> void:

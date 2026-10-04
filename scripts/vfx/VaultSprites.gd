@@ -1,30 +1,45 @@
 class_name VaultSprites
 extends RefCounted
 ## Painted vault door, tumbler, tap hand, and gem textures.
-## Built once at runtime so the dial reads as a steel door, not a flat circle.
+## The door starts as solid rust and, across 200 rings, sheds it down to gem-set ore.
 
 static var door: Texture2D
 static var pin: Texture2D
 static var hand: Texture2D
 static var gold: Texture2D
 static var gem: Texture2D
+static var _door_stage: int = -1
 
 
 static func ensure() -> void:
-	if door != null:
+	if pin != null:
 		return
-	door = ImageTexture.create_from_image(_door())
 	pin = ImageTexture.create_from_image(_pin())
 	hand = ImageTexture.create_from_image(_hand())
 	gold = ImageTexture.create_from_image(_bar())
 	gem = ImageTexture.create_from_image(_gem())
 
 
-static func _door() -> Image:
+## One painted door for the current ring. Stage 1 is solid rust; stage 200 is gem-set ore.
+static func door_for(stage: int) -> Texture2D:
+	ensure()
+	var key := stage if stage < 10 else 1000 + (maxi(stage, 10) - 10) / 2
+	if key == _door_stage and door != null:
+		return door
+	door = ImageTexture.create_from_image(_door(key))
+	_door_stage = key
+	return door
+
+
+static func _door(stage: int = 1) -> Image:
 	var size := 320
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var c := Vector2(159.5, 159.5)
+	var rust_cover := GameState.shell_rust(stage)
+	var metal := GameState.shell_metal(stage)
+	var rust_hi := Color(0.55, 0.28, 0.10, 1.0)
+	var rust_lo := Color(0.28, 0.13, 0.06, 1.0)
 	for y in size:
 		for x in size:
 			var local := Vector2(float(x), float(y)) - c
@@ -32,47 +47,87 @@ static func _door() -> Image:
 				continue
 			var edge := maxf(absf(local.x), absf(local.y))
 			var dist := local.length()
-			var ang := local.angle()
-			var grain := 0.9 + 0.1 * sin(local.y * 1.1) * sin(local.x * 0.33)
-			var shade := 0.3
+			var shade := 0.34
 			if edge > 140.0:
-				shade = 0.14
+				shade = 0.16
 			elif edge > 132.0:
-				shade = 0.66
+				shade = 0.72
 			if dist < 124.0:
-				shade = 0.2 + 0.12 * (1.0 - dist / 124.0)
-				grain = 0.86 + 0.14 * sin(ang * 64.0 + dist * 0.8)
+				shade = 0.26 + 0.14 * (1.0 - dist / 124.0)
 			if dist > 108.0 and dist < 118.0:
-				shade = 0.55
+				shade = 0.62
 			if dist < 84.0 and dist > 74.0:
-				shade = 0.6
+				shade = 0.58
 			if dist < 58.0:
 				shade = 0.045
-			img.set_pixel(x, y, Color(shade * grain, shade * grain * 1.01, shade * grain * 1.07, 1.0))
+			var grain := 0.9 + 0.1 * _unit(x, int(y / 3))
+			var col := Color(metal.r * shade * grain, metal.g * shade * grain, metal.b * shade * grain, 1.0)
+			if dist >= 58.0 and rust_cover > 0.0:
+				var flake := _unit(int(x / 10), int(y / 10))
+				if flake < rust_cover:
+					var pit := _unit(x * 3 + 11, y * 5 + 7)
+					var crust := rust_lo.lerp(rust_hi, pit)
+					var thick := clampf((rust_cover - flake) / 0.22, 0.35, 1.0)
+					col = col.lerp(crust, thick)
+				elif flake - rust_cover < 0.045:
+					col = col.lerp(metal.lightened(0.45), 0.65)
+			img.set_pixel(x, y, col)
+	var bolt_cap := metal.lerp(rust_hi, rust_cover)
+	var bolt_sink := metal.darkened(0.55).lerp(rust_lo, rust_cover)
 	for i in 8:
 		var bolt := c + Vector2.from_angle(float(i) * TAU / 8.0 + 0.4) * 136.0
-		_disc(img, bolt, 7.0, Color(0.16, 0.17, 0.19, 1.0))
-		_disc(img, bolt, 4.5, Color(0.62, 0.64, 0.68, 1.0))
-		_disc(img, bolt + Vector2(-1.2, -1.2), 1.4, Color(0.9, 0.91, 0.93, 1.0))
+		_disc(img, bolt, 7.0, bolt_sink)
+		_disc(img, bolt, 4.5, bolt_cap)
+		if rust_cover < 0.85:
+			_disc(img, bolt + Vector2(-1.2, -1.2), 1.4, metal.lightened(0.55))
 	for i in 4:
 		var spoke := float(i) * TAU / 4.0 + 0.4
-		_line(img, c + Vector2.from_angle(spoke) * 60.0, c + Vector2.from_angle(spoke) * 74.0, 5.0, Color(0.46, 0.48, 0.52, 1.0))
-	# Glass window: a beveled bullion stack and a faceted stone.
-	_bullion(img, c + Vector2(-28.0, -26.0), 54.0, 13.0)
-	_bullion(img, c + Vector2(-24.0, -8.0), 48.0, 13.0)
-	_brilliant(img, c + Vector2(0.0, 24.0), 14.0)
-	_ring(img, c, 54.0, 2.6, Color(0.78, 0.62, 0.24, 1.0))
+		_line(img, c + Vector2.from_angle(spoke) * 60.0, c + Vector2.from_angle(spoke) * 74.0, 5.0, bolt_cap.darkened(0.15))
+	# Empty glass. The live counter sits here; the hoard only appears when the ring breaks.
+	_ring(img, c, 54.0, 2.6, metal.lerp(Color(0.78, 0.62, 0.24), 0.35).lerp(rust_hi, rust_cover))
+	var tick := metal.lightened(0.35).lerp(rust_lo, rust_cover * 0.7)
 	for deg in range(0, 360, 15):
-		var tick := deg_to_rad(float(deg))
+		var ang := deg_to_rad(float(deg))
 		var major := deg % 45 == 0
 		_line(
 			img,
-			c + Vector2.from_angle(tick) * (92.0 if major else 98.0),
-			c + Vector2.from_angle(tick) * 108.0,
+			c + Vector2.from_angle(ang) * (92.0 if major else 98.0),
+			c + Vector2.from_angle(ang) * 108.0,
 			1.8 if major else 1.0,
-			Color(0.86, 0.88, 0.9, 1.0)
+			tick
 		)
+	var inlay := GameState.shell_inlay(stage)
+	if inlay >= 1:
+		_ring(img, c, 78.0, 2.2, metal.lightened(0.25))
+	if inlay >= 2:
+		_ring(img, c, 96.0, 3.0, metal.lerp(Color(0.95, 0.82, 0.35), 0.55))
+	if inlay >= 3:
+		_ring(img, c, 128.0, 2.4, metal.lightened(0.45))
+	var stones := GameState.shell_gems(stage)
+	for i in stones:
+		var at := c + Vector2.from_angle(float(i) / float(stones) * TAU + 0.2) * 100.0
+		_stone(img, at, 4.5 + float(i % 3), i % 4)
 	return img
+
+
+static func _unit(x: int, y: int) -> float:
+	var n := (x * 374761393 + y * 668265263) & 2147483647
+	n = (n ^ (n >> 13)) * 1274126177
+	return float(n & 65535) / 65535.0
+
+
+static func _stone(img: Image, at: Vector2, radius: float, kind: int) -> void:
+	var body := Color(0.12, 0.62, 0.34, 1.0)
+	match kind:
+		1:
+			body = Color(0.18, 0.38, 0.82, 1.0)
+		2:
+			body = Color(0.72, 0.10, 0.16, 1.0)
+		3:
+			body = Color(0.90, 0.94, 0.98, 1.0)
+	_disc(img, at, radius + 1.2, body.darkened(0.45))
+	_disc(img, at, radius, body)
+	_disc(img, at + Vector2(-radius * 0.28, -radius * 0.32), radius * 0.28, Color(1, 1, 1, 1))
 
 
 static func _pin() -> Image:

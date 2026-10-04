@@ -27,6 +27,7 @@ func _ready() -> void:
 	sound.toggled.connect(Settings.set_sound_enabled)
 	vibration.toggled.connect(_on_vibration_toggled)
 	auto_tap.toggled.connect(_on_auto_tap_toggled)
+	auto_tap.visible = false
 	close_btn.pressed.connect(close)
 
 
@@ -43,6 +44,7 @@ func open() -> void:
 	turkish.set_pressed_no_signal(Settings.language == "tr")
 	sound.set_pressed_no_signal(Settings.sound_enabled)
 	vibration.set_pressed_no_signal(Settings.vibration_enabled)
+	auto_tap.visible = GameState.auto_tap_unlocked
 	auto_tap.set_pressed_no_signal(GameState.auto_tap)
 	if not _holding_pause:
 		_holding_pause = true
@@ -70,6 +72,9 @@ func _on_vibration_toggled(enabled: bool) -> void:
 
 
 func _on_auto_tap_toggled(enabled: bool) -> void:
+	if not GameState.auto_tap_unlocked:
+		auto_tap.set_pressed_no_signal(false)
+		return
 	GameState.auto_tap = enabled
 	GameState.save_game()
 	EventBus.session_changed.emit()

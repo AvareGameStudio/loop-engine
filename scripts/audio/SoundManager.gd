@@ -14,6 +14,8 @@ var _next_voice: int = 0
 var _cache: Dictionary[int, AudioStreamWAV] = {}
 ## Consecutive successful hits. A miss or a new run resets the climb.
 var hit_streak: int = 0
+## Each cleared ring lifts the lock pitch so the center feels closer.
+var _phase_pitch: float = 1.0
 
 
 func _ready() -> void:
@@ -33,14 +35,16 @@ func _ready() -> void:
 
 func _on_run_started() -> void:
 	hit_streak = 0
+	_phase_pitch = 1.0
 	play_tone(392.0, 0.12, 0.2)
 
 
-func _on_stage_cleared(_index: int, _payout: int) -> void:
+func _on_stage_cleared(index: int, _payout: int) -> void:
 	hit_streak = 0
-	play_tone(55.0, 0.32, 0.46)
-	play_tone(110.0, 0.2, 0.32)
-	play_tone(380.0, 0.1, 0.24)
+	_phase_pitch = clampf(1.0 + float(index) * 0.08, 1.0, 1.45)
+	play_tone(55.0, 0.32, 0.46, _phase_pitch)
+	play_tone(110.0, 0.2, 0.32, _phase_pitch)
+	play_tone(380.0, 0.1, 0.24, _phase_pitch)
 
 
 ## Successful hits climb: pitch = clamp(1 + streak * 0.08, 1, 1.8). A miss breaks it.
@@ -49,7 +53,7 @@ func _on_tap(result: Dictionary) -> void:
 	match grade_name:
 		"perfect", "good":
 			hit_streak += 1
-			var pitch: float = clampf(1.0 + float(hit_streak) * PITCH_STEP, 1.0, PITCH_CAP)
+			var pitch: float = clampf((1.0 + float(hit_streak) * PITCH_STEP) * _phase_pitch, 1.0, PITCH_CAP)
 			var base_freq: float = 740.0 if grade_name == "perfect" else 520.0
 			var volume: float = 0.26
 			play_click()
@@ -88,9 +92,9 @@ func _on_countdown(step: int) -> void:
 
 
 func play_click() -> void:
-	play_tone(78.0, 0.08, 0.38)
-	play_tone(150.0, 0.06, 0.28)
-	play_tone(1480.0, 0.035, 0.2)
+	play_tone(78.0, 0.08, 0.38, _phase_pitch)
+	play_tone(150.0, 0.06, 0.28, _phase_pitch)
+	play_tone(1480.0, 0.035, 0.2, _phase_pitch)
 
 
 func play_siren() -> void:
