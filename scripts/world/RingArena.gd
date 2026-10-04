@@ -53,17 +53,23 @@ var _rim := Color(0.15, 0.17, 0.22, 1.0)
 var _gate := Color(0.2, 0.95, 0.4, 0.85)
 var _bezel_flash: float = 0.0
 var _door: float = 0.0
+var _door_tween: Tween
+var _door_base_scale: Vector2 = Vector2.ONE
 var _coach_hot: bool = false
 var _coach_done: bool = false
 var _coach_pulse: float = 0.0
+var _coach_age: float = 0.0
 
 
 func _ready() -> void:
 	_build_sprites()
 	pointer.direction = direction
 	EventBus.direction_flipped.connect(func(_d: float) -> void: _bezel_flash = 1.0)
-	EventBus.stage_cleared.connect(func(_index: int, _payout: int) -> void: _door = 1.0)
-	EventBus.run_started.connect(func() -> void: _coach_done = false)
+	EventBus.stage_cleared.connect(_fly_door)
+	EventBus.run_started.connect(func() -> void:
+		_coach_done = false
+		_coach_age = 0.0
+	)
 	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _coach_done = true)
 	EventBus.cosmetic_equipped.connect(_apply_skin)
 	_apply_skin(GameState.equipped_dial)
@@ -77,6 +83,8 @@ func _process(delta: float) -> void:
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
 	pointer.rotation = pointer_angle
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+	if not _coach_done and GameState.current_stage == 1:
+		_coach_age += real_dt
 	var coach_now: bool = _in_coach_window()
 	if coach_now:
 		_coach_pulse = wrapf(_coach_pulse + real_dt * 7.0, 0.0, TAU)
@@ -98,6 +106,7 @@ func randomize_target(snap_pointer: bool = false) -> void:
 	var min_lead: float = maxf(min_lead_deg, rpm * 360.0 * reaction_time)
 	var lead: float = deg_to_rad(randf_range(min_lead, 330.0))
 	target_angle = wrapf(pointer_angle + lead * direction, 0.0, TAU)
+	_restore_door()
 	if pin:
 		pin.set_locked(false)
 
@@ -129,7 +138,8 @@ func _build_sprites() -> void:
 	_door_sprite.texture = VaultArt.door
 	_door_sprite.z_index = -2
 	# Texture dial radius is 105px. Scale it onto the gameplay ring.
-	_door_sprite.scale = Vector2.ONE * (radius / 105.0)
+	_door_base_scale = Vector2.ONE * (radius / 105.0)
+	_door_sprite.scale = _door_base_scale
 	add_child(_door_sprite)
 	move_child(_door_sprite, 0)
 	_hand_sprite = Sprite2D.new()
@@ -147,18 +157,18 @@ func _place_hand(show_hand: bool) -> void:
 	if not show_hand:
 		return
 	var dir := Vector2.from_angle(target_angle)
-	var pulse: float = 0.9 + 0.14 * sin(_coach_pulse)
-	_hand_sprite.position = dir * (radius + 108.0)
+	var pulse: float = 0.85 + 0.15 * sin(_coach_pulse)
+	# Finger presses into the gate so the first glance reads as a tap.
+	_hand_sprite.position = dir * (radius + 118.0 - 16.0 * pulse)
 	_hand_sprite.rotation = target_angle + PI * 0.5
-	_hand_sprite.scale = Vector2.ONE * 0.46 * pulse
-	_hand_sprite.modulate = Color(1.0, 0.95, 0.55, 0.72 + 0.28 * pulse)
+	_hand_sprite.scale = Vector2.ONE * 0.72 * pulse
+	_hand_sprite.modulate = Color(1.0, 0.96, 0.7, 1.0)
 
 
 func _draw() -> void:
 	var center := Vector2.ZERO
 	if _door > 0.0:
 		draw_circle(center, (radius - 20.0) * _door, Color(1.0, 0.78, 0.25, 0.2 + 0.55 * _door))
-		_draw_hoard(center)
 
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
@@ -175,35 +185,43 @@ func _draw() -> void:
 func _in_coach_window() -> bool:
 	if _coach_done or GameState.current_stage != 1 or not spinning:
 		return false
+	# The opening seconds keep the hand on the gate even before the needle arrives.
+	if _coach_age < 3.0:
+		return true
 	var err: float = absf(rad_to_deg(angle_difference(pointer_angle, target_angle)))
-	return err <= float(windows.get("good", 16.0))
+	return err <= maxf(float(windows.get("near", 22.0)), 42.0)
 
 
-func _draw_hoard(center: Vector2) -> void:
-	var shine: float = 0.45 + 0.55 * _door
-	for i in 3:
-		draw_rect(Rect2(center.x - 16.0, center.y - 14.0 + float(i) * 8.0, 32.0, 5.0), Color(0.92, 0.68, 0.16, shine), true)
-	_draw_diamond(center + Vector2(-10.0, 12.0), 5.0, Color(0.78, 0.94, 1.0, shine))
-	_draw_diamond(center + Vector2(10.0, 12.0), 5.0, Color(0.9, 0.96, 1.0, shine))
+func _fly_door(_index: int, _payout: int) -> void:
+	_door = 1.0
+	if _door_sprite == null:
+		return
+	if _door_tween:
+		_door_tween.kill()
+	_door_tween = create_tween()
+	_door_tween.set_ignore_time_scale(true)
+	# Wait out the 100ms hitstop, then the door rushes the camera and vanishes.
+	_door_tween.tween_interval(0.1)
+	_door_tween.tween_property(_door_sprite, "scale", _door_base_scale * 1.65, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.28)
 
 
-func _draw_diamond(center: Vector2, extent: float, color: Color) -> void:
-	draw_colored_polygon(PackedVector2Array([
-		center + Vector2(0.0, -extent),
-		center + Vector2(extent, 0.0),
-		center + Vector2(0.0, extent),
-		center + Vector2(-extent, 0.0),
-	]), color)
+func _restore_door() -> void:
+	if _door_tween:
+		_door_tween.kill()
+	if _door_sprite == null:
+		return
+	_door_sprite.scale = _door_base_scale
+	_door_sprite.modulate.a = 1.0
 
 
 func _draw_tap_label() -> void:
 	if not _coach_hot:
 		return
-	var palm := Vector2.from_angle(target_angle) * (radius + 108.0)
 	var font: Font = ThemeDB.fallback_font
-	var text := "TAP!"
-	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
-	draw_string(font, palm + Vector2(-width * 0.5, -78.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1.0, 0.95, 0.7, 1.0))
+	var text := tr("COACH_TAP")
+	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x
+	draw_string(font, Vector2(-width * 0.5, -radius - 168.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(1.0, 0.95, 0.72, 1.0))
 
 
 func _draw_window_arc(half_deg: float, color: Color, width: float) -> void:

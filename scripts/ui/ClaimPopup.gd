@@ -1,5 +1,7 @@
 class_name ClaimPopup
 extends CanvasLayer
+
+const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 ## Idle Vault collect. Auto-Pulse earnings wait here as a piggy, not a live ticker.
 ## Claiming fires a gold explosion so the return-to-game moment is Instant Gratification.
 ## "Later" leaves the vault full (Zeigarnik: the unfinished piggy pulls the player back).
@@ -16,14 +18,25 @@ extends CanvasLayer
 var _open: bool = false
 var _holding_pause: bool = false
 var _count_tween: Tween
+var _gems: CPUParticles2D
 
 
 func _ready() -> void:
 	root.visible = false
-	coin_confetti.texture = _make_coin_texture()
-	coin_confetti.gravity = Vector2(0, 980)
-	coin_confetti.color = Color("ffd700")
+	VaultArt.ensure()
+	coin_confetti.position = Vector2(360, -28)
+	coin_confetti.texture = VaultArt.gold
+	coin_confetti.amount = 64
+	coin_confetti.gravity = Vector2(0, 1100)
+	coin_confetti.color = Color(1.0, 0.86, 0.28, 1.0)
 	coin_confetti.emitting = false
+	_gems = coin_confetti.duplicate()
+	_gems.name = "GemRain"
+	_gems.texture = VaultArt.gem
+	_gems.amount = 32
+	_gems.color = Color(0.82, 0.95, 1.0, 1.0)
+	_gems.emitting = false
+	add_child(_gems)
 	claim_btn.pressed.connect(_claim)
 	later_btn.pressed.connect(_later)
 	market_btn.pressed.connect(_open_market)
@@ -66,8 +79,7 @@ func open(_amount: int = 0, from_player: bool = false) -> void:
 	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	coin_confetti.restart()
-	coin_confetti.emitting = true
+	_pour_hoard()
 
 
 func _on_vault(amount: int, _delta: int) -> void:
@@ -103,7 +115,7 @@ func _claim() -> void:
 	if n > 0:
 		GameState.add_coins(maxi(1, n / 5))
 		EventBus.juice_hit.emit("claim", 1.0)
-		coin_confetti.restart()
+		_pour_hoard()
 	_close()
 	EventBus.vault_resolved.emit(true)
 
@@ -119,16 +131,12 @@ func _later() -> void:
 	EventBus.vault_resolved.emit(false)
 
 
-func _make_coin_texture() -> Texture2D:
-	# White disc so the scene color (#ffd700) is the gold the player sees.
-	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	var center := Vector2(7.5, 7.5)
-	for y in 16:
-		for x in 16:
-			if Vector2(x, y).distance_to(center) <= 7.0:
-				img.set_pixel(x, y, Color(1, 1, 1, 1))
-	return ImageTexture.create_from_image(img)
+func _pour_hoard() -> void:
+	coin_confetti.restart()
+	coin_confetti.emitting = true
+	if _gems:
+		_gems.restart()
+		_gems.emitting = true
 
 
 func _close() -> void:
