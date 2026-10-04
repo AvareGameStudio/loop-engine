@@ -27,6 +27,12 @@ var unlocked_themes: PackedStringArray = PackedStringArray(["neon"])
 var equipped_theme: String = "neon"
 var no_ads: bool = false
 var auto_tap: bool = false
+## Granted when the first ring is cracked, from the reward popup. Off until then, so a miss still ends the run.
+var auto_tap_unlocked: bool = false
+var auto_tap_purchased: bool = false
+var stages_cleared: int = 0
+var lifetime_hits: int = 0
+var _announce_auto_tap: bool = false
 var cosmetics: PackedStringArray = PackedStringArray(["default"])
 var equipped_dial: String = "steel"
 
@@ -125,6 +131,115 @@ func reset_run() -> void:
 	request_save()
 
 
+const SHELL_COUNT := 200
+
+
+## 0 at the first ring, 1 once the door has climbed from iron to gem ore.
+func shell_progress(stage: int) -> float:
+	return clampf(float(clampi(stage, 1, SHELL_COUNT) - 1) / float(SHELL_COUNT - 1), 0.0, 1.0)
+
+
+const RUST_RINGS := 10
+
+
+## Full crust on ring 1. Nothing left on ring 10.
+func shell_rust(stage: int) -> float:
+	if stage >= RUST_RINGS:
+		return 0.0
+	return 1.0 - float(maxi(stage, 1) - 1) / float(RUST_RINGS - 1)
+
+
+## 0 while the rust is on. After ring 10, a new look every two rings.
+func shell_step(stage: int) -> int:
+	if stage < RUST_RINGS:
+		return 0
+	return (stage - RUST_RINGS) / 2
+
+
+## Iron, then a clearly different metal every two rings, then gem-set gold.
+func shell_metal(stage: int) -> Color:
+	var stops: Array[Color] = [
+		Color(0.42, 0.40, 0.36),
+		Color(0.62, 0.66, 0.70),
+		Color(0.72, 0.40, 0.24),
+		Color(0.70, 0.48, 0.22),
+		Color(0.78, 0.60, 0.24),
+		Color(0.76, 0.78, 0.80),
+		Color(0.86, 0.68, 0.22),
+		Color(0.90, 0.88, 0.80),
+	]
+	var step := shell_step(stage)
+	return stops[mini(step, stops.size() - 1)]
+
+
+func shell_gems(stage: int) -> int:
+	var step := shell_step(stage)
+	if step < 4:
+		return 0
+	if step < 8:
+		return step - 3
+	return mini(3 + (step % 8), 10)
+
+
+func shell_inlay(stage: int) -> int:
+	return shell_step(stage) % 4
+
+
+## Gem inlays start only after the door is already precious metal.
+func shell_ore(stage: int) -> float:
+	return 1.0 if shell_gems(stage) > 0 else 0.0
+
+
+func shell_color(stage: int) -> Color:
+	return shell_metal(stage).lerp(Color(0.52, 0.26, 0.10), shell_rust(stage) * 0.82)
+
+
+func _shell_smooth(edge0: float, edge1: float, x: float) -> float:
+	var u := clampf((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+	return u * u * (3.0 - 2.0 * u)
+
+
+func _shell_ramp(stops: Array, u: float) -> Color:
+	var x := clampf(u, 0.0, 1.0) * float(stops.size() - 1)
+	var i := mini(int(floor(x)), stops.size() - 2)
+	return (stops[i] as Color).lerp(stops[i + 1], x - float(i))
+
+
+func note_landed_hit() -> void:
+	lifetime_hits += 1
+
+
+func note_stage_cleared() -> void:
+	var first_ring := current_stage == 1
+	stages_cleared += 1
+	if first_ring:
+		consider_auto_tap_unlock()
+
+
+## Popup offers the reward. Tapping stays off until they accept, so this ring can still be missed.
+func consider_auto_tap_unlock() -> void:
+	if auto_tap_unlocked or auto_tap_purchased or _announce_auto_tap:
+		return
+	_announce_auto_tap = true
+
+
+func accept_auto_tap_reward() -> void:
+	auto_tap_unlocked = true
+	auto_tap = true
+	_announce_auto_tap = false
+	save_game()
+
+
+func has_auto_tap_announce() -> bool:
+	return _announce_auto_tap
+
+
+func take_auto_tap_announce() -> bool:
+	var announce := _announce_auto_tap
+	_announce_auto_tap = false
+	return announce
+
+
 func end_run() -> void:
 	run_active = false
 	best_combo = max(best_combo, session_combo)
@@ -150,6 +265,12 @@ func to_dict() -> Dictionary:
 		"equipped_theme": equipped_theme,
 		"no_ads": no_ads,
 		"auto_tap": auto_tap,
+		"auto_tap_unlocked": auto_tap_unlocked,
+		"auto_tap_earned": auto_tap_unlocked,
+		"auto_tap_from_ring": auto_tap_unlocked,
+		"auto_tap_purchased": auto_tap_purchased,
+		"stages_cleared": stages_cleared,
+		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
 		"dda_rpm": dda_rpm,
@@ -172,7 +293,12 @@ func from_dict(data: Dictionary) -> void:
 	last_seen_unix = int(data.get("last_seen_unix", 0))
 	equipped_theme = String(data.get("equipped_theme", "neon"))
 	no_ads = bool(data.get("no_ads", false))
-	auto_tap = bool(data.get("auto_tap", false))
+	lifetime_hits = int(data.get("lifetime_hits", 0))
+	stages_cleared = int(data.get("stages_cleared", 0))
+	auto_tap_purchased = bool(data.get("auto_tap_purchased", false))
+	# An earlier build turned this on when a run ended. Only the first-ring reward counts.
+	auto_tap_unlocked = auto_tap_purchased or bool(data.get("auto_tap_from_ring", false))
+	auto_tap = bool(data.get("auto_tap", false)) and auto_tap_unlocked
 	dda_rpm = float(data.get("dda_rpm", 0.55))
 	dda_perfect_deg = float(data.get("dda_perfect_deg", 7.0))
 	dda_good_deg = float(data.get("dda_good_deg", 16.0))

@@ -69,6 +69,7 @@ func start_run() -> void:
 	input_proc.arm(true)
 	arena.last_grade = ""
 	arena.spinning = true
+	_apply_difficulty()
 	arena.randomize_target(true)
 	zeigarnik.arm_gate()
 	EventBus.run_started.emit()
@@ -122,8 +123,14 @@ func _on_commit(mode: String, _held: float) -> void:
 
 func _apply_difficulty() -> void:
 	var w: Dictionary = dda.windows()
+	var pressure := float(maxi(GameState.current_stage - 1, 0))
+	var shrink := clampf(1.0 - pressure * 0.05, 0.74, 1.0)
+	w["good"] = maxf(float(w["good"]) * shrink, 8.0)
+	w["perfect"] = clampf(float(w["perfect"]) * shrink, 3.5, float(w["good"]) * 0.55)
+	var near_band: float = float(dda.windows()["near"]) - float(dda.windows()["good"])
+	w["near"] = float(w["good"]) + maxf(near_band * shrink, 3.0)
 	timing.configure(w)
-	arena.rpm = dda.rpm
+	arena.rpm = clampf(dda.rpm * (1.0 + pressure * 0.07), dda.rpm_min, dda.rpm_max)
 	arena.windows = w
 
 
@@ -132,6 +139,7 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 	GameState.session_combo += 1
 	GameState.session_hits += 1
 	GameState.hits_in_stage += 1
+	GameState.note_landed_hit()
 	if grade == TimingEngine.Grade.PERFECT:
 		GameState.session_perfects += 1
 	var combo_mult: float = 1.0 + float(mini(GameState.session_combo, 25)) * 0.06
@@ -165,12 +173,17 @@ func _after_hit() -> void:
 	var cleared := GameState.hits_in_stage >= GameState.hits_needed
 	if cleared:
 		var bonus: int = 25 * GameState.current_stage
+		var purse: int = 15 * GameState.current_stage
 		GameState.add_energy(bonus)
+		GameState.add_coins(purse)
+		GameState.note_stage_cleared()
 		EventBus.stage_cleared.emit(GameState.current_stage, bonus)
 		GameState.current_stage += 1
 		GameState.hits_in_stage = 0
 		GameState.hits_needed = mini(8 + GameState.current_stage, 14)
 		GameState.unlock_theme_for_stage(GameState.current_stage)
+		_apply_difficulty()
+		arena.mark_phase()
 	EventBus.session_changed.emit()
 	_push_zeigarnik()
 	# Real seconds: ignore_time_scale so unlock slow-mo cannot stretch the armed window.

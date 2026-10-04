@@ -32,6 +32,8 @@ static func grant(product_id: String) -> void:
 		"no_ads_bundle":
 			GameState.no_ads = true
 		"auto_tap":
+			GameState.auto_tap_purchased = true
+			GameState.auto_tap_unlocked = true
 			GameState.auto_tap = true
 		"trail_aurora":
 			if not GameState.cosmetics.has("aurora"):

@@ -51,21 +51,21 @@ func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
 func _draw() -> void:
 	var tip := Vector2(length, 0.0)
 	# Steel stethoscope arm. The red diaphragm is the contact point.
+	# Shaft starts outside the center plate so the counter never sits under the needle.
+	var root := 56.0
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(16.0, -6.0),
+		Vector2(root, -5.0),
 		Vector2(length - 20.0, -3.2),
 		Vector2(length - 16.0, 3.2),
-		Vector2(16.0, 6.0),
+		Vector2(root, 5.0),
 	]), Color(0.62, 0.64, 0.68, 1.0))
-	draw_line(Vector2(20.0, 0.0), tip - Vector2(18.0, 0.0), Color(0.9, 0.92, 0.94, 0.9), 2.0, true)
+	draw_line(Vector2(root + 4.0, 0.0), tip - Vector2(18.0, 0.0), Color(0.9, 0.92, 0.94, 0.9), 2.0, true)
 	draw_circle(tip, 18.0, Color(0.1, 0.11, 0.13, 1.0))
 	draw_arc(tip, 18.0, 0.0, TAU, 28, Color(0.78, 0.8, 0.84, 1.0), 3.0, true)
 	draw_circle(tip, 8.0, Color(0.95, 0.22, 0.18, 1.0))
 	draw_circle(tip, 3.0, Color(1.0, 0.85, 0.8, 1.0))
 	var tooth := tip + Vector2(0.0, direction * (16.0 + 8.0 * _flip_flash))
 	draw_line(tip, tooth, Color(0.9, 0.22, 0.18, 1.0), 3.0, true)
-	draw_circle(Vector2.ZERO, 16.0, Color(0.2, 0.21, 0.24, 1.0))
-	draw_circle(Vector2.ZERO, 7.0, Color(0.72, 0.74, 0.78, 1.0))
 
 
 func _grade_color() -> Color:

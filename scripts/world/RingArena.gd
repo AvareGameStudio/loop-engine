@@ -55,6 +55,11 @@ var _bezel_flash: float = 0.0
 var _door: float = 0.0
 var _door_tween: Tween
 var _door_base_scale: Vector2 = Vector2.ONE
+var _force_phase: bool = false
+var _count_hold: bool = false
+var _count_fade: float = 1.0
+var _count_hits: int = 0
+var _count_need: int = 8
 var _coach_hot: bool = false
 var _coach_done: bool = false
 var _coach_pulse: float = 0.0
@@ -71,6 +76,7 @@ func _ready() -> void:
 		_coach_age = 0.0
 	)
 	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _coach_done = true)
+	EventBus.session_changed.connect(_refresh_count)
 	EventBus.cosmetic_equipped.connect(_apply_skin)
 	_apply_skin(GameState.equipped_dial)
 	randomize_target(true)
@@ -89,7 +95,9 @@ func _process(delta: float) -> void:
 	if coach_now:
 		_coach_pulse = wrapf(_coach_pulse + real_dt * 7.0, 0.0, TAU)
 	_place_hand(coach_now)
-	if _bezel_flash > 0.0 or _door > 0.0 or coach_now != _coach_hot or coach_now:
+	if _count_hold:
+		_count_fade = maxf(0.0, _count_fade - real_dt * 2.8)
+	if _bezel_flash > 0.0 or _door > 0.0 or _count_hold or coach_now != _coach_hot or coach_now:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
 		_door = maxf(0.0, _door - real_dt * 0.7)
 		_coach_hot = coach_now
@@ -97,9 +105,10 @@ func _process(delta: float) -> void:
 
 
 func randomize_target(snap_pointer: bool = false) -> void:
-	if randf() < 0.35:
+	if _force_phase or randf() < 0.35:
 		direction = -direction
 		EventBus.direction_flipped.emit(direction)
+		_force_phase = false
 	if snap_pointer:
 		pointer_angle = -PI / 2.0
 	# Target always spawns ahead of the pointer, at least one reaction time away.
@@ -111,31 +120,39 @@ func randomize_target(snap_pointer: bool = false) -> void:
 		pin.set_locked(false)
 
 
+func mark_phase() -> void:
+	_force_phase = true
+
+
 func _apply_skin(id: String) -> void:
 	match id:
 		"gold":
 			_rim = Color(0.46, 0.32, 0.1, 1.0)
 			_gate = Color(1.0, 0.78, 0.22, 0.9)
-			if _door_sprite:
-				_door_sprite.modulate = Color(1.0, 0.78, 0.42, 1.0)
 		"obsidian":
 			_rim = Color(0.05, 0.06, 0.08, 1.0)
 			_gate = Color(0.35, 0.86, 1.0, 0.9)
-			if _door_sprite:
-				_door_sprite.modulate = Color(0.45, 0.62, 0.78, 1.0)
 		_:
 			_rim = Color(0.15, 0.17, 0.22, 1.0)
 			_gate = Color(0.2, 0.95, 0.4, 0.85)
-			if _door_sprite:
-				_door_sprite.modulate = Color.WHITE
+	_paint_shell()
 	queue_redraw()
+
+
+func _paint_shell() -> void:
+	if _door_sprite == null:
+		return
+	_door_base_scale = Vector2.ONE * (radius / 105.0)
+	_door_sprite.scale = _door_base_scale
+	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
+	_door_sprite.modulate = Color.WHITE
 
 
 func _build_sprites() -> void:
 	VaultArt.ensure()
 	_door_sprite = Sprite2D.new()
 	_door_sprite.name = "VaultDoor"
-	_door_sprite.texture = VaultArt.door
+	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
 	_door_sprite.z_index = -2
 	# Texture dial radius is 105px. Scale it onto the gameplay ring.
 	_door_base_scale = Vector2.ONE * (radius / 105.0)
@@ -148,6 +165,7 @@ func _build_sprites() -> void:
 	_hand_sprite.z_index = 6
 	_hand_sprite.visible = false
 	add_child(_hand_sprite)
+	_refresh_count()
 
 
 func _place_hand(show_hand: bool) -> void:
@@ -179,6 +197,7 @@ func _draw() -> void:
 	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), 8.0)
 	if _bezel_flash > 0.0:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
+	_draw_meter()
 	_draw_tap_label()
 
 
@@ -194,25 +213,103 @@ func _in_coach_window() -> bool:
 
 func _fly_door(_index: int, _payout: int) -> void:
 	_door = 1.0
+	_shatter_count()
 	if _door_sprite == null:
 		return
 	if _door_tween:
 		_door_tween.kill()
+	_door_sprite.scale = _door_base_scale
+	_door_sprite.modulate = Color.WHITE
 	_door_tween = create_tween()
 	_door_tween.set_ignore_time_scale(true)
-	# Wait out the 100ms hitstop, then the door rushes the camera and vanishes.
+	# Wait out the 100ms hitstop, then this shell rushes the camera and vanishes.
 	_door_tween.tween_interval(0.1)
 	_door_tween.tween_property(_door_sprite, "scale", _door_base_scale * 1.65, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.28)
+	_door_tween.finished.connect(_paint_shell, CONNECT_ONE_SHOT)
 
 
 func _restore_door() -> void:
 	if _door_tween:
 		_door_tween.kill()
-	if _door_sprite == null:
+	_count_hold = false
+	_count_fade = 1.0
+	_paint_shell()
+	_refresh_count()
+
+
+func _refresh_count() -> void:
+	if _count_hold:
 		return
-	_door_sprite.scale = _door_base_scale
-	_door_sprite.modulate.a = 1.0
+	_count_hits = GameState.hits_in_stage
+	_count_need = maxi(GameState.hits_needed, 1)
+	queue_redraw()
+
+
+func _shatter_count() -> void:
+	_count_hits = GameState.hits_in_stage
+	_count_need = maxi(GameState.hits_needed, 1)
+	_count_hold = true
+	_count_fade = 1.0
+
+
+func _draw_meter() -> void:
+	if _count_hold and _count_fade <= 0.0:
+		return
+	var alpha := _count_fade if _count_hold else 1.0
+	var ink := GameState.shell_color(GameState.current_stage).lerp(Color(0.96, 0.93, 0.86), 0.45)
+	ink.a = alpha
+	var swell := 1.0 + (1.0 - alpha) * 0.12 if _count_hold else 1.0
+	var spin := (1.0 - alpha) * 0.35 if _count_hold else 0.0
+	draw_set_transform(Vector2.ZERO, spin, Vector2(swell, swell))
+	draw_circle(Vector2.ZERO, 46.0, Color(0.04, 0.045, 0.06, alpha))
+	draw_arc(Vector2.ZERO, 44.0, 0.0, TAU, 48, Color(ink.r, ink.g, ink.b, alpha), 2.4, true)
+	var need := maxi(_count_need, 1)
+	for i in need:
+		var ang := -PI * 0.5 + TAU * float(i) / float(need)
+		var slot := Vector2.from_angle(ang) * 34.0
+		draw_circle(slot, 2.6, Color(0.1, 0.1, 0.12, alpha))
+		if i < _count_hits:
+			draw_circle(slot, 1.8, ink)
+	var label := "%d/%d" % [_count_hits, need]
+	var digit_w := 9.0
+	var digit_h := 14.0
+	var advance := 11.0
+	var width := float(label.length()) * advance
+	var cursor := -width * 0.5
+	var y := -digit_h * 0.5
+	for ch in label:
+		if ch == "/":
+			draw_line(Vector2(cursor + 2.0, y + digit_h), Vector2(cursor + advance - 2.0, y), ink, 1.6, true)
+		else:
+			_draw_digit(Vector2(cursor, y), int(ch), digit_w, digit_h, ink)
+		cursor += advance
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+const _DIGIT_MASKS: Array[int] = [0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F]
+
+
+func _draw_digit(origin: Vector2, digit: int, width: float, height: float, color: Color) -> void:
+	if digit < 0 or digit > 9:
+		return
+	var mask := _DIGIT_MASKS[digit]
+	var mid := height * 0.5
+	var t := 2.2
+	if mask & 0x01:
+		draw_line(origin + Vector2(t, 0.0), origin + Vector2(width - t, 0.0), color, t, true)
+	if mask & 0x02:
+		draw_line(origin + Vector2(width, t), origin + Vector2(width, mid - t), color, t, true)
+	if mask & 0x04:
+		draw_line(origin + Vector2(width, mid + t), origin + Vector2(width, height - t), color, t, true)
+	if mask & 0x08:
+		draw_line(origin + Vector2(t, height), origin + Vector2(width - t, height), color, t, true)
+	if mask & 0x10:
+		draw_line(origin + Vector2(0.0, mid + t), origin + Vector2(0.0, height - t), color, t, true)
+	if mask & 0x20:
+		draw_line(origin + Vector2(0.0, t), origin + Vector2(0.0, mid - t), color, t, true)
+	if mask & 0x40:
+		draw_line(origin + Vector2(t, mid), origin + Vector2(width - t, mid), color, t, true)
 
 
 func _draw_tap_label() -> void:

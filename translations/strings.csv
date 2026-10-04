@@ -21,6 +21,9 @@ VR_X3,x3,x3
 VR_X5,x5,x5
 VR_X8,x8,x8
 COACH_TAP,TAP TO BREAK,KIRMAK İÇİN DOKUN
+AUTO_TAP_UNLOCKED,Auto-Tap Unlocked!,Oto-Tıklayıcı Kilidi Açıldı!
+AUTO_TAP_BODY,The first ring is yours. The next rings tap the good window for you.,İlk halka senin. Sonraki halkalarda iyi aralığa kendi basar.
+AUTO_TAP_CONTINUE,Continue,Devam
 COUNTDOWN_GO,GO,BAŞLA
 AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
 AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI

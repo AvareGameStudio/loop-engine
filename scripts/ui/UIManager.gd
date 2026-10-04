@@ -1,4 +1,6 @@
 extends CanvasLayer
+
+const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 ## HUD, Zeigarnik quest rings, run-over sheet, and market entry points. Fully signal-driven.
 
 const GRADE_COLORS: Dictionary[String, Color] = {
@@ -42,6 +44,10 @@ var _run_end_reason: String = ""
 var _run_end_stats: Dictionary = {}
 var _show_tap: bool = false
 var _tap_pulse: float = 0.0
+var _tap_reward: CanvasLayer
+var _tap_hand: TextureRect
+var _shop_home: Node
+var _shop_index: int = -1
 
 
 func _ready() -> void:
@@ -54,7 +60,7 @@ func _ready() -> void:
 	x3_btn.pressed.connect(_x3)
 	market_btn.pressed.connect(market_popup.open)
 	run_over_market_btn.pressed.connect(market_popup.open)
-	shop_btn.visible = OS.is_debug_build()
+	shop_btn.visible = false
 	shop_btn.pressed.connect(_toggle_auto_tap)
 	settings_btn.pressed.connect(settings_popup.open)
 	passive_label.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -82,6 +88,7 @@ func _ready() -> void:
 	_refresh_session()
 	_refresh_shop()
 	_render_hint()
+	_build_tap_reward()
 
 
 func _notification(what: int) -> void:
@@ -300,6 +307,8 @@ func _hide_tap_prompt() -> void:
 
 func _on_stage(index: int, _payout: int) -> void:
 	_set_hint("HINT_RING_UNLOCKED", [index + 1])
+	if index == 1 and GameState.has_auto_tap_announce():
+		_open_tap_reward()
 
 
 func _on_dda(profile: Dictionary) -> void:
@@ -352,11 +361,147 @@ func _refresh_currency() -> void:
 
 
 ## Prototype-only: toggles the Auto-Tap entitlement so idle can be felt in-session.
+func _build_tap_reward() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "AutoTapReward"
+	layer.layer = 30
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	layer.visible = false
+	add_child(layer)
+	var root := Control.new()
+	root.name = "Root"
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.offset_right = 720
+	root.offset_bottom = 1280
+	layer.add_child(root)
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.02, 0.03, 0.72)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.offset_right = 720
+	dim.offset_bottom = 1280
+	root.add_child(dim)
+	var panel := Panel.new()
+	panel.name = "Panel"
+	panel.position = Vector2(70, 460)
+	panel.size = Vector2(580, 320)
+	root.add_child(panel)
+	var title := Label.new()
+	title.name = "Title"
+	title.position = Vector2(28, 12)
+	title.size = Vector2(524, 64)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.28))
+	panel.add_child(title)
+	var body := Label.new()
+	body.name = "Body"
+	body.position = Vector2(36, 78)
+	body.size = Vector2(508, 40)
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_theme_font_size_override("font_size", 20)
+	panel.add_child(body)
+	var button := Button.new()
+	button.name = "Continue"
+	button.position = Vector2(170, 124)
+	button.size = Vector2(240, 52)
+	button.pressed.connect(_close_tap_reward)
+	panel.add_child(button)
+	VaultArt.ensure()
+	var hand := TextureRect.new()
+	hand.name = "Hand"
+	hand.texture = VaultArt.hand
+	hand.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hand.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hand.size = Vector2(96, 126)
+	hand.pivot_offset = Vector2(48, 14)
+	hand.rotation = PI
+	root.add_child(hand)
+	_tap_hand = hand
+	_tap_reward = layer
+
+
+func _open_tap_reward() -> void:
+	if _tap_reward == null or _tap_reward.visible:
+		return
+	var panel := _tap_reward.get_node("Root/Panel")
+	var turkish := Settings.language == "tr"
+	panel.get_node("Title").text = "Oto-Tıklayıcı Kilidi Açıldı!" if turkish else "Auto-Tap Unlocked!"
+	panel.get_node("Body").text = "Sana yardımcı olmak için" if turkish else "To help you."
+	panel.get_node("Continue").text = "Devam" if turkish else "Continue"
+	shop_btn.visible = true
+	_tap_reward.visible = true
+	get_tree().process_frame.connect(_finish_tap_reward, CONNECT_ONE_SHOT)
+
+
+func _finish_tap_reward() -> void:
+	if _tap_reward == null or not _tap_reward.visible:
+		return
+	_lift_shop_button()
+	_point_at_shop()
+	OverlayPause.push()
+
+
+func _close_tap_reward() -> void:
+	if _tap_reward == null or not _tap_reward.visible:
+		return
+	_tap_reward.visible = false
+	_drop_shop_button()
+	GameState.accept_auto_tap_reward()
+	_refresh_shop()
+	OverlayPause.pop()
+
+
+func _lift_shop_button() -> void:
+	if _shop_home != null:
+		return
+	shop_btn.visible = true
+	shop_btn.text = "Oto-Tık" if Settings.language == "tr" else "Auto-Tap"
+	var rect := shop_btn.get_global_rect()
+	_shop_home = shop_btn.get_parent()
+	_shop_index = shop_btn.get_index()
+	_tap_reward.get_node("Root").add_child(shop_btn)
+	shop_btn.layout_mode = 0
+	shop_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	shop_btn.position = rect.position
+	shop_btn.size = rect.size
+
+
+func _drop_shop_button() -> void:
+	if _shop_home == null:
+		return
+	_shop_home.add_child(shop_btn)
+	_shop_home.move_child(shop_btn, mini(_shop_index, _shop_home.get_child_count() - 1))
+	shop_btn.layout_mode = 2
+	_shop_home = null
+
+
+func _point_at_shop() -> void:
+	if _tap_hand == null:
+		return
+	var rect := shop_btn.get_global_rect()
+	var tip := Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y - 8.0)
+	_tap_hand.position = tip - _tap_hand.pivot_offset
+	var panel := _tap_reward.get_node("Root/Panel")
+	panel.position = Vector2(70, tip.y - 340)
+	panel.size = Vector2(580, 190)
+
+
 func _toggle_auto_tap() -> void:
+	if _tap_reward != null and _tap_reward.visible:
+		_close_tap_reward()
+		return
+	if not GameState.auto_tap_unlocked:
+		return
 	GameState.auto_tap = not GameState.auto_tap
 	GameState.save_game()
 	_refresh_shop()
 
 
 func _refresh_shop() -> void:
+	shop_btn.visible = GameState.auto_tap_unlocked
 	shop_btn.text = tr("AUTO_TAP_ON" if GameState.auto_tap else "AUTO_TAP_OFF")
