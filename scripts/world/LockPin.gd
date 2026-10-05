@@ -7,9 +7,12 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 
 @export var radius: float = 210.0
 
+const BOLT_SCALE := Vector2(0.72, 0.72)
+
 var locked: bool = false
 var _flash_tween: Tween
 var _eject_tween: Tween
+var _seat_tween: Tween
 var _bolt: Sprite2D
 
 
@@ -18,7 +21,7 @@ func _ready() -> void:
 	_bolt = Sprite2D.new()
 	_bolt.name = "Bolt"
 	_bolt.texture = VaultArt.pin
-	_bolt.scale = Vector2(0.72, 0.72)
+	_bolt.scale = BOLT_SCALE
 	_bolt.use_parent_material = true
 	add_child(_bolt)
 	_layout()
@@ -31,12 +34,33 @@ func place(angle: float) -> void:
 
 
 func set_locked(is_locked: bool) -> void:
+	var seated_now: bool = is_locked and not locked
 	locked = is_locked
 	if _eject_tween:
 		_eject_tween.kill()
 	if _bolt:
 		_bolt.modulate.a = 1.0
 	_layout()
+	if seated_now:
+		_seat_bounce()
+
+
+## Seating: 1.0 → 1.3 → 1.0 in 120 ms, so the pin visibly "catches".
+func _seat_bounce() -> void:
+	if _bolt == null:
+		return
+	if _seat_tween:
+		_seat_tween.kill()
+	_bolt.scale = BOLT_SCALE
+	_seat_tween = create_tween()
+	_seat_tween.set_ignore_time_scale(true)
+	_seat_tween.tween_property(_bolt, "scale", BOLT_SCALE * 1.3, 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_seat_tween.tween_property(_bolt, "scale", BOLT_SCALE, 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Miss: the tumbler pops out of the notch and fades.
+func eject() -> void:
+	_eject(0, 0)
 
 
 func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
@@ -64,6 +88,9 @@ func _eject(_index: int, _payout: int) -> void:
 		return
 	if _eject_tween:
 		_eject_tween.kill()
+	if _seat_tween:
+		_seat_tween.kill()
+	_bolt.scale = BOLT_SCALE
 	_eject_tween = create_tween()
 	_eject_tween.set_ignore_time_scale(true)
 	_eject_tween.tween_interval(0.1)

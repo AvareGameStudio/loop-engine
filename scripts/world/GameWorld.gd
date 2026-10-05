@@ -1,11 +1,14 @@
 extends Node2D
-## Core session loop: spin → tap → grade → payout → DDA → stage/meta.
+## Core level loop: spin → tap → grade → pin seats → last pin cracks the vault → loot → next vault.
+## One run = one vault. A Miss raises the alarm; the third strike brings the cops.
 
 const RESPAWN_DELAY: float = 0.22
-const VAULT_BEAT: float = 0.55
+## Real seconds between the last pin and the end-of-vault card: door flies, loot rains.
+const CRACK_BEAT: float = 1.25
 const REVIVE_STEP: float = 0.45
-const FOCUS_PERFECT: float = 0.25
-const FOCUS_GOOD: float = 0.08
+## DDA may only bend the stage curve this far either way.
+const DDA_BAND: float = 0.15
+const NEAR_BAND_DEG: float = 5.0
 
 @onready var arena: RingArena = $Arena
 @onready var input_proc: InputProcessor = $InputProcessor
@@ -16,12 +19,10 @@ var vr := VariableRatioSchedule.new()
 var dda := DynamicDifficulty.new()
 var zeigarnik := ZeigarnikTracker.new()
 var _busy: bool = false
-## Energy and coins actually banked this run. The end ad adds twice this (3x total).
-var _run_energy: int = 0
-var _run_coins: int = 0
+## Cash actually banked this vault. The end ad adds twice this (3x total).
+var _run_cash: int = 0
 ## Frozen at run end so Retry during the ad cannot zero the 3x grant.
-var _boost_energy: int = 0
-var _boost_coins: int = 0
+var _boost_cash: int = 0
 
 
 func _ready() -> void:
@@ -29,16 +30,10 @@ func _ready() -> void:
 	_apply_difficulty()
 	input_proc.arm(false)
 	input_proc.committed.connect(_on_commit)
-	if meta:
-		meta.produced.connect(func(_amount: int) -> void: _push_zeigarnik())
-	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _push_zeigarnik())
 	EventBus.revive_resolved.connect(_on_revive)
 	EventBus.ad_finished.connect(_on_ad)
-	# Never block the core loop on the vault. A missing Claim popup used to
-	# leave the ring spinning with taps ignored (run_active == false).
 	if not GameState.run_active:
 		start_run.call_deferred()
-	# Cold-start vault stays a HUD peek; the full sheet waits for run-over.
 
 
 func _process(delta: float) -> void:
@@ -79,20 +74,20 @@ func start_run() -> void:
 	GameState.reset_run()
 	TimeScale.reset()
 	_busy = false
-	_run_energy = 0
-	_run_coins = 0
-	input_proc.reset_focus()
+	_run_cash = 0
 	input_proc.clear_buffer()
 	input_proc.arm(true)
 	arena.last_grade = ""
-	arena.spinning = true
+	arena.flips_enabled = GameState.flips_enabled(GameState.current_stage)
+	arena.set_vault(GameState.current_stage)
 	_apply_difficulty()
+	arena.spinning = true
 	arena.randomize_target(true)
 	zeigarnik.arm_gate()
 	EventBus.run_started.emit()
+	EventBus.alarm_changed.emit(GameState.session_alarm, GameState.ALARM_MAX)
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
 	EventBus.session_changed.emit()
-	_push_zeigarnik()
 
 
 func _on_commit(mode: String, _held: float) -> void:
@@ -116,37 +111,40 @@ func _on_commit(mode: String, _held: float) -> void:
 	match int(result.grade):
 		TimingEngine.Grade.PERFECT:
 			_apply_success(result, 1.35)
-			input_proc.add_focus(FOCUS_PERFECT)
 			EventBus.perfect.emit(result)
 			EventBus.juice_hit.emit("perfect", MetaUpgrade.perfect_power())
 		TimingEngine.Grade.GOOD:
 			_apply_success(result, 1.0)
-			input_proc.add_focus(FOCUS_GOOD)
 			EventBus.juice_hit.emit("good", 0.7)
 		TimingEngine.Grade.NEAR_MISS:
 			EventBus.near_miss.emit(result)
 			EventBus.juice_hit.emit("near_miss", 1.0)
-			EventBus.revive_offered.emit(result)
+			_strike(result)
 			return
 		_:
 			EventBus.miss.emit(result)
 			EventBus.juice_hit.emit("miss", 1.0)
-			_fail_run("miss", result)
+			_strike(result)
 			return
 	_after_hit()
 
 
+## Stage curve first, DDA as a ±15% bend on top, Pro Gloves widen the Perfect slice.
 func _apply_difficulty() -> void:
+	var stage: int = GameState.current_stage
 	var w: Dictionary = dda.windows()
-	var pressure := float(maxi(GameState.current_stage - 1, 0))
-	var shrink := clampf(1.0 - pressure * 0.05, 0.74, 1.0)
-	w["good"] = maxf(float(w["good"]) * shrink, 8.0)
-	w["perfect"] = clampf(float(w["perfect"]) * shrink, 3.5, float(w["good"]) * 0.55)
-	var near_band: float = float(dda.windows()["near"]) - float(dda.windows()["good"])
-	w["near"] = float(w["good"]) + maxf(near_band * shrink, 3.0)
-	timing.configure(w)
-	arena.rpm = clampf(dda.rpm * (1.0 + pressure * 0.07), dda.rpm_min, dda.rpm_max)
-	arena.windows = w
+	var rpm_bend: float = clampf(dda.rpm / 0.55, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
+	var win_bend: float = clampf(float(w["perfect"]) / 7.0, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
+	var good: float = GameState.base_good_deg(stage) * win_bend
+	var perfect: float = clampf(good * 0.42 * MetaUpgrade.perfect_window_mult(), 3.5, good * 0.7)
+	var windows := {
+		"good": good,
+		"perfect": perfect,
+		"near": good + NEAR_BAND_DEG,
+	}
+	timing.configure(windows)
+	arena.rpm = clampf(GameState.base_rpm(stage) * rpm_bend, dda.rpm_min, dda.rpm_max)
+	arena.windows = windows
 
 
 func _apply_success(result: Dictionary, grade_mult: float) -> void:
@@ -169,7 +167,7 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 			GameState.session_multiplier = 1.0
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
 	EventBus.vr_tension.emit(vr.peek_tension())
-	# Perfect Power is felt on Perfects (score + juice). Other grades get a whisper of it.
+	# Pro Gloves are felt on Perfects (score + juice). Other grades get a whisper of it.
 	var power: float = MetaUpgrade.perfect_power()
 	var power_mult: float = power if grade == TimingEngine.Grade.PERFECT else lerpf(1.0, power, 0.15)
 	var payout: int = int(
@@ -180,32 +178,18 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 		* power_mult
 	)
 	GameState.session_score += payout
-	_bank_energy(ceili(float(payout) * 0.12 * MetaUpgrade.generator_rate()))
-	_bank_coins(maxi(1, floori(payout / 20.0)))
+	# Each seated pin drops a little cash; the vault itself pays on the last pin.
+	_bank_cash(maxi(1, ceili(float(payout) * 0.04 * GameState.loot_mult(GameState.current_stage))))
 
 
 func _after_hit() -> void:
 	var cleared := GameState.hits_in_stage >= GameState.hits_needed
-	if cleared:
-		var bonus: int = 25 * GameState.current_stage
-		var purse: int = 15 * GameState.current_stage
-		_bank_energy(bonus)
-		_bank_coins(purse)
-		GameState.note_stage_cleared()
-		EventBus.stage_cleared.emit(GameState.current_stage, bonus)
-		GameState.current_stage += 1
-		GameState.hits_in_stage = 0
-		GameState.hits_needed = mini(8 + GameState.current_stage, 14)
-		GameState.unlock_theme_for_stage(GameState.current_stage)
-		_apply_difficulty()
-		arena.mark_phase()
 	EventBus.session_changed.emit()
-	_push_zeigarnik()
-	# Bake the next door while the needle is stopped, so the hitch is not the first spin frame.
 	if cleared:
-		arena.warm_shell()
-	# Real seconds: ignore_time_scale so unlock slow-mo cannot stretch the armed window.
-	await get_tree().create_timer(VAULT_BEAT if cleared else RESPAWN_DELAY, true, false, true).timeout
+		_crack_vault()
+		return
+	# Real seconds: ignore_time_scale so the armed window cannot stretch.
+	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
 	if not GameState.run_active:
 		return
 	TimeScale.set_slowmo(1.0)
@@ -213,39 +197,73 @@ func _after_hit() -> void:
 	_begin_spin()
 
 
-func _fail_run(reason: String, result: Dictionary) -> void:
-	input_proc.arm(false)
-	arena.spinning = false
+## Last pin: the door flies, the loot rains, then the card. The vault index moves forward now
+## so the next door is already painted when the card closes.
+func _crack_vault() -> void:
+	var stage: int = GameState.current_stage
+	var loot: int = int(float(40 + 12 * stage) * GameState.loot_mult(stage))
+	_bank_cash(loot)
+	GameState.note_stage_cleared()
+	arena.warm_shell()
+	EventBus.stage_cleared.emit(stage, loot)
+	# HUD already reads the next vault number behind the card; the painted door matches it.
+	EventBus.session_changed.emit()
+	if GameState.loot_just_unlocked():
+		EventBus.loot_unlocked.emit(GameState.LOOT_ITEMS[GameState.loot_unlocked_count() - 1])
+	await get_tree().create_timer(CRACK_BEAT, true, false, true).timeout
+	_finish_run("cracked", {})
+
+
+## One alarm strike. The third brings the cops: bribe (rewarded ad) or get caught.
+func _strike(result: Dictionary) -> void:
+	var caught: bool = GameState.raise_alarm()
 	# Instant deaths were persisting a too-hard DDA profile and making the
 	# next run feel broken (10° window at 0.73 rps, one miss → game over).
-	if GameState.session_hits <= 2:
+	if caught and GameState.session_hits <= 1:
 		dda.forgive()
 		_apply_difficulty()
-	_boost_energy = _run_energy
-	_boost_coins = _run_coins
+	if caught:
+		input_proc.arm(false)
+		EventBus.revive_offered.emit(result)
+		return
+	# Pin ejects, dial jams for a beat, then the same vault keeps spinning.
+	break_combo()
+	await get_tree().create_timer(RESPAWN_DELAY * 2.0, true, false, true).timeout
+	if not GameState.run_active:
+		return
+	arena.last_grade = ""
+	arena.randomize_target(false)
+	_begin_spin()
+
+
+func _finish_run(reason: String, result: Dictionary) -> void:
+	input_proc.arm(false)
+	arena.spinning = false
+	_boost_cash = _run_cash
 	GameState.end_run()
 	if GameState.no_ads:
 		_grant_end_boost()
-	_push_zeigarnik()
 	EventBus.run_ended.emit(reason, {
 		"score": GameState.session_score,
 		"combo": GameState.session_combo,
 		"hits": GameState.session_hits,
+		"stage": GameState.current_stage - (1 if reason == "cracked" else 0),
+		"cash": _run_cash,
 		"result": result,
 	})
 	_busy = false
 	input_proc.clear_buffer()
 	TimeScale.reset()
 	# Record the streak in end_run before this zeroes the counter.
-	# Leave the HUD number alone; the run-over sheet already shows it.
 	break_combo(false)
 
 
 func _on_revive(success: bool) -> void:
 	if not success:
-		_fail_run("near_miss", {})
+		_finish_run("caught", {})
 		return
 	GameState.revive_used = true
+	GameState.clear_alarm()
 	break_combo()
 	TimeScale.reset()
 	arena.last_grade = ""
@@ -272,33 +290,22 @@ func _begin_spin() -> void:
 	input_proc.arm(true)
 
 
-## Adds twice the run's banked currencies. The player already holds 1x, so this makes 3x.
+## Adds twice the vault's banked cash. The player already holds 1x, so this makes 3x.
 func _grant_end_boost() -> void:
-	var energy: int = _boost_energy
-	var coins: int = _boost_coins
-	_boost_energy = 0
-	_boost_coins = 0
-	if energy > 0:
-		GameState.add_energy(energy * 2)
-	if coins > 0:
-		GameState.add_coins(coins * 2)
+	var cash: int = _boost_cash
+	_boost_cash = 0
+	if cash > 0:
+		GameState.add_cash(cash * 2)
 
 
-func _bank_energy(amount: int) -> void:
+func _bank_cash(amount: int) -> void:
 	if amount <= 0:
 		return
-	_run_energy += amount
-	GameState.add_energy(amount)
+	_run_cash += amount
+	GameState.add_cash(amount)
 
 
-func _bank_coins(amount: int) -> void:
-	if amount <= 0:
-		return
-	_run_coins += amount
-	GameState.add_coins(amount)
-
-
-## Zeroes the live combo after a death has already recorded it, or when a revive continues the run.
+## Zeroes the live combo after a strike, a bust, or a bribe.
 func break_combo(refresh_hud: bool = true) -> void:
 	if GameState.session_combo >= 2:
 		EventBus.juice_hit.emit("combo_break", 1.0)
@@ -307,7 +314,3 @@ func break_combo(refresh_hud: bool = true) -> void:
 	GameState.session_combo = 0
 	if refresh_hud:
 		EventBus.session_changed.emit()
-
-
-func _push_zeigarnik() -> void:
-	EventBus.zeigarnik_updated.emit(zeigarnik.loops())

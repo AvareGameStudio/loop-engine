@@ -1,10 +1,8 @@
 extends CanvasLayer
-## Near-miss revive, gated on record proximity (Near-Miss monetization).
-## Ordinary deaths skip this and go straight to run-over. Only a death at ≥85%
-## of the personal best earns the ad, so ads stay scarce and conversion stays high.
-
-## Session score must reach this share of the record before a revive is even considered.
-@export_range(0.0, 100.0) var min_record_pct: float = 85.0
+## "Bribe the Cops": the third alarm strike brings the police. One rewarded ad
+## resets the alarm and the same vault keeps going; skipping ends the run.
+## Always offered once per vault. No record gating: a bust is a bust, and the ad
+## is the only thing between the player and losing the vault.
 
 @onready var root: Control = $Root
 @onready var title: Label = $Root/Panel/VBox/Title
@@ -29,65 +27,32 @@ func _ready() -> void:
 
 
 func present(result: Dictionary) -> void:
-	var ratio: float = record_ratio()
-	if not should_offer(result, ratio):
-		# Deferred so the near-miss hitstop lands before the run-over sheet.
+	if GameState.revive_used:
+		# Deferred so the siren hitstop lands before the card.
 		EventBus.revive_resolved.emit.call_deferred(false)
 		return
 	_result = result
 	_open = true
 	root.visible = true
-	var band: bool = bool(result.get("in_loss_aversion_band", false))
-	title.text = tr("REVIVE_TITLE" if band else "REVIVE_TITLE_FAR")
+	title.text = tr("REVIVE_TITLE")
 	body.text = "\n".join([
-		tr("REVIVE_BODY") % float(result.get("overshoot_deg", 0.0)),
-		_record_line(ratio),
-		tr("REVIVE_PROMPT"),
+		tr("REVIVE_BODY") % GameState.current_stage,
+		_loot_line(),
 	])
 	watch.text = tr("REVIVE_WATCH")
 	skip.text = tr("REVIVE_SKIP")
-	watch.disabled = GameState.revive_used
-	if GameState.revive_used:
-		watch.text = tr("REVIVE_USED")
-		body.text += "\n" + tr("REVIVE_LAST")
+	watch.disabled = false
 	_holding_pause = true
 	OverlayPause.push()
 	_punch()
 
 
-## Session score as a share of the record. No record yet → every run is on record pace.
-static func record_ratio() -> float:
-	if GameState.best_score <= 0:
-		return 1.0
-	return float(GameState.session_score) / float(GameState.best_score)
-
-
-func should_offer(_result: Dictionary, ratio: float) -> bool:
-	if GameState.revive_used:
-		return false
-	return ratio >= min_record_pct / 100.0
-
-
-## Remaining Perfect-paced hits to beat the record. "Only 2 hits left" is the hook.
-static func hits_to_record() -> int:
-	if GameState.best_score <= 0:
-		return 0
-	var remaining: int = GameState.best_score - GameState.session_score
-	if remaining <= 0:
-		return 0
-	var avg: float = float(GameState.session_score) / float(maxi(GameState.session_hits, 1))
-	return ceili(float(remaining) / maxf(avg, 1.0))
-
-
-func _record_line(ratio: float) -> String:
-	if GameState.best_score <= 0:
-		return tr("REVIVE_FIRST_RECORD")
-	var left: int = hits_to_record()
-	if left <= 0:
-		return tr("REVIVE_NEW_RECORD")
-	if left == 1:
-		return tr("REVIVE_HITS_LEFT_ONE")
-	return tr("REVIVE_HITS_LEFT") % left
+## The pins already seated are what the bribe protects.
+func _loot_line() -> String:
+	var seated: int = GameState.hits_in_stage
+	if seated <= 0:
+		return tr("REVIVE_PROMPT")
+	return tr("REVIVE_PINS") % [seated, GameState.hits_needed]
 
 
 func _punch() -> void:
@@ -99,9 +64,6 @@ func _punch() -> void:
 
 
 func _watch() -> void:
-	if GameState.revive_used:
-		_skip()
-		return
 	watch.disabled = true
 	watch.text = tr("REVIVE_LOADING")
 	var ads := get_tree().root.get_node_or_null("Main/AdsManager")

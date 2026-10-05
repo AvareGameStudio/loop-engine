@@ -2,9 +2,9 @@ class_name ClaimPopup
 extends CanvasLayer
 
 const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
-## Idle Vault collect. Auto-Pulse earnings wait here as a piggy, not a live ticker.
-## Claiming fires a gold explosion so the return-to-game moment is Instant Gratification.
-## "Later" leaves the vault full (Zeigarnik: the unfinished piggy pulls the player back).
+## Crew stash collect. What the crew stole while the app was closed waits here as a
+## stuffed bag, not a live ticker. Claiming fires a gold explosion so the return-to-game
+## moment is Instant Gratification. "Later" leaves the bag full (Zeigarnik pull-back).
 
 @onready var root: Control = $Root
 @onready var panel: Control = $Root/Panel
@@ -43,8 +43,8 @@ func _ready() -> void:
 	# Tapping the dim (the spinning ring behind it) used to do nothing, so
 	# the game felt frozen. Treat that tap as "Later".
 	$Root/Dim.gui_input.connect(_on_dim_input)
-	EventBus.vault_ready.connect(open)
-	EventBus.vault_changed.connect(_on_vault)
+	EventBus.stash_ready.connect(open)
+	EventBus.stash_changed.connect(_on_stash)
 
 
 func _on_dim_input(event: InputEvent) -> void:
@@ -60,9 +60,9 @@ func _notification(what: int) -> void:
 		_refresh()
 
 
-## `from_player` is the HUD peek tap. Auto `vault_ready` never steals a live run.
+## `from_player` is the HUD chip tap. Auto `stash_ready` never steals a live vault.
 func open(_amount: int = 0, from_player: bool = false) -> void:
-	if GameState.unclaimed_energy <= 0:
+	if GameState.unclaimed_cash <= 0:
 		return
 	if GameState.run_active and not from_player:
 		return
@@ -82,7 +82,7 @@ func open(_amount: int = 0, from_player: bool = false) -> void:
 	_pour_hoard()
 
 
-func _on_vault(amount: int, _delta: int) -> void:
+func _on_stash(amount: int, _delta: int) -> void:
 	if _open:
 		if amount <= 0:
 			_close()
@@ -93,7 +93,7 @@ func _on_vault(amount: int, _delta: int) -> void:
 func _refresh() -> void:
 	body_label.text = tr("CLAIM_BODY")
 	market_btn.text = tr("CLAIM_MARKET")
-	_count_amount(GameState.unclaimed_energy)
+	_count_amount(GameState.unclaimed_cash)
 
 
 func _count_amount(target: int) -> void:
@@ -111,13 +111,12 @@ func _set_counted_amount(value: float) -> void:
 
 
 func _claim() -> void:
-	var n: int = GameState.claim_vault()
+	var n: int = GameState.claim_stash()
 	if n > 0:
-		GameState.add_coins(maxi(1, n / 5))
 		EventBus.juice_hit.emit("claim", 1.0)
 		_pour_hoard()
 	_close()
-	EventBus.vault_resolved.emit(true)
+	EventBus.stash_resolved.emit(true)
 
 
 func _open_market() -> void:
@@ -128,7 +127,7 @@ func _open_market() -> void:
 
 func _later() -> void:
 	_close()
-	EventBus.vault_resolved.emit(false)
+	EventBus.stash_resolved.emit(false)
 
 
 func _pour_hoard() -> void:

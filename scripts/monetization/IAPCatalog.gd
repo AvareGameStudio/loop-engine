@@ -12,15 +12,15 @@ const PRODUCTS := [
 	},
 	{
 		"id": "auto_tap",
-		"title": "Auto-Tap Idle Loop",
-		"blurb": "Offline-safe lock cadence. Core skill loop remains for high scores.",
+		"title": "Auto-Crack",
+		"blurb": "The crew taps the Good window for you. Perfects stay yours.",
 		"price": "$2.99",
 		"flag": "auto_tap",
 	},
 	{
-		"id": "trail_aurora",
-		"title": "Aurora Trail",
-		"blurb": "Cosmetic pointer trail. Zero P2W.",
+		"id": "dial_obsidian",
+		"title": "Obsidian Dial",
+		"blurb": "Cosmetic vault face. Zero P2W.",
 		"price": "$1.99",
 		"flag": "cosmetic",
 	},
@@ -35,7 +35,8 @@ static func grant(product_id: String) -> void:
 			GameState.auto_tap_purchased = true
 			GameState.auto_tap_unlocked = true
 			GameState.auto_tap = true
-		"trail_aurora":
-			if not GameState.cosmetics.has("aurora"):
-				GameState.cosmetics.append("aurora")
+		"dial_obsidian":
+			if not GameState.cosmetics.has("obsidian"):
+				GameState.cosmetics.append("obsidian")
+			GameState.equip_dial("obsidian")
 	GameState.save_game()

@@ -9,33 +9,34 @@ signal jackpot(multiplier: float, label: String)
 signal near_miss(result: Dictionary)
 signal miss(result: Dictionary)
 signal perfect(result: Dictionary)
+## The last pin seated: the vault at `stage_index` is cracked and `payout` cash spilled.
 signal stage_cleared(stage_index: int, payout: int)
 signal run_started()
+## reason: "cracked" (vault opened) or "caught" (alarm maxed, no bribe).
 signal run_ended(reason: String, stats: Dictionary)
+## The cops arrived. The player can bribe them (rewarded ad) or get caught.
 signal revive_offered(result: Dictionary)
 signal revive_resolved(success: bool)
-signal energy_changed(amount: int, delta: int)
-signal coins_changed(amount: int, delta: int)
+signal cash_changed(amount: int, delta: int)
+## Strikes on the wall lamp. `level` 0..`max_level`.
+signal alarm_changed(level: int, max_level: int)
 signal dda_changed(profile: Dictionary)
-signal zeigarnik_updated(loops: Array)
 signal juice_hit(grade: String, intensity: float)
 signal multiplier_changed(value: float)
 signal meta_upgraded(stat: String, level: int)
 signal ad_requested(placement: String, payload: Dictionary)
 signal ad_finished(placement: String, rewarded: bool)
-signal hold_started()
-signal hold_released(held_seconds: float)
-signal focus_changed(value: float)
 signal countdown(step: int)
 signal direction_flipped(direction: float)
 signal session_changed()
-## Idle Vault: unclaimed Auto-Pulse earnings waiting to be collected.
-signal vault_changed(amount: int, delta: int)
-signal vault_ready(amount: int)
-signal vault_resolved(claimed: bool)
+## Crew stash: unclaimed offline earnings waiting to be collected.
+signal stash_changed(amount: int, delta: int)
+signal stash_ready(amount: int)
+signal stash_resolved(claimed: bool)
 signal cosmetic_equipped(id: String)
-signal theme_unlocked(theme_id: String)
-## 0..1 tease for the next variable-ratio drop. UI pulses Focus without revealing the interval.
+## A new hideout item joined the shelf.
+signal loot_unlocked(loot_id: String)
+## 0..1 tease for the next variable-ratio drop.
 signal vr_tension(value: float)
 
 

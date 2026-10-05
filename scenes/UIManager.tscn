@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -6,6 +6,9 @@
 [ext_resource type="Texture2D" path="res://assets/icons/settings.svg" id="4_gear"]
 [ext_resource type="PackedScene" path="res://scenes/MarketPopup.tscn" id="5_market"]
 [ext_resource type="PackedScene" path="res://scenes/ClaimPopup.tscn" id="6_claim"]
+[ext_resource type="Script" path="res://scripts/ui/LootBag.gd" id="7_bag"]
+[ext_resource type="Script" path="res://scripts/ui/AlarmLamps.gd" id="8_lamps"]
+[ext_resource type="Script" path="res://scripts/ui/QuestRing.gd" id="9_ring"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -20,182 +23,116 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Top" type="HBoxContainer" parent="HUD"]
+[node name="Vault" type="Label" parent="HUD"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 28.0
 offset_top = 36.0
 offset_right = -104.0
-offset_bottom = 100.0
+offset_bottom = 84.0
 mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Score" type="Label" parent="HUD/Top"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 40
-text = "0"
-
-[node name="Combo" type="Label" parent="HUD/Top"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.45, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 28
-text = "x0"
-
-[node name="Mult" type="Label" parent="HUD/Top"]
-layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-theme_override_font_sizes/font_size = 18
-text = "PAYOUT x1.0"
-horizontal_alignment = 2
+theme_override_colors/font_outline_color = Color(0.04, 0.03, 0.02, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 32
+text = "VAULT 1"
+vertical_alignment = 1
+
+[node name="Lamps" type="Control" parent="HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 28.0
+offset_top = 90.0
+offset_right = 200.0
+offset_bottom = 118.0
+mouse_filter = 2
+script = ExtResource("8_lamps")
 
 [node name="Grade" type="Label" parent="HUD"]
 layout_mode = 1
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -320.0
-offset_top = 108.0
+offset_top = 150.0
 offset_right = 320.0
-offset_bottom = 168.0
+offset_bottom = 210.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_font_sizes/font_size = 36
+theme_override_colors/font_outline_color = Color(0.04, 0.03, 0.02, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 40
 horizontal_alignment = 1
 vertical_alignment = 1
 pivot_offset = Vector2(320, 30)
 
-[node name="Center" type="VBoxContainer" parent="HUD"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = 210.0
-offset_right = 320.0
-offset_bottom = 320.0
-mouse_filter = 2
-
-[node name="Hint" type="Label" parent="HUD/Center"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 0.8)
-theme_override_font_sizes/font_size = 16
-text = ""
-horizontal_alignment = 1
-
-[node name="TapPrompt" type="Label" parent="HUD"]
+[node name="Combo" type="Label" parent="HUD"]
 visible = false
 layout_mode = 1
-anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 0.5
 offset_left = -160.0
-offset_top = -348.0
+offset_top = 212.0
 offset_right = 160.0
-offset_bottom = -292.0
+offset_bottom = 248.0
 grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+theme_override_colors/font_color = Color(0.45, 0.9, 1, 1)
 theme_override_colors/font_outline_color = Color(0.04, 0.03, 0.02, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 34
-text = "COACH_TAP"
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 26
+text = "x3"
 horizontal_alignment = 1
 vertical_alignment = 1
-pivot_offset = Vector2(160, 28)
+pivot_offset = Vector2(160, 18)
 
-[node name="Bottom" type="VBoxContainer" parent="HUD"]
+[node name="Bag" type="Control" parent="HUD"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -140.0
+offset_top = -330.0
+offset_right = 140.0
+offset_bottom = -130.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("7_bag")
+
+[node name="Actions" type="HBoxContainer" parent="HUD"]
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 28.0
-offset_top = -450.0
+offset_top = -100.0
 offset_right = -28.0
-offset_bottom = -360.0
-mouse_filter = 2
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 12
 
-[node name="StageBar" type="ProgressBar" parent="HUD/Bottom"]
-custom_minimum_size = Vector2(0, 14)
-layout_mode = 2
-mouse_filter = 2
-max_value = 8.0
-show_percentage = false
-
-[node name="FocusBar" type="ProgressBar" parent="HUD/Bottom"]
-self_modulate = Color(1, 0.84, 0.3, 1)
-custom_minimum_size = Vector2(0, 8)
-layout_mode = 2
-mouse_filter = 2
-max_value = 1.0
-step = 0.0
-value = 1.0
-show_percentage = false
-
-[node name="Wallet" type="HBoxContainer" parent="HUD/Bottom"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="Energy" type="Label" parent="HUD/Bottom/Wallet"]
+[node name="Market" type="Button" parent="HUD/Actions"]
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 16
-text = "ENERGY  0"
-
-[node name="Coins" type="Label" parent="HUD/Bottom/Wallet"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-theme_override_font_sizes/font_size = 16
-text = "COINS  0"
-
-[node name="Passive" type="Label" parent="HUD/Bottom/Wallet"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.3, 0.95, 0.45, 1)
-theme_override_font_sizes/font_size = 16
-text = "PASSIVE  +0.7/s"
-
-[node name="Meta" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -340.0
-offset_right = -24.0
-offset_bottom = -24.0
-theme_override_constants/separation = 10
-
-[node name="Loops" type="HBoxContainer" parent="Meta"]
-layout_mode = 2
-size_flags_vertical = 3
-mouse_filter = 2
-theme_override_constants/separation = 8
-
-[node name="Actions" type="HBoxContainer" parent="Meta"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Market" type="Button" parent="Meta/Actions"]
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
 text = "HUD_MARKET"
 
-[node name="Shop" type="Button" parent="Meta/Actions"]
-custom_minimum_size = Vector2(0, 48)
+[node name="Stash" type="Button" parent="HUD/Actions"]
+visible = false
+custom_minimum_size = Vector2(200, 56)
 layout_mode = 2
-text = "Auto-Tap"
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "HUD_STASH"
 
-[node name="RunOver" type="Control" parent="."]
+[node name="Card" type="Control" parent="."]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -204,7 +141,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Dim" type="ColorRect" parent="RunOver"]
+[node name="Dim" type="ColorRect" parent="Card"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -213,48 +150,90 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.02, 0.03, 0.06, 0.55)
 
-[node name="Panel" type="PanelContainer" parent="RunOver"]
+[node name="Panel" type="PanelContainer" parent="Card"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -200.0
-offset_right = 250.0
-offset_bottom = 200.0
+offset_left = -270.0
+offset_top = -290.0
+offset_right = 270.0
+offset_bottom = 290.0
 grow_horizontal = 2
 grow_vertical = 2
+pivot_offset = Vector2(270, 290)
 
-[node name="VBox" type="VBoxContainer" parent="RunOver/Panel"]
+[node name="Margin" type="MarginContainer" parent="Card/Panel"]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
 
-[node name="Title" type="Label" parent="RunOver/Panel/VBox"]
+[node name="VBox" type="VBoxContainer" parent="Card/Panel/Margin"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "LOOP BROKEN"
-horizontal_alignment = 1
+theme_override_constants/separation = 12
 
-[node name="Body" type="Label" parent="RunOver/Panel/VBox"]
+[node name="Title" type="Label" parent="Card/Panel/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Score 0"
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 36
+text = "CARD_CRACKED"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Retry" type="Button" parent="RunOver/Panel/VBox"]
+[node name="Subtitle" type="Label" parent="Card/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.78, 0.9, 1)
+theme_override_font_sizes/font_size = 18
+text = "VAULT_BANK"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Loot" type="Label" parent="Card/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 44
+text = "+$0"
+horizontal_alignment = 1
+
+[node name="Shelf" type="HBoxContainer" parent="Card/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="Ring" type="Control" parent="Card/Panel/Margin/VBox/Shelf"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("9_ring")
+thickness = 8.0
+font_size = 16
+
+[node name="ShelfText" type="Label" parent="Card/Panel/Margin/VBox/Shelf"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 18
+text = "CARD_NEXT_LOOT"
+autowrap_mode = 3
+
+[node name="Primary" type="Button" parent="Card/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "CARD_NEXT"
+
+[node name="X3" type="Button" parent="Card/Panel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-text = "RUN_RETRY"
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "CARD_X3"
 
-[node name="X3" type="Button" parent="RunOver/Panel/VBox"]
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-text = "Claim 3x Energy"
-
-[node name="Market" type="Button" parent="RunOver/Panel/VBox"]
+[node name="Market" type="Button" parent="Card/Panel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 text = "HUD_MARKET"

@@ -1,97 +1,83 @@
 keys,en,tr
-HINT_RUN,TAP ON GOLD  ·  HOLD FOR SLOW-MO,ALTIN BÖLGEDE DOKUN  ·  BASILI TUT: YAVAŞ ÇEKİM
-HINT_RING_UNLOCKED,RING %d UNLOCKED,HALKA %d AÇILDI
-HINT_FLOW,FLOW  %.2f rps,AKIŞ  %.2f tur/sn
-HUD_PAYOUT,PAYOUT x%.1f,ÖDÜL x%.1f
-HUD_ENERGY,ENERGY  %d,ENERJİ  %d
-HUD_COINS,COINS  %d,JETON  %d
-HUD_PASSIVE,IDLE  +%.1f/s,BOŞTA  +%.1f/sn
-HUD_VAULT,VAULT  %d,KUMBARA  %d
-HUD_PULSE,AUTO-PULSE,OTO-DÖNGÜ
+HUD_VAULT,VAULT %d,KASA %d
+HUD_VAULT_GOLDEN,GOLDEN VAULT %d,ALTIN KASA %d
 HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
+HUD_STASH,STASH  $%d,ZULA  $%d
 QUEST_PERCENT,%d%%,%%%d
 GRADE_PERFECT,PERFECT,MÜKEMMEL
 GRADE_GOOD,GOOD,İYİ
-GRADE_NEAR_MISS,NEAR MISS,KIL PAYI
+GRADE_NEAR_MISS,SO CLOSE,KIL PAYI
 GRADE_MISS,MISS,ISKA
 JACKPOT,JACKPOT,BÜYÜK İKRAMİYE
 VR_X2,x2,x2
 VR_X3,x3,x3
 VR_X5,x5,x5
 VR_X8,x8,x8
-COACH_TAP,TAP TO BREAK,KIRMAK İÇİN DOKUN
-AUTO_TAP_UNLOCKED,Auto-Tap Unlocked!,Oto-Tıklayıcı Kilidi Açıldı!
-AUTO_TAP_BODY,The first ring is yours. The next rings tap the good window for you.,İlk halka senin. Sonraki halkalarda iyi aralığa kendi basar.
-AUTO_TAP_CONTINUE,Continue,Devam
 COUNTDOWN_GO,GO,BAŞLA
-AUTO_TAP_ON,Auto-Tap ON,Oto-Tık AÇIK
-AUTO_TAP_OFF,Auto-Tap OFF,Oto-Tık KAPALI
-LOOP_GENERATOR_TITLE,Auto-Pulse,Oto-Döngü
-LOOP_GENERATOR_SUB,Lv %d  ·  %d / %d to next pulse,Sv %d  ·  sonraki darbe: %d / %d
-LOOP_VAULT_SUB,%d waiting in the vault,Kumbara: %d bekliyor
-LOOP_MULT_TITLE,Perfect Power,Perfect Gücü
-LOOP_MULT_SUB,Lv %d  ·  next burst at %d,Sv %d  ·  sonraki patlama: %d
-LOOP_RING_TITLE,Ring %d,Halka %d
-LOOP_RING_SUB,%d / %d locks,%d / %d kilit
-LOOP_THEMES_TITLE,Theme Collection,Tema Koleksiyonu
-LOOP_THEMES_SUB,%d / %d rings,%d / %d halka
-RUN_OVER_ALMOST,ALMOST,NEREDEYSE
-RUN_OVER_BROKEN,LOOP BROKEN,DÖNGÜ KIRILDI
-RUN_OVER_STATS,Score %d   ·   Combo %d,Skor %d   ·   Kombo %d
-RUN_OVER_LOOPS,%d unfinished loops waiting.,%d yarım kalan hedef seni bekliyor.
-RUN_RETRY,Spin again,Tekrar çevir
-RUN_CLAIM_X3,Claim 3x Energy,3x Enerji Al
-RUN_BOOST_AUTO,Boost auto-claimed,Bonus otomatik alındı
-RUN_BOOST_CLAIMED,Boost claimed,Bonus alındı
-REVIVE_TITLE,BRIBE THE COPS,POLİSE RÜŞVET VER
-REVIVE_TITLE_FAR,ALMOST,NEREDEYSE
-REVIVE_BODY,You missed the zone by just %.1f°,Bölgeyi sadece %.1f° farkla kaçırdın
-REVIVE_RECORD,Record pace: %d%%  ·  Best: %d,Rekora yakınlık: %%%d  ·  Rekor: %d
-REVIVE_HITS_LEFT,Only %d hits from your record!,Rekoruna sadece %d atış kaldı!
-REVIVE_HITS_LEFT_ONE,Only 1 hit from your record!,Rekoruna sadece 1 atış kaldı!
-REVIVE_NEW_RECORD,You're on a NEW RECORD pace!,YENİ REKOR yolundasın!
-REVIVE_FIRST_RECORD,Your first record is on the line!,İlk rekorun elinden kaçmasın!
-REVIVE_PROMPT,Pay them off and slip out with the take.,Rüşveti ver ve ganimetle sıvış.
-REVIVE_LAST,This near-miss is the last one this run.,Bu turdaki son kıl payın buydu.
-REVIVE_WATCH,BRIBE & ESCAPE,RÜŞVET VER / KAÇ
+CARD_CRACKED,VAULT %d CRACKED,KASA %d AÇILDI
+CARD_CAUGHT,BUSTED,YAKALANDIN
+CARD_RETRY_SUB,Vault %d  ·  the loot is still inside,Kasa %d  ·  ganimet hâlâ içeride
+CARD_NEXT,NEXT VAULT,SONRAKİ KASA
+CARD_RETRY,TRY AGAIN,TEKRAR DENE
+CARD_X3,3x LOOT,3x GANİMET
+CARD_X3_AUTO,3x loot auto-claimed,3x ganimet otomatik alındı
+CARD_X3_CLAIMED,3x loot claimed,3x ganimet alındı
+CARD_NEW_LOOT,NEW LOOT: %s,YENİ GANİMET: %s
+CARD_NEXT_LOOT,Next loot: %s  (%d/%d),Sıradaki ganimet: %s  (%d/%d)
+CARD_SHELF_FULL,Hideout shelf complete,Saklanma evi rafı tamam
+REVIVE_TITLE,THE COPS ARE HERE,POLİS GELDİ
+REVIVE_BODY,Three strikes at vault %d.,%d numaralı kasada üçüncü alarm.
+REVIVE_PINS,%d / %d pins already seated. Don't lose them.,%d / %d pim yerine oturdu. Kaybetme.
+REVIVE_PROMPT,Pay them off and keep cracking.,Rüşveti ver ve kırmaya devam et.
+REVIVE_WATCH,BRIBE THE COPS,POLİSE RÜŞVET VER
 REVIVE_SKIP,GET CAUGHT,YAKALAN
-REVIVE_USED,Revive already used,Canlanma hakkı kullanıldı
 REVIVE_LOADING,Loading ad…,Reklam yükleniyor…
 SETTINGS_TITLE,SETTINGS,AYARLAR
 SETTINGS_LANGUAGE,Language,Dil
 SETTINGS_SOUND,Sound,Ses
 SETTINGS_VIBRATION,Vibration,Titreşim
-SETTINGS_AUTO_TAP,Auto-Tap,Oto-Tık
+SETTINGS_AUTO_TAP,Auto-Crack,Oto-Kırma
 SETTINGS_CLOSE,Close,Kapat
 MARKET_TITLE,MARKET,PAZAR
-MARKET_BALANCE,Energy %d  ·  Coins %d,Enerji %d  ·  Jeton %d
-MARKET_PASSIVE,The vault fills while you're away.,Kumbara sen yokken dolar.
+MARKET_BALANCE,$%d,$%d
+MARKET_PASSIVE,The crew keeps stealing while you're away.,Sen yokken ekip çalmaya devam eder.
+MARKET_HIDEOUT,Hideout  ·  %d / %d loot items,Saklanma evi  ·  %d / %d ganimet
 MARKET_LEVEL,Lv %d,Sv %d
-MARKET_COST_ENERGY,%d energy,%d enerji
-MARKET_COST_COINS,%d coins,%d jeton
-MARKET_GENERATOR_NAME,Auto-Pulse,Oto-Döngü
-MARKET_GENERATOR_EFFECT,Keeps the ring spinning and filling your vault while you're away.,Sen yokken bile halka dönmeye ve kumbara doldurmaya devam eder.
-MARKET_GLOBAL_MULT_NAME,Perfect Power,Perfect Gücü
-MARKET_GLOBAL_MULT_EFFECT,"Bigger gold bursts, confetti, and score pop on Perfects.","Perfect vuruşlarının altın patlamasını, konfetisini ve skor coşkusunu büyütür."
-MARKET_PASSIVE_YIELD_NAME,Vault Yield,Kumbara Verimi
-MARKET_PASSIVE_YIELD_EFFECT,The piggy fills faster while you're away.,Sen yokken kumbara daha çabuk dolar.
-MARKET_CLOSE,Close,Kapat
+MARKET_COST,$%d,$%d
+MARKET_CREW_NAME,Crew,Ekip
+MARKET_CREW_EFFECT,Steals cash while the app is closed. Bigger crew; bigger stash.,Uygulama kapalıyken para çalar. Ekip büyüdükçe zula büyür.
+MARKET_GLOVES_NAME,Pro Gloves,Pro Eldiven
+MARKET_GLOVES_EFFECT,"Wider Perfect slice, bigger gold bursts.","Daha geniş Perfect dilimi, daha büyük altın patlaması."
 MARKET_SKIN_STEEL,Steel Dial,Çelik Kadran
 MARKET_SKIN_GOLD,Gold Dial,Altın Kadran
 MARKET_SKIN_OBSIDIAN,Obsidian Dial,Obsidyen Kadran
 MARKET_SKIN_EFFECT,Changes the vault face and the tumbler glow.,Kasa kapağını ve kilit piminin ışığını değiştirir.
 MARKET_SKIN_EQUIP,Equip,Kuşan
 MARKET_SKIN_EQUIPPED,Equipped,Kuşanıldı
-CLAIM_MARKET,Safe Skins,Kasa Görünümleri
-CLAIM_TITLE,IDLE VAULT,OTO-KUMBARA
-CLAIM_AMOUNT,+%d energy,+%d enerji
-CLAIM_BODY,The ring kept spinning while you were gone.,Sen yokken halka dönmeye ve birikim yapmaya devam etti.
-CLAIM_BUTTON,Collect the vault,Kumbarayı Topla
+MARKET_CLOSE,Close,Kapat
+CLAIM_MARKET,Market,Pazar
+CLAIM_TITLE,CREW STASH,EKİP ZULASI
+CLAIM_AMOUNT,+$%d,+$%d
+CLAIM_BODY,Your crew kept stealing while you were gone.,Sen yokken ekibin çalmaya devam etti.
+CLAIM_BUTTON,Grab the stash,Zulayı Al
 CLAIM_LATER,Later,Sonra
-THEME_UNLOCKED,%s unlocked,%s açıldı
-THEME_NEON,Neon,Neon
-THEME_AURORA,Aurora,Aurora
-THEME_EMBER,Ember,Kor
-THEME_VOID,Void,Boşluk
-THEME_PRISM,Prism,Prizma
+VAULT_PIGGY,Piggy Bank,Kumbara
+VAULT_OFFICE,Office Safe,Ofis Kasası
+VAULT_BANK,Bank Vault,Banka Kasası
+VAULT_MUSEUM,Museum Vault,Müze Kasası
+VAULT_CASINO,Casino Vault,Kumarhane Kasası
+VAULT_FORT,Fort Knox,Fort Knox
+VAULT_GOLDEN,GOLDEN VAULT  ·  2x loot,ALTIN KASA  ·  2x ganimet
+LOOT_CASH,Cash Stack,Para Destesi
+LOOT_GOLD,Gold Bar,Altın Külçe
+LOOT_DIAMOND,Diamond,Elmas
+LOOT_PAINTING,Painting,Tablo
+LOOT_TROPHY,Trophy,Kupa
+LOOT_WATCH,Gold Watch,Altın Saat
+LOOT_CROWN,Crown,Taç
+LOOT_CAR,Sports Car,Spor Araba
+LOOT_YACHT,Yacht,Yat
+LOOT_JET,Private Jet,Özel Jet
+LOOT_ISLAND,Island,Ada
+LOOT_MOONROCK,Moon Rock,Ay Taşı

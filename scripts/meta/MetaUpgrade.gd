@@ -1,24 +1,27 @@
 class_name MetaUpgrade
 extends Node
-## Idle meta loop. Auto-Pulse fills the vault only while the app is closed.
-## Perfect Power scales Perfect juice. The market sells both.
+## Idle meta loop. The Crew fills the stash only while the app is closed.
+## Pro Gloves widen the Perfect slice and scale Perfect juice. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
 signal produced(amount: int)
 
-## Matches the old idle drip (2 energy / 3 s) at level 1.
+## Cash per second the crew steals while the app is closed, at level 1.
 const PASSIVE_BASE: float = 0.67
 ## Cap so a week away does not dump a week's numbers onto the Claim screen.
 const OFFLINE_CAP_SECONDS: int = 8 * 3600
-## One minute of idle = a "full" piggy. Zeigarnik teases this at 90%.
-const VAULT_FULL_SECONDS: float = 60.0
+## One minute of idle = a "full" bag. Zeigarnik teases this at 90%.
+const STASH_FULL_SECONDS: float = 60.0
 
-## `id` values are save keys. UI names live in translations (Auto-Pulse / Perfect Power).
+## `id` values are save keys. UI names live in translations (Crew / Pro Gloves).
 const CATALOG := [
-	{"id": "generator", "currency": "energy", "base_cost": 40, "growth": 1.35, "effect_pct": 18},
-	{"id": "global_mult", "currency": "energy", "base_cost": 40, "growth": 1.35, "effect_pct": 12},
-	{"id": "passive_yield", "currency": "coins", "base_cost": 30, "growth": 1.45, "effect_pct": 30},
+	{"id": "crew", "base_cost": 60, "growth": 1.35, "effect_pct": 25},
+	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
 ]
+
+## Pro Gloves: Perfect half-window grows this much per level (capped in GameWorld).
+const GLOVES_WINDOW_PCT: float = 6.0
+
 
 func _ready() -> void:
 	# Foreground play, popups included, must not drip. Only a closed app does.
@@ -27,14 +30,14 @@ func _ready() -> void:
 
 
 func _notification(what: int) -> void:
-	# Don't pop the vault over an active run or the player loses their tap.
+	# Don't pop the stash over an active run or the player loses their tap.
 	if what == NOTIFICATION_APPLICATION_FOCUS_IN and not GameState.run_active:
 		accrue_offline()
-		if GameState.unclaimed_energy > 0:
-			EventBus.vault_ready.emit(GameState.unclaimed_energy)
+		if GameState.unclaimed_cash > 0:
+			EventBus.stash_ready.emit(GameState.unclaimed_cash)
 
 
-## Credits time spent with the app closed. Returns energy added.
+## Credits time spent with the app closed. Returns cash added.
 func accrue_offline() -> int:
 	var now: int = int(Time.get_unix_time_from_system())
 	var last: int = GameState.last_seen_unix
@@ -47,7 +50,7 @@ func accrue_offline() -> int:
 		return 0
 	var gain: int = floori(passive_rate() * float(dt))
 	if gain > 0:
-		GameState.add_vault(gain)
+		GameState.add_stash(gain)
 		produced.emit(gain)
 	return gain
 
@@ -62,12 +65,10 @@ static func entry(id: String) -> Dictionary:
 
 static func level(id: String) -> int:
 	match id:
-		"generator":
-			return GameState.generator_level
-		"global_mult":
-			return GameState.global_mult_level
-		"passive_yield":
-			return GameState.passive_level
+		"crew":
+			return GameState.crew_level
+		"gloves":
+			return GameState.gloves_level
 	return 1
 
 
@@ -76,12 +77,8 @@ static func cost(id: String) -> int:
 	return int(float(item.base_cost) * pow(float(item.growth), level(id) - 1))
 
 
-static func balance(currency: String) -> int:
-	return GameState.energy if currency == "energy" else GameState.coins
-
-
 static func can_afford(id: String) -> bool:
-	return balance(String(entry(id).currency)) >= cost(id)
+	return GameState.cash >= cost(id)
 
 
 static func affordable_count() -> int:
@@ -95,18 +92,12 @@ static func affordable_count() -> int:
 static func purchase(id: String) -> bool:
 	if not can_afford(id):
 		return false
-	var price: int = cost(id)
-	if entry(id).currency == "energy":
-		GameState.add_energy(-price)
-	else:
-		GameState.add_coins(-price)
+	GameState.add_cash(-cost(id))
 	match id:
-		"generator":
-			GameState.generator_level += 1
-		"global_mult":
-			GameState.global_mult_level += 1
-		"passive_yield":
-			GameState.passive_level += 1
+		"crew":
+			GameState.crew_level += 1
+		"gloves":
+			GameState.gloves_level += 1
 	GameState.save_game()
 	EventBus.meta_upgraded.emit(id, level(id))
 	return true
@@ -116,28 +107,25 @@ static func bonus(id: String) -> float:
 	return 1.0 + (level(id) - 1) * float(entry(id).effect_pct) / 100.0
 
 
-static func generator_rate() -> float:
-	return bonus("generator")
-
-
-## Perfect Power: score + juice scale for Perfect hits. Instant Gratification lever.
+## Pro Gloves: score + juice scale for Perfect hits.
 static func perfect_power() -> float:
-	return bonus("global_mult")
+	return bonus("gloves")
 
 
-static func global_multiplier() -> float:
-	return perfect_power()
+## Pro Gloves: multiplier on the Perfect half-window.
+static func perfect_window_mult() -> float:
+	return 1.0 + (GameState.gloves_level - 1) * GLOVES_WINDOW_PCT / 100.0
 
 
-## Energy per second while idle (fills the vault, not the wallet).
+## Cash per second while idle (fills the stash, not the wallet).
 static func passive_rate() -> float:
-	return PASSIVE_BASE * bonus("generator") * bonus("passive_yield")
+	return PASSIVE_BASE * bonus("crew")
 
 
-## 0..1 fill of the Idle Vault piggy. Caps at 0.9 unless actually overflowing.
-static func vault_progress() -> float:
-	var full: float = maxf(passive_rate() * VAULT_FULL_SECONDS, 10.0)
-	var raw: float = float(GameState.unclaimed_energy) / full
+## 0..1 fill of the stash bag. Caps at 0.9 unless actually overflowing.
+static func stash_progress() -> float:
+	var full: float = maxf(passive_rate() * STASH_FULL_SECONDS, 10.0)
+	var raw: float = float(GameState.unclaimed_cash) / full
 	if raw >= 1.0:
 		return 1.0
 	if raw > 0.9:
