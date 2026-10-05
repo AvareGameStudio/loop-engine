@@ -4,8 +4,6 @@ extends Node2D
 const RESPAWN_DELAY: float = 0.22
 const VAULT_BEAT: float = 0.55
 const REVIVE_STEP: float = 0.45
-const END_BOOST_ENERGY: float = 0.16
-const END_BOOST_COINS: float = 0.05
 const FOCUS_PERFECT: float = 0.25
 const FOCUS_GOOD: float = 0.08
 
@@ -18,8 +16,12 @@ var vr := VariableRatioSchedule.new()
 var dda := DynamicDifficulty.new()
 var zeigarnik := ZeigarnikTracker.new()
 var _busy: bool = false
-## Captured at run end so a Retry during the ad cannot zero the reward.
-var _last_run_score: int = 0
+## Energy and coins actually banked this run. The end ad adds twice this (3x total).
+var _run_energy: int = 0
+var _run_coins: int = 0
+## Frozen at run end so Retry during the ad cannot zero the 3x grant.
+var _boost_energy: int = 0
+var _boost_coins: int = 0
 
 
 func _ready() -> void:
@@ -39,24 +41,37 @@ func _ready() -> void:
 	# Cold-start vault stays a HUD peek; the full sheet waits for run-over.
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not GameState.run_active or _busy:
 		return
 	var err: float = absf(rad_to_deg(angle_difference(arena.pointer_angle, arena.target_angle)))
-	# Early tap during respawn: fire once the pointer reaches the Good gate.
-	if input_proc.peek_buffer() and err <= timing.good_deg:
+	# A single frame of travel can be wider than a window, so both gates below decide from
+	# where the needle will be next frame. Nothing may depend on landing inside a window.
+	var next_err: float = _next_error(delta)
+	var closest: bool = next_err > err
+	# Early tap during respawn: fire at the Good gate, or at the closest approach if the
+	# needle is about to sweep past without ever entering it.
+	if input_proc.peek_buffer() and (err <= timing.good_deg or closest):
 		input_proc.take_buffer()
 		_on_commit("buffer", 0.0)
 		return
 	if arena.spinning and zeigarnik.passed_pin(err, float(arena.windows.get("near", 22.0))):
 		TimeScale.pulse_slowmo(0.25, 0.3)
 		EventBus.juice_hit.emit("tension", 1.0)
-	if not GameState.auto_tap:
+	if not GameState.auto_tap or not arena.spinning or err > timing.good_deg:
 		return
-	# Auto-Tap only fires inside the Good window: it keeps runs alive,
-	# Perfects stay a manual skill reward.
-	if err <= timing.good_deg:
+	# The player owns the Perfect slice, so Auto-Tap waits for the way out of the gate.
+	# Unless this is the last frame inside it: keeping the run alive comes first.
+	var past_perfect: bool = closest and err > timing.perfect_deg
+	var last_chance: bool = next_err > timing.good_deg
+	if past_perfect or last_chance:
 		_on_commit("auto", 0.0)
+
+
+## Where the pointer error lands next frame, mirroring how RingArena advances it.
+func _next_error(delta: float) -> float:
+	var step: float = arena.direction * arena.rpm * TAU * minf(delta, 1.0 / 30.0)
+	return absf(rad_to_deg(angle_difference(arena.pointer_angle + step, arena.target_angle)))
 
 
 func start_run() -> void:
@@ -64,6 +79,8 @@ func start_run() -> void:
 	GameState.reset_run()
 	TimeScale.reset()
 	_busy = false
+	_run_energy = 0
+	_run_coins = 0
 	input_proc.reset_focus()
 	input_proc.clear_buffer()
 	input_proc.arm(true)
@@ -107,13 +124,11 @@ func _on_commit(mode: String, _held: float) -> void:
 			input_proc.add_focus(FOCUS_GOOD)
 			EventBus.juice_hit.emit("good", 0.7)
 		TimingEngine.Grade.NEAR_MISS:
-			_combo_break_if_needed()
 			EventBus.near_miss.emit(result)
 			EventBus.juice_hit.emit("near_miss", 1.0)
 			EventBus.revive_offered.emit(result)
 			return
 		_:
-			_combo_break_if_needed()
 			EventBus.miss.emit(result)
 			EventBus.juice_hit.emit("miss", 1.0)
 			_fail_run("miss", result)
@@ -165,8 +180,8 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 		* power_mult
 	)
 	GameState.session_score += payout
-	GameState.add_energy(ceili(float(payout) * 0.12 * MetaUpgrade.generator_rate()))
-	GameState.add_coins(maxi(1, floori(payout / 20.0)))
+	_bank_energy(ceili(float(payout) * 0.12 * MetaUpgrade.generator_rate()))
+	_bank_coins(maxi(1, floori(payout / 20.0)))
 
 
 func _after_hit() -> void:
@@ -174,8 +189,8 @@ func _after_hit() -> void:
 	if cleared:
 		var bonus: int = 25 * GameState.current_stage
 		var purse: int = 15 * GameState.current_stage
-		GameState.add_energy(bonus)
-		GameState.add_coins(purse)
+		_bank_energy(bonus)
+		_bank_coins(purse)
 		GameState.note_stage_cleared()
 		EventBus.stage_cleared.emit(GameState.current_stage, bonus)
 		GameState.current_stage += 1
@@ -186,16 +201,16 @@ func _after_hit() -> void:
 		arena.mark_phase()
 	EventBus.session_changed.emit()
 	_push_zeigarnik()
+	# Bake the next door while the needle is stopped, so the hitch is not the first spin frame.
+	if cleared:
+		arena.warm_shell()
 	# Real seconds: ignore_time_scale so unlock slow-mo cannot stretch the armed window.
 	await get_tree().create_timer(VAULT_BEAT if cleared else RESPAWN_DELAY, true, false, true).timeout
 	if not GameState.run_active:
 		return
 	TimeScale.set_slowmo(1.0)
 	arena.randomize_target(false)
-	zeigarnik.arm_gate()
-	arena.spinning = true
-	_busy = false
-	input_proc.arm(true)
+	_begin_spin()
 
 
 func _fail_run(reason: String, result: Dictionary) -> void:
@@ -206,7 +221,8 @@ func _fail_run(reason: String, result: Dictionary) -> void:
 	if GameState.session_hits <= 2:
 		dda.forgive()
 		_apply_difficulty()
-	_last_run_score = GameState.session_score
+	_boost_energy = _run_energy
+	_boost_coins = _run_coins
 	GameState.end_run()
 	if GameState.no_ads:
 		_grant_end_boost()
@@ -220,6 +236,9 @@ func _fail_run(reason: String, result: Dictionary) -> void:
 	_busy = false
 	input_proc.clear_buffer()
 	TimeScale.reset()
+	# Record the streak in end_run before this zeroes the counter.
+	# Leave the HUD number alone; the run-over sheet already shows it.
+	break_combo(false)
 
 
 func _on_revive(success: bool) -> void:
@@ -227,6 +246,7 @@ func _on_revive(success: bool) -> void:
 		_fail_run("near_miss", {})
 		return
 	GameState.revive_used = true
+	break_combo()
 	TimeScale.reset()
 	arena.last_grade = ""
 	arena.randomize_target(false)
@@ -237,10 +257,7 @@ func _on_revive(success: bool) -> void:
 		if not GameState.run_active:
 			return
 	EventBus.countdown.emit(0)
-	zeigarnik.arm_gate()
-	arena.spinning = true
-	_busy = false
-	input_proc.arm(true)
+	_begin_spin()
 
 
 func _on_ad(placement: String, rewarded: bool) -> void:
@@ -248,14 +265,48 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 		_grant_end_boost()
 
 
+func _begin_spin() -> void:
+	zeigarnik.arm_gate()
+	arena.spinning = true
+	_busy = false
+	input_proc.arm(true)
+
+
+## Adds twice the run's banked currencies. The player already holds 1x, so this makes 3x.
 func _grant_end_boost() -> void:
-	GameState.add_energy(int(_last_run_score * END_BOOST_ENERGY))
-	GameState.add_coins(int(_last_run_score * END_BOOST_COINS))
+	var energy: int = _boost_energy
+	var coins: int = _boost_coins
+	_boost_energy = 0
+	_boost_coins = 0
+	if energy > 0:
+		GameState.add_energy(energy * 2)
+	if coins > 0:
+		GameState.add_coins(coins * 2)
 
 
-func _combo_break_if_needed() -> void:
+func _bank_energy(amount: int) -> void:
+	if amount <= 0:
+		return
+	_run_energy += amount
+	GameState.add_energy(amount)
+
+
+func _bank_coins(amount: int) -> void:
+	if amount <= 0:
+		return
+	_run_coins += amount
+	GameState.add_coins(amount)
+
+
+## Zeroes the live combo after a death has already recorded it, or when a revive continues the run.
+func break_combo(refresh_hud: bool = true) -> void:
 	if GameState.session_combo >= 2:
 		EventBus.juice_hit.emit("combo_break", 1.0)
+	if GameState.session_combo == 0:
+		return
+	GameState.session_combo = 0
+	if refresh_hud:
+		EventBus.session_changed.emit()
 
 
 func _push_zeigarnik() -> void:

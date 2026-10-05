@@ -40,6 +40,11 @@ func _ready() -> void:
 		burst.visibility_rect = Rect2(-900, -1400, 1800, 2800)
 	if alarm:
 		alarm.modulate.a = 0.0
+		alarm.visible = false
+	if glow:
+		glow.visible = false
+	if vignette:
+		vignette.visible = false
 	EventBus.juice_hit.connect(_on_juice)
 	EventBus.run_started.connect(_stop_alarm)
 	EventBus.tap_evaluated.connect(_on_tap)
@@ -72,19 +77,19 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_zoom_punch_success()
 			_bounce_zone()
 			_burst(int(36.0 * power), Color(1.0, 0.86, 0.35).lerp(Color(1.0, 0.96, 0.7), clampf(power - 1.0, 0.0, 1.0)))
+			spawn_hit_sparks(_contact_point())
 			_flash_pointer(0.16 + 0.08 * (power - 1.0), clampf(0.7 + 0.3 * power, 0.7, 1.0))
 			_flash_pin(0.18, 1.0)
 			_pulse_glow(1.4 * power)
-			Settings.vibrate(40, 1.0)
 		"good":
 			_add_shake(4.0 * intensity)
 			_zoom_punch_success()
 			_bounce_zone()
 			_burst(24, Color(0.95, 0.78, 0.32))
+			spawn_hit_sparks(_contact_point())
 			_flash_pointer(0.1, 0.65)
 			_flash_pin(0.12, 0.8)
 			_pulse_glow(0.9)
-			Settings.vibrate(26, 0.8)
 		"near_miss":
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
@@ -96,7 +101,6 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_punch(0.9)
 			_burst(8, Color(0.75, 0.22, 0.28))
 			_police_alarm()
-			Settings.vibrate(28)
 		"tension":
 			_show_vignette()
 			_add_shake(3.0)
@@ -452,6 +456,10 @@ func _police_alarm() -> void:
 	_alarm_tween = create_tween()
 	_alarm_tween.set_ignore_time_scale(true)
 	_alarm_tween.tween_method(_set_alarm_phase, 0.0, 6.0, 1.15)
+	_alarm_tween.finished.connect(func() -> void:
+		if is_instance_valid(alarm):
+			alarm.visible = false
+	, CONNECT_ONE_SHOT)
 
 
 func _set_alarm_phase(t: float) -> void:
@@ -468,6 +476,7 @@ func _stop_alarm() -> void:
 		_alarm_tween.kill()
 	if alarm:
 		alarm.modulate.a = 0.0
+		alarm.visible = false
 
 
 func _show_vignette() -> void:
@@ -476,10 +485,15 @@ func _show_vignette() -> void:
 	var mat := vignette.material as ShaderMaterial
 	if _vig_tween:
 		_vig_tween.kill()
+	vignette.visible = true
 	_vig_tween = create_tween()
 	_vig_tween.set_ignore_time_scale(true)
 	_vig_tween.tween_property(mat, "shader_parameter/strength", 0.9, 0.06)
 	_vig_tween.tween_property(mat, "shader_parameter/strength", 0.0, 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_vig_tween.finished.connect(func() -> void:
+		if is_instance_valid(vignette):
+			vignette.visible = false
+	, CONNECT_ONE_SHOT)
 
 
 func _pulse_glow(peak: float = 2.5) -> void:
@@ -492,7 +506,12 @@ func _pulse_glow(peak: float = 2.5) -> void:
 	_glow_tween.set_ignore_time_scale(true)
 	mat.set_shader_parameter("rect_size", glow.size)
 	mat.set_shader_parameter("origin", _vault_origin())
+	glow.visible = true
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 1.15, 0.45).from(0.02)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_glow_tween.finished.connect(func() -> void:
+		if is_instance_valid(glow):
+			glow.visible = false
+	, CONNECT_ONE_SHOT)
