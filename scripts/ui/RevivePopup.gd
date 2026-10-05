@@ -15,12 +15,15 @@ extends CanvasLayer
 
 var _open := false
 var _result: Dictionary = {}
+var _holding_pause: bool = false
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	root.visible = false
 	watch.pressed.connect(_watch)
 	skip.pressed.connect(_skip)
+	dim.gui_input.connect(_on_dim)
 	EventBus.revive_offered.connect(present)
 	EventBus.ad_finished.connect(_on_ad)
 
@@ -47,6 +50,8 @@ func present(result: Dictionary) -> void:
 	if GameState.revive_used:
 		watch.text = tr("REVIVE_USED")
 		body.text += "\n" + tr("REVIVE_LAST")
+	_holding_pause = true
+	OverlayPause.push()
 	_punch()
 
 
@@ -106,6 +111,14 @@ func _watch() -> void:
 		EventBus.ad_requested.emit("near_miss_revive", _result)
 
 
+func _on_dim(event: InputEvent) -> void:
+	if not _open:
+		return
+	if event is InputEventMouseButton and event.pressed:
+		_skip()
+		get_viewport().set_input_as_handled()
+
+
 func _skip() -> void:
 	_close()
 	EventBus.revive_resolved.emit(false)
@@ -122,3 +135,6 @@ func _close() -> void:
 	_open = false
 	root.visible = false
 	watch.disabled = false
+	if _holding_pause:
+		OverlayPause.pop()
+		_holding_pause = false

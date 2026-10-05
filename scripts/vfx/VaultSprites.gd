@@ -23,10 +23,13 @@ static func ensure() -> void:
 ## One painted door for the current ring. Stage 1 is solid rust; stage 200 is gem-set ore.
 static func door_for(stage: int) -> Texture2D:
 	ensure()
-	var key := stage if stage < 10 else 1000 + (maxi(stage, 10) - 10) / 2
+	var safe: int = maxi(stage, 1)
+	# Cache key changes every ring through the rust, then every two rings.
+	# Paint with the real stage: the key is not a stage index.
+	var key: int = safe if safe < 10 else 1000 + (safe - 10) / 2
 	if key == _door_stage and door != null:
 		return door
-	door = ImageTexture.create_from_image(_door(key))
+	door = ImageTexture.create_from_image(_door(safe))
 	_door_stage = key
 	return door
 

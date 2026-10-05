@@ -48,6 +48,9 @@ var _tap_reward: CanvasLayer
 var _tap_hand: TextureRect
 var _shop_home: Node
 var _shop_index: int = -1
+var _shop_anchor: Rect2 = Rect2()
+var _reward_pause: bool = false
+var _hold_hint_seen: bool = false
 
 
 func _ready() -> void:
@@ -83,6 +86,9 @@ func _ready() -> void:
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.vr_tension.connect(_on_tension)
 	EventBus.juice_hit.connect(_on_juice)
+	EventBus.hold_started.connect(_hide_hold_hint)
+	EventBus.theme_unlocked.connect(_on_theme)
+	hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_refresh_currency()
 	_refresh_market()
 	_refresh_session()
@@ -120,13 +126,31 @@ func _process(delta: float) -> void:
 
 
 func _set_hint(_key: String, _args: Array = []) -> void:
-	hint_label.visible = false
-	hint_label.text = ""
+	pass
 
 
 func _render_hint() -> void:
+	if hint_label.visible:
+		hint_label.text = tr("HINT_RUN")
+		return
+	hint_label.text = ""
+
+
+func _show_hold_hint() -> void:
+	_hold_hint_seen = true
+	hint_label.visible = true
+	hint_label.text = tr("HINT_RUN")
+	get_tree().create_timer(3.5, true, false, true).timeout.connect(_hide_hold_hint)
+
+
+func _hide_hold_hint() -> void:
 	hint_label.visible = false
 	hint_label.text = ""
+
+
+func _on_theme(theme_id: String) -> void:
+	var theme_name: String = tr("THEME_" + theme_id.to_upper())
+	_show_grade(tr("THEME_UNLOCKED") % theme_name, Color(0.65, 0.9, 1.0))
 
 
 func _refresh_session() -> void:
@@ -141,6 +165,8 @@ func _on_tap(result: Dictionary) -> void:
 	_hide_tap_prompt()
 	var grade_name: String = String(result.grade_name)
 	_show_grade(tr("GRADE_" + grade_name.to_upper()), GRADE_COLORS.get(grade_name, Color.WHITE))
+	if not _hold_hint_seen and (grade_name == "good" or grade_name == "perfect"):
+		_show_hold_hint()
 
 
 func _show_grade(text: String, color: Color) -> void:
@@ -279,8 +305,7 @@ func _render_run_over() -> void:
 
 func _on_run_start() -> void:
 	run_over.visible = false
-	hint_label.visible = false
-	hint_label.text = ""
+	_hide_hold_hint()
 	grade_label.text = ""
 	focus_bar.value = 1.0
 	# The dial shows a TAP hand on the gate. A banner here covers the vault.
@@ -380,6 +405,8 @@ func _build_tap_reward() -> void:
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.offset_right = 720
 	dim.offset_bottom = 1280
+	# Escape hatch: this sheet pauses the tree, so it must never be the only way out.
+	dim.gui_input.connect(_on_reward_dim)
 	root.add_child(dim)
 	var panel := Panel.new()
 	panel.name = "Panel"
@@ -399,14 +426,14 @@ func _build_tap_reward() -> void:
 	var body := Label.new()
 	body.name = "Body"
 	body.position = Vector2(36, 78)
-	body.size = Vector2(508, 40)
+	body.size = Vector2(508, 72)
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_theme_font_size_override("font_size", 20)
 	panel.add_child(body)
 	var button := Button.new()
 	button.name = "Continue"
-	button.position = Vector2(170, 124)
+	button.position = Vector2(170, 164)
 	button.size = Vector2(240, 52)
 	button.pressed.connect(_close_tap_reward)
 	panel.add_child(button)
@@ -429,10 +456,9 @@ func _open_tap_reward() -> void:
 	if _tap_reward == null or _tap_reward.visible:
 		return
 	var panel := _tap_reward.get_node("Root/Panel")
-	var turkish := Settings.language == "tr"
-	panel.get_node("Title").text = "Oto-Tıklayıcı Kilidi Açıldı!" if turkish else "Auto-Tap Unlocked!"
-	panel.get_node("Body").text = "Sana yardımcı olmak için" if turkish else "To help you."
-	panel.get_node("Continue").text = "Devam" if turkish else "Continue"
+	panel.get_node("Title").text = tr("AUTO_TAP_UNLOCKED")
+	panel.get_node("Body").text = tr("AUTO_TAP_BODY")
+	panel.get_node("Continue").text = tr("AUTO_TAP_CONTINUE")
 	shop_btn.visible = true
 	_tap_reward.visible = true
 	get_tree().process_frame.connect(_finish_tap_reward, CONNECT_ONE_SHOT)
@@ -443,7 +469,15 @@ func _finish_tap_reward() -> void:
 		return
 	_lift_shop_button()
 	_point_at_shop()
-	OverlayPause.push()
+	if not _reward_pause:
+		_reward_pause = true
+		OverlayPause.push()
+
+
+func _on_reward_dim(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_close_tap_reward()
+		get_viewport().set_input_as_handled()
 
 
 func _close_tap_reward() -> void:
@@ -453,42 +487,57 @@ func _close_tap_reward() -> void:
 	_drop_shop_button()
 	GameState.accept_auto_tap_reward()
 	_refresh_shop()
-	OverlayPause.pop()
+	if _reward_pause:
+		_reward_pause = false
+		OverlayPause.pop()
 
 
+## Moves the live Auto-Tap button onto the reward layer so the dim cannot grey it out.
 func _lift_shop_button() -> void:
 	if _shop_home != null:
 		return
 	shop_btn.visible = true
-	shop_btn.text = "Oto-Tık" if Settings.language == "tr" else "Auto-Tap"
-	var rect := shop_btn.get_global_rect()
+	shop_btn.text = tr("AUTO_TAP_ON")
+	var host: Control = _tap_reward.get_node("Root")
+	# The button was hidden, so its container may not have laid it out yet. An empty
+	# rect would throw the hand and the sheet off screen, so fall back to the row.
+	var rect: Rect2 = shop_btn.get_global_rect()
+	if rect.size.x < 1.0 or rect.size.y < 1.0:
+		var row := shop_btn.get_parent() as Control
+		var row_rect: Rect2 = row.get_global_rect() if row else Rect2(24, 1180, 220, 48)
+		rect = Rect2(row_rect.position, Vector2(220.0, 48.0))
 	_shop_home = shop_btn.get_parent()
 	_shop_index = shop_btn.get_index()
-	_tap_reward.get_node("Root").add_child(shop_btn)
+	# reparent, not add_child: the button still has a parent, and a failed move used to
+	# leave it in the HBox with the panel placed off screen, freezing the paused tree.
+	shop_btn.reparent(host, false)
 	shop_btn.layout_mode = 0
 	shop_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	shop_btn.position = rect.position
 	shop_btn.size = rect.size
+	_shop_anchor = rect
 
 
 func _drop_shop_button() -> void:
 	if _shop_home == null:
 		return
-	_shop_home.add_child(shop_btn)
+	shop_btn.reparent(_shop_home, false)
 	_shop_home.move_child(shop_btn, mini(_shop_index, _shop_home.get_child_count() - 1))
 	shop_btn.layout_mode = 2
+	shop_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_shop_home = null
 
 
 func _point_at_shop() -> void:
-	if _tap_hand == null:
-		return
-	var rect := shop_btn.get_global_rect()
+	var rect: Rect2 = _shop_anchor
 	var tip := Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y - 8.0)
-	_tap_hand.position = tip - _tap_hand.pivot_offset
-	var panel := _tap_reward.get_node("Root/Panel")
-	panel.position = Vector2(70, tip.y - 340)
-	panel.size = Vector2(580, 190)
+	if _tap_hand:
+		_tap_hand.position = tip - _tap_hand.pivot_offset
+	var panel: Control = _tap_reward.get_node("Root/Panel")
+	panel.size = Vector2(580, 250)
+	# Sit above the button, but never off screen: this sheet is the only way to unpause.
+	var top: float = clampf(tip.y - panel.size.y - 140.0, 24.0, 1280.0 - panel.size.y - 24.0)
+	panel.position = Vector2(70, top)
 
 
 func _toggle_auto_tap() -> void:

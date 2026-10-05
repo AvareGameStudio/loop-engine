@@ -113,7 +113,9 @@ func unlock_theme_for_stage(stage: int) -> void:
 	if unlocked_themes.has(theme_id):
 		return
 	unlocked_themes.append(theme_id)
+	equipped_theme = theme_id
 	save_game()
+	EventBus.theme_unlocked.emit(theme_id)
 
 
 func reset_run() -> void:

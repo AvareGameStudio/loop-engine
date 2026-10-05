@@ -89,3 +89,9 @@ CLAIM_AMOUNT,+%d energy,+%d enerji
 CLAIM_BODY,The ring kept spinning while you were gone.,Sen yokken halka dönmeye ve birikim yapmaya devam etti.
 CLAIM_BUTTON,Collect the vault,Kumbarayı Topla
 CLAIM_LATER,Later,Sonra
+THEME_UNLOCKED,%s unlocked,%s açıldı
+THEME_NEON,Neon,Neon
+THEME_AURORA,Aurora,Aurora
+THEME_EMBER,Ember,Kor
+THEME_VOID,Void,Boşluk
+THEME_PRISM,Prism,Prizma

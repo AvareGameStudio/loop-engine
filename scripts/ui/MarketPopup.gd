@@ -13,6 +13,7 @@ extends CanvasLayer
 ## id -> {"name": Label, "effect": Label, "buy": Button}
 var _rows: Dictionary[String, Dictionary] = {}
 var _skin_rows: Dictionary[String, Dictionary] = {}
+var _themes_label: Label
 var _holding_pause: bool = false
 const _SKINS: Array[String] = ["steel", "gold", "obsidian"]
 
@@ -24,7 +25,19 @@ func _ready() -> void:
 	for skin_id: String in _SKINS:
 		_skin_rows[skin_id] = _make_skin_row(skin_id)
 	close_btn.pressed.connect(close)
+	_themes_label = Label.new()
+	_themes_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_themes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_themes_label.add_theme_font_size_override("font_size", 15)
+	_themes_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1))
+	var box: Node = items_box.get_parent()
+	box.add_child(_themes_label)
+	box.move_child(_themes_label, items_box.get_index())
 	EventBus.cosmetic_equipped.connect(func(_id: String) -> void: _refresh())
+	EventBus.theme_unlocked.connect(func(_id: String) -> void:
+		if root.visible:
+			_refresh()
+	)
 	EventBus.energy_changed.connect(_on_wallet_changed)
 	EventBus.coins_changed.connect(_on_wallet_changed)
 
@@ -113,6 +126,7 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 func _refresh() -> void:
 	balance_label.text = tr("MARKET_BALANCE") % [GameState.energy, GameState.coins]
 	passive_label.text = tr("MARKET_PASSIVE")
+	_themes_label.text = "%s  ·  %s" % [tr("LOOP_THEMES_TITLE"), _theme_list()]
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()
@@ -138,6 +152,13 @@ func _refresh() -> void:
 			var skin_cost: int = 0 if skin_id == "steel" else (80 if skin_id == "gold" else 140)
 			skin_buy.text = tr("MARKET_COST_COINS") % skin_cost
 			skin_buy.disabled = GameState.coins < skin_cost
+
+
+func _theme_list() -> String:
+	var names: PackedStringArray = []
+	for theme_id in GameState.unlocked_themes:
+		names.append(tr("THEME_%s" % String(theme_id).to_upper()))
+	return ", ".join(names)
 
 
 func _punch(target: Control, from_scale: float) -> void:

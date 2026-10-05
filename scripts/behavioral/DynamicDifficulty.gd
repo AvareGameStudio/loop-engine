@@ -46,7 +46,8 @@ func record(result: Dictionary) -> Dictionary:
 	if _grades.size() > HISTORY:
 		_grades.pop_front()
 		_errors.pop_front()
-	_retune()
+	var live_good: float = float(result.get("windows", {}).get("good", good_deg))
+	_retune(live_good)
 	_persist()
 	return profile()
 
@@ -68,7 +69,7 @@ func windows() -> Dictionary:
 	return {"perfect": perfect_deg, "good": good_deg, "near": near_deg}
 
 
-func _retune() -> void:
+func _retune(live_good: float) -> void:
 	if _grades.size() < 4:
 		return
 	var success := _rate_at_most(TimingEngine.Grade.GOOD)
@@ -83,7 +84,8 @@ func _retune() -> void:
 	elif perfects < TARGET_PERFECT - 0.1:
 		perfect_deg = minf(perfect_max, perfect_deg + 0.4)
 
-	if mean_err > good_deg * 1.15:
+	# Compare against the window the player actually saw, after stage shrink.
+	if mean_err > live_good * 1.15:
 		rpm = maxf(rpm_min, rpm - 0.05)
 		perfect_deg = minf(perfect_max, perfect_deg + 0.25)
 

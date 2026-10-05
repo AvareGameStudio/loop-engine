@@ -46,6 +46,14 @@ var last_grade: String = "":
 			if pin:
 				pin.set_locked(value == "perfect" or value == "good")
 
+## "neon" is the starting look and stays unmarked; later rings earn a visible band.
+const _THEME_ACCENT: Dictionary[String, Color] = {
+	"aurora": Color(0.4, 0.95, 0.9, 0.7),
+	"ember": Color(1.0, 0.42, 0.12, 0.7),
+	"void": Color(0.55, 0.35, 1.0, 0.7),
+	"prism": Color(1.0, 0.45, 0.75, 0.7),
+}
+
 var danger := Color(1.0, 0.28, 0.42, 1)
 ## Outside the near window is a Miss, so this band stays dull steel, never "safe".
 var outer_band_color := Color(0.34, 0.36, 0.39, 0.45)
@@ -64,6 +72,8 @@ var _coach_hot: bool = false
 var _coach_done: bool = false
 var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
+## Transparent until a ring unlocks a theme, so the opening dial is unchanged.
+var _theme_accent: Color = Color(0, 0, 0, 0)
 
 
 func _ready() -> void:
@@ -78,7 +88,9 @@ func _ready() -> void:
 	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _coach_done = true)
 	EventBus.session_changed.connect(_refresh_count)
 	EventBus.cosmetic_equipped.connect(_apply_skin)
+	EventBus.theme_unlocked.connect(_apply_theme)
 	_apply_skin(GameState.equipped_dial)
+	_apply_theme(GameState.equipped_theme)
 	randomize_target(true)
 	if pin:
 		pin.place(target_angle)
@@ -86,7 +98,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if spinning:
-		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * delta, 0.0, TAU)
+		# A hitch while the next door bakes must not skip the timing window.
+		var step: float = minf(delta, 1.0 / 30.0)
+		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * step, 0.0, TAU)
 	pointer.rotation = pointer_angle
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
 	if not _coach_done and GameState.current_stage == 1:
@@ -97,7 +111,7 @@ func _process(delta: float) -> void:
 	_place_hand(coach_now)
 	if _count_hold:
 		_count_fade = maxf(0.0, _count_fade - real_dt * 2.8)
-	if _bezel_flash > 0.0 or _door > 0.0 or _count_hold or coach_now != _coach_hot or coach_now:
+	if _bezel_flash > 0.0 or _door > 0.0 or _count_hold or coach_now != _coach_hot:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
 		_door = maxf(0.0, _door - real_dt * 0.7)
 		_coach_hot = coach_now
@@ -137,6 +151,16 @@ func _apply_skin(id: String) -> void:
 			_gate = Color(0.2, 0.95, 0.4, 0.85)
 	_paint_shell()
 	queue_redraw()
+
+
+func _apply_theme(id: String) -> void:
+	_theme_accent = _THEME_ACCENT.get(id, Color(0, 0, 0, 0))
+	queue_redraw()
+
+
+## Fills the door cache for the current stage without swapping the flying sprite.
+func warm_shell() -> void:
+	VaultArt.door_for(GameState.current_stage)
 
 
 func _paint_shell() -> void:
@@ -197,6 +221,8 @@ func _draw() -> void:
 	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), 8.0)
 	if _bezel_flash > 0.0:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
+	if _theme_accent.a > 0.0:
+		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 3.0, true)
 	_draw_meter()
 	_draw_tap_label()
 
