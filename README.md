@@ -1,8 +1,10 @@
-# Loop Engine
+# Loop Engine — Vault Heist
 
-Hybrid-casual **one-tap** prototype for Godot **4.6**. Core loop is precision timing on a rotating ring; meta loop is idle energy + upgrades. Behavioral systems (variable-ratio rewards, near-miss loss aversion, Zeigarnik unfinished bars, DDA flow) are first-class nodes, not afterthoughts.
+Hyper-casual **one-tap** vault cracker for Godot **4.6**. Tap when the pick sits in the gate to seat a pin; seat every pin and the door flies, loot rains into the bag, the next vault opens. One level = one vault, and the vault index is persistent, so the door art (rust → steel → copper → gold → gem-set) is a real career, not a per-run reset.
 
-Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the pointer sits in the gold arc. Hold slightly longer to dip into slow-mo assist; it drains the gold Focus bar, which Perfects refill.
+Behavioral systems (variable-ratio jackpots, three-strike alarm with a rewarded "Bribe the Cops", unfinished hideout shelf, DDA flow bend) stay first-class nodes.
+
+Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the pick is in the green gate.
 
 ---
 
@@ -10,159 +12,139 @@ Open `project.godot` in Godot 4.6, press Play. Click / tap / space when the poin
 
 ```
 Main.tscn                          boot composition
-├── GameWorld.tscn                 ring, input, DDA, VR, juice
+├── GameWorld.tscn                 dial, input, DDA, VR, juice
 │   ├── Camera2D
-│   ├── Arena (RingArena.gd)       static ring / windows (redraws on change only)
-│   │   ├── Glow                   ring_glow shader, jackpot pulse
-│   │   ├── Pointer (RingPointer)  rotated pointer + direction chevron, hit_flash
+│   ├── Arena (RingArena.gd)       vault door + dial, gate windows, door-seam crack light
+│   │   ├── LockPin                tumbler: seat bounce, eject on miss
+│   │   ├── Pointer (RingPointer)  rotated pick + direction chevron, hit_flash
 │   │   └── Burst (GPUParticles2D)
-│   ├── InputProcessor
-│   ├── MetaUpgrade                idle energy + upgrade market economy
-│   └── Juice                      hitstop / shake / punch / haptics
+│   ├── InputProcessor             one verb: press = lock
+│   ├── MetaUpgrade                Crew (offline stash) + Pro Gloves economy
+│   └── Juice                      hitstop / shake / punch / alarm lamps / loot rain / haptics
 ├── UIManager.tscn
-│   ├── HUD                        score, combo, stage bar, wallet (energy, coins, idle rate)
-│   ├── Meta                       Zeigarnik quest rings + Market / Auto-Tap
-│   ├── RunOver                    end-of-run + 3x rewarded + Market
-│   ├── SettingsButton             gear, top-right, reachable over RunOver
-│   ├── RevivePopup.tscn           near-miss second chance, gated by record proximity
-│   ├── SettingsPopup.tscn         language / sound / vibration, pauses the game
-│   └── MarketPopup.tscn           spend energy / coins on MetaUpgrade items
+│   ├── HUD                        VAULT N · alarm lamps · grade word · loot bag · Market / Stash
+│   ├── Card                       end-of-vault: CRACKED / BUSTED, loot roll, hideout ring, 3x ad
+│   ├── RevivePopup.tscn           third strike → Bribe the Cops (rewarded) or Get Caught
+│   ├── SettingsPopup.tscn         language / sound / vibration (+ Auto-Crack if purchased)
+│   ├── MarketPopup.tscn           Crew, Pro Gloves, dial skins; hideout shelf count
+│   └── ClaimPopup.tscn            Crew stash collect
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
-Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_scale)
+Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_scale), OverlayPause
 ```
 
 | Path | Role |
 |---|---|
+| `scripts/autoload/GameState.gd` | Persistent vault index, single currency (cash), alarm strikes, stage curve (pins / rpm / windows), vault types, hideout loot list, save migration |
+| `scripts/world/GameWorld.gd` | Level loop: spin → tap → grade → pin → crack → card. Strikes, bribe, 3x boost |
 | `scripts/core/TimingEngine.gd` | Angle delta → Perfect / Good / Near-Miss / Miss, plus per-hit pitch and haptic profile |
-| `scripts/meta/MetaUpgrade.gd` | Idle production, market catalog, prices, purchases, multipliers |
-| `scripts/ui/QuestRing.gd` | Circular "unfinished quest" bar for one Zeigarnik loop |
-| `scripts/ui/MarketPopup.gd` | Market popup; pauses an active run only |
-| `scripts/core/InputProcessor.gd` | One-tap + hold-and-release, Focus meter |
-| `scripts/autoload/TimeScale.gd` | Hitstop + slow-mo arbitration |
-| `scripts/autoload/Settings.gd` | Language, sound (Master bus mute), vibration; `user://settings.cfg` |
-| `scripts/ui/SettingsPopup.gd` | Settings popup; pauses the tree while open |
-| `translations/strings.csv` | EN / TR strings, imported to `.translation` (generated, gitignored) |
-| `scripts/world/RingPointer.gd` | Pointer, direction telegraph, flash |
+| `scripts/behavioral/DynamicDifficulty.gd` | Flow-channel tuner; bends the stage curve ±15% |
 | `scripts/behavioral/VariableRatioSchedule.gd` | Skinner VR payouts / jackpots |
-| `scripts/behavioral/DynamicDifficulty.gd` | Flow-channel RPM + windows |
-| `scripts/behavioral/ZeigarnikTracker.gd` | Unfinished ~82% meta loops + focus quest |
-| `scripts/monetization/AdsManager.gd` | Mock rewarded placements |
-| `scripts/monetization/IAPCatalog.gd` | No-Ads, Auto-Tap, cosmetics |
-| `shaders/ring_glow.gdshader` | Additive ring glow on jackpot |
-| `shaders/hit_flash.gdshader` | Pointer flash on perfects |
+| `scripts/behavioral/ZeigarnikTracker.gd` | Needle-passed-the-pin tension + loot shelf tease |
+| `scripts/meta/MetaUpgrade.gd` | Crew (offline cash), Pro Gloves (wider Perfect + bigger bursts), prices |
+| `scripts/ui/UIManager.gd` | HUD + end-of-vault card |
+| `scripts/ui/LootBag.gd` | Duffel bag: rolling cash number, gold fill, bounce on loot |
+| `scripts/ui/AlarmLamps.gd` | Three wall lamps, no text |
+| `scripts/ui/QuestRing.gd` | Unfinished ring for the next hideout item (card only) |
+| `scripts/ui/RevivePopup.gd` | Bribe the Cops |
+| `scripts/vfx/VaultSprites.gd` | Painted door per vault, tumbler, tap hand, gold bar, gem |
+| `translations/strings.csv` | EN / TR strings |
 
 Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
-**Localization.** Every player-facing string is a key in `translations/strings.csv`. Code-set texts go through `tr()`, and `UIManager` re-renders them on `NOTIFICATION_TRANSLATION_CHANGED`, so switching language mid-run updates the screen immediately. Static scene texts use the key directly and Godot translates them automatically. First launch follows the device locale (Turkish → `tr`, anything else → `en`). Add a language by adding a CSV column and its `.translation` path to `project.godot`. Do not call `to_upper()` on translated text, because it breaks Turkish `i` → `İ`; write uppercase into the CSV instead.
+**Localization.** Every player-facing string is a key in `translations/strings.csv`. Code-set texts go through `tr()` and re-render on `NOTIFICATION_TRANSLATION_CHANGED`. Do not call `to_upper()` on translated text (Turkish `i` → `İ`); write uppercase into the CSV instead.
 
 ---
 
-## 2. Core timing engine
+## 2. Level structure (one vault = one level)
 
-`TimingEngine.evaluate(pointer, target, streak)` uses `angle_difference` so wrap-around at 0° is correct.
+- `GameState.current_stage = stages_cleared + 1` on every `reset_run()`. A bust retries the same vault; a crack moves on. Nothing resets to vault 1.
+- **Pins per vault** (`GameState.pins_for`): 3 for vaults 1–2, 4 for 3–5, 5 for 6–10, 6 for 11–25, 7 for 26–50, 8 from 51. Every 5th vault is a **Golden Vault**: +3 pins (cap 10), 2× loot, gold door, gold accent ring.
+- **Dial speed** (`base_rpm`): 0.38 rps → 0.55 @10 → 0.75 @25 → 0.9 @60. **Good window** (`base_good_deg`): 20° → 16° @10 → 13° @25 → 11° @60. Perfect = 42% of Good (Pro Gloves widen it +6%/level); Near-Miss band = Good + 5°.
+- **Direction flips** start at vault 3 (`flips_enabled`). The bezel flash telegraphs them.
+- **DDA** no longer owns the numbers. It bends rpm and windows by at most ±15% around the stage curve (`GameWorld.DDA_BAND`), targeting ~72% Good-or-better.
+- **Vault types** by first index: 1 Piggy Bank, 3 Office Safe, 6 Bank Vault, 11 Museum, 26 Casino, 51 Fort Knox. Shown on the card and as the accent ring.
 
-| Grade | Default window | Intent |
-|---|---|---|
-| Perfect | ≤ 7° | Dopamine spike, extra score 1.35× |
-| Good | ≤ 16° | Keep the run alive |
-| Near-Miss | Good + 1–3% of the circle (~3.6–10.8°) | Loss aversion / revive |
-| Miss | Outside near | Hard fail |
-
-Result payload includes `delta_deg`, `full_circle_pct`, `accuracy`, `overshoot_deg` / `overshoot_pct` (distance past the Good edge, the real "missed by"), `near_miss_margin` (0 at the Good edge, 1 at the band edge), and `in_loss_aversion_band`, so UI and ads never re-derive policy.
-
-**Feedback.** `TimingEngine` also decides how each hit feels, and `SoundManager` / `Juice` only render it:
-
-- `pitch`: each consecutive hit climbs one step of a major pentatonic ladder, so a streak sounds like a rising melody. It plateaus at about 2.2× after six steps, and failures play at base pitch.
-- `haptic_ms` / `haptic_amplitude`: failures buzz longer and harder than wins. Successes scale with accuracy, so a dead-center Perfect lands harder than an edge one. Amplitude works on Android only.
-
-Input: short press = tap lock. Hold past 120ms = slow-mo, release commits. Auto-Tap IAP locks only inside the Good window and goes through the same grading path; it never feeds DDA. Input is disarmed during the respawn delay, and a revive resumes after a 3-2-1 countdown.
+Target level length: 20–40 s.
 
 ---
 
-## 3. Behavioral systems
+## 3. Forgiveness, alarm, and the bribe
 
-**Variable ratio (Skinner)**  
-Successes decrement a random interval in `[3, 9]`. On fire, a weighted table returns x2–x8 or a jackpot (12–25×, extra 8% override). Nothing is on a fixed “every 5th hit.” `peek_tension()` can tease the HUD without revealing the counter.
-
-**DDA / Flow (Csikszentmihalyi)**  
-Rolling 12-hit window. Target ~72% Good-or-better and ~28% Perfect. High success raises RPM and tightens Perfect; high error lowers RPM and opens the window. Near-miss band stays a 1–3% ring *beyond* Good so Prospect Theory does not collide with the success window.
-
-**Zeigarnik**  
-`ZeigarnikTracker.loops()` caps visible fill at **0.82** unless a loop is actually complete. Generator, global multiplier, current ring, and theme collection all persist via `user://loop_engine_save.json`. The HUD shows each loop as a circular quest ring (`QuestRing`). The *focus quest*, the unfinished loop closest to done, pulses gold so the gap is what the eye lands on. Affordable upgrades read 100% green. Run-over copy names how many loops are still open.
-
-**Near-miss (Kahneman / loss aversion)**  
-Grade → 180ms hitstop → “SO CLOSE!” with the exact degrees past the zone and the player's record pace → Rewarded **Second Chance**. One revive per run. Skip ends the run so the almost-win is not cheap.
-
-The revive is gated by how close the run is to the record, because loss aversion peaks when a personal best is on the line:
-
-| Run score vs record | Near-miss that qualifies |
+| Event | What happens |
 |---|---|
-| Below 50% (`min_record_pct`) | None. The run just ends. |
-| 50% | Only the tightest 35% of the band (`tight_band_pct`) |
-| 50% → 100% | Widens linearly |
-| ≥ 100%, or no record yet | The whole near-miss band |
+| Miss / Near-Miss | Alarm +1 (lamp lights, short red flash, pin ejects, dial jams ±3° for 200 ms). Seated pins are kept. The same vault keeps spinning. |
+| Third strike | Full police strobe + siren. `revive_offered` → **Bribe the Cops** (rewarded ad). Always offered once per vault; no record gating. |
+| Bribe taken | Alarm resets, 3-2-1 countdown, same vault continues with its seated pins. |
+| Bribe skipped | `run_ended("caught")` → BUSTED card → Try Again on the same vault. |
 
-Both thresholds are exported on `RevivePopup` for tuning.
-
-**Idle meta (`MetaUpgrade`)**  
-Between runs (whenever no run is active) the node produces energy at `passive_rate()`, which is 0.67/s × Generator × Passive Yield bonuses. Fractions carry over between ticks. The market sells three upgrades. Generator (+18% energy from hits and idle) and Global Multiplier (+12% score) are priced in energy. Passive Yield (+30% idle energy) is priced in coins, which gives coins their first sink. Prices grow geometrically per level. The Market is reachable from the HUD and from the run-over sheet, so energy earned while idle can be spent before the next run.
+Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder than the win.
 
 ---
 
-## 4. Monetization (mock)
+## 4. Loot, meta, and retention
+
+- **Single currency: cash ($).** Each seated pin drops a little; the vault pays `40 + 12 × vault` on the last pin (×2 on golden). v1 saves fold `energy + coins` into cash.
+- **Loot bag** at the bottom of the screen shows cash as a rolling number and a gold fill relative to the cheapest upgrade. Door open → loot particles burst with heavy gravity toward the bag → bag bounces 1.14× half a second later.
+- **End-of-vault card**: `VAULT N CRACKED` + vault type, loot rolls up over 0.7 s, hideout ring for the next item, `NEXT VAULT`, `3x LOOT` (rewarded), Market. One tap anywhere continues.
+- **Hideout shelf**: 12 loot items (`GameState.LOOT_ITEMS`), one every 3 cracked vaults. The card shows the unfinished ring (teased at 82%) or `NEW LOOT: …`.
+- **Market**: Crew (offline cash, +25%/level), Pro Gloves (+12% Perfect power and +6% Perfect window per level), dial skins ($200 / $600).
+- **Crew stash**: offline earnings (0.67/s × Crew, 8 h cap) wait in `unclaimed_cash` and surface as a HUD chip and the Claim popup.
+- **Auto-Crack** is IAP-only now. The old "first ring unlocks Auto-Tap" reward is gone.
+
+---
+
+## 5. Juice (what fires on what)
+
+- Perfect: 60 ms hitstop → 7 px shake → zoom 1.05 → dial bounce 1.08 → gold burst → pin flash → glow pulse. Pin seat bounce 1.0 → 1.3 → 1.0 in 120 ms. Door-seam crack light grows with `pins / needed`.
+- Good: same chain without hitstop, smaller numbers.
+- Near-Miss: 180 ms hitstop, 14 px shake, siren pitch sliding 1.0 → 0.7 over 400 ms.
+- Miss: 18 px shake, dial jam, pin eject, low clunk.
+- Door open: 100 ms freeze → camera punch → door flies → rust flakes / shell chips → gold + gem rain and burst → "ka-chunk" then "cha-ching" 200 ms later → bag bounce.
+- Alarm lamps: strike N = N short red flashes; strike 3 = full strobe.
+- Combo label appears from x3 with a 1.3 → 1.0 pop.
+
+Guidelines for production art:
+
+1. One dark field (`#0B1020`), one accent (green gate), one danger (red), one loot (gold).
+2. Hit feedback is **time** (hitstop) before **particles**.
+3. Near-miss uses *longer* hitstop than Perfect.
+4. Golden vault is the only time the whole dial may go gold.
+5. Keep GPUParticles `one_shot` + `explosiveness = 1`.
+
+---
+
+## 6. Monetization (mock)
 
 | Placement | Trigger | Reward |
 |---|---|---|
-| `near_miss_revive` | Near-miss close to the record (see the revive gate) | Continue run |
-| `end_multiplier` | Run-over 3× | Extra energy/coins |
-| IAP `no_ads_bundle` | Shop | Skip non-revive ads |
-| IAP `auto_tap` | Shop button in prototype | Idle lock cadence |
-| IAP cosmetics | Catalog | Trails only (no P2W) |
+| `near_miss_revive` | Third alarm strike | Bribe the Cops: alarm reset, vault continues |
+| `end_multiplier` | Card `3x LOOT` | Twice the vault's banked cash again |
+| IAP `no_ads_bundle` | Shop | Skip non-revive ads, 3x auto-claimed |
+| IAP `auto_tap` | Shop | Auto-Crack: crew taps the Good window |
+| IAP `dial_obsidian` | Shop | Cosmetic dial |
 
 `AdsManager` waits `mock_latency_ms` then emits `ad_finished`. Replace `show_rewarded` with AdMob / LevelPlay; keep the EventBus contract.
 
 ---
 
-## 5. Visual polish (low budget)
+## Retention mapping (design hypotheses)
 
-Already wired:
-
-- GPU particle burst on grade / jackpot
-- Camera shake + zoom punch (`Juice.gd`)
-- Hitstop via `Engine.time_scale`
-- Grade label overshoot tween
-- Revive panel `TRANS_BACK` pop
-- Additive shaders for glow / flash
-
-Guidelines for production art:
-
-1. One dark field (`#0B1020`), one accent (cyan), one danger (magenta), one jackpot (gold). No extra hues.
-2. Hit feedback is **time** (hitstop) before **particles**. Particles without hitstop feel cheap; hitstop without particles feels broken.
-3. Near-miss uses *longer* hitstop than Perfect. The almost-win must feel heavier than the win.
-4. Meta bars never sit at 100% on exit unless the player collected. Leave the loop visibly bitten.
-5. Jackpot is the only time the whole ring may go gold. Scarcity protects the VR schedule.
-6. Keep GPUParticles `one_shot` + `explosiveness = 1`. Looped emitters kill the “snap” of a tap game.
-7. Screen shake amplitude: Perfect 7px, Near-miss 14px, Miss 18px. Miss should feel like a slap, not a flourish.
-
----
-
-## Retention mapping (design targets)
-
-| Metric lever | System |
+| Lever | System |
 |---|---|
-| D1 session 2 | Near-miss replay + save of ~82% generator bar |
-| Session length | VR jackpots + stage rings that reset the target angle |
-| D7 | Persistent DDA seed + unfinished collection loop + idle energy drip |
+| D1 | Persistent vault number + unfinished hideout ring on the card |
+| Session length | 20–40 s vaults, one-tap continue, golden vault every 5th |
+| D7 | Door art career (rust → gems), crew stash drip, 12-item shelf |
 
-These are **design hypotheses**, not live telemetry. Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before claiming D1 > 50% / D7 > 20%.
+Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before claiming numbers.
 
 ---
 
 ## Next production steps
 
 1. Swap mock ads for a mediation SDK and store IAP receipts.
-2. Add a second ring theme (Aurora unlocks at stage 3 in code).
-3. Telemetry: grade histogram, revive conversion, time-to-second-session.
-4. Android export: portrait, immersive, texture compression already flagged in `project.godot`.
+2. Hideout screen: draw the 12 shelf items instead of naming them.
+3. Glove / hand skins on the dial (the coach hand is the only hand today).
+4. Telemetry: grade histogram, bribe conversion, time-to-second-session.
+5. Android export: portrait, immersive, texture compression already flagged in `project.godot`.

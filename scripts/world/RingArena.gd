@@ -46,13 +46,25 @@ var last_grade: String = "":
 			if pin:
 				pin.set_locked(value == "perfect" or value == "good")
 
-## "neon" is the starting look and stays unmarked; later rings earn a visible band.
-const _THEME_ACCENT: Dictionary[String, Color] = {
-	"aurora": Color(0.4, 0.95, 0.9, 0.7),
-	"ember": Color(1.0, 0.42, 0.12, 0.7),
-	"void": Color(0.55, 0.35, 1.0, 0.7),
-	"prism": Color(1.0, 0.45, 0.75, 0.7),
+## Vault type accent band. The piggy bank stays unmarked; bigger vaults earn a visible ring.
+const _VAULT_ACCENT: Dictionary[String, Color] = {
+	"office": Color(0.4, 0.95, 0.9, 0.7),
+	"bank": Color(0.3, 0.6, 1.0, 0.7),
+	"museum": Color(0.55, 0.35, 1.0, 0.7),
+	"casino": Color(1.0, 0.45, 0.75, 0.7),
+	"fort": Color(1.0, 0.42, 0.12, 0.7),
 }
+const _GOLDEN_ACCENT := Color(1.0, 0.84, 0.25, 0.9)
+
+## Direction flips are a vault-3 mechanic. Off for the first two vaults.
+var flips_enabled: bool = true
+## 0..1 light leaking from the door seam; grows with every seated pin.
+var _crack: float = 0.0
+var _crack_tween: Tween
+## Miss: the dial jams and shivers for a beat.
+var _jam: float = 0.0
+var _jam_offset: float = 0.0
+var _golden: bool = false
 
 var danger := Color(1.0, 0.28, 0.42, 1)
 ## Outside the near window is a Miss, so this band stays dull steel, never "safe".
@@ -63,7 +75,6 @@ var _bezel_flash: float = 0.0
 var _door: float = 0.0
 var _door_tween: Tween
 var _door_base_scale: Vector2 = Vector2.ONE
-var _force_phase: bool = false
 var _count_hold: bool = false
 var _count_fade: float = 1.0
 var _count_hits: int = 0
@@ -72,7 +83,7 @@ var _coach_hot: bool = false
 var _coach_done: bool = false
 var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
-## Transparent until a ring unlocks a theme, so the opening dial is unchanged.
+## Transparent on the piggy bank, so the opening dial is unchanged.
 var _theme_accent: Color = Color(0, 0, 0, 0)
 
 
@@ -84,13 +95,13 @@ func _ready() -> void:
 	EventBus.run_started.connect(func() -> void:
 		_coach_done = false
 		_coach_age = 0.0
+		_set_crack(0.0, false)
 	)
-	EventBus.tap_evaluated.connect(func(_result: Dictionary) -> void: _coach_done = true)
+	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.session_changed.connect(_refresh_count)
 	EventBus.cosmetic_equipped.connect(_apply_skin)
-	EventBus.theme_unlocked.connect(_apply_theme)
 	_apply_skin(GameState.equipped_dial)
-	_apply_theme(GameState.equipped_theme)
+	set_vault(GameState.current_stage)
 	randomize_target(true)
 	if pin:
 		pin.place(target_angle)
@@ -101,8 +112,13 @@ func _process(delta: float) -> void:
 		# A hitch while the next door bakes must not skip the timing window.
 		var step: float = minf(delta, 1.0 / 30.0)
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * step, 0.0, TAU)
-	pointer.rotation = pointer_angle
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
+	if _jam > 0.0:
+		_jam = maxf(0.0, _jam - real_dt * 5.0)
+		_jam_offset = deg_to_rad(randf_range(-3.0, 3.0)) * _jam
+	else:
+		_jam_offset = 0.0
+	pointer.rotation = pointer_angle + _jam_offset
 	if not _coach_done and GameState.current_stage == 1:
 		_coach_age += real_dt
 	var coach_now: bool = _in_coach_window()
@@ -118,11 +134,53 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
+## Paints the door, the type accent, and the golden tint for this vault.
+func set_vault(stage: int) -> void:
+	_golden = GameState.is_golden(stage)
+	var kind: String = GameState.vault_type(stage)
+	_theme_accent = _GOLDEN_ACCENT if _golden else _VAULT_ACCENT.get(kind, Color(0, 0, 0, 0))
+	_paint_shell()
+	queue_redraw()
+
+
+## A seated pin lets more light through the seam; a miss jams the dial.
+func _on_tap(result: Dictionary) -> void:
+	_coach_done = true
+	var grade: String = String(result.get("grade_name", ""))
+	if grade == "perfect" or grade == "good":
+		var need: int = maxi(GameState.hits_needed, 1)
+		_set_crack(clampf(float(GameState.hits_in_stage + 1) / float(need), 0.0, 1.0), true)
+	else:
+		jam()
+		if pin:
+			pin.eject()
+
+
+func jam() -> void:
+	_jam = 1.0
+
+
+func _set_crack(value: float, animate: bool) -> void:
+	if _crack_tween:
+		_crack_tween.kill()
+	if not animate:
+		_crack = value
+		queue_redraw()
+		return
+	_crack_tween = create_tween()
+	_crack_tween.set_ignore_time_scale(true)
+	_crack_tween.tween_method(func(v: float) -> void:
+		_crack = v
+		queue_redraw()
+	, _crack, value, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
 func randomize_target(snap_pointer: bool = false) -> void:
-	if _force_phase or randf() < 0.35:
+	if flips_enabled and randf() < 0.35:
 		direction = -direction
 		EventBus.direction_flipped.emit(direction)
-		_force_phase = false
+	elif not flips_enabled and direction < 0.0:
+		direction = 1.0
 	if snap_pointer:
 		pointer_angle = -PI / 2.0
 	# Target always spawns ahead of the pointer, at least one reaction time away.
@@ -132,10 +190,6 @@ func randomize_target(snap_pointer: bool = false) -> void:
 	_restore_door()
 	if pin:
 		pin.set_locked(false)
-
-
-func mark_phase() -> void:
-	_force_phase = true
 
 
 func _apply_skin(id: String) -> void:
@@ -150,11 +204,6 @@ func _apply_skin(id: String) -> void:
 			_rim = Color(0.15, 0.17, 0.22, 1.0)
 			_gate = Color(0.2, 0.95, 0.4, 0.85)
 	_paint_shell()
-	queue_redraw()
-
-
-func _apply_theme(id: String) -> void:
-	_theme_accent = _THEME_ACCENT.get(id, Color(0, 0, 0, 0))
 	queue_redraw()
 
 
@@ -211,6 +260,7 @@ func _draw() -> void:
 	var center := Vector2.ZERO
 	if _door > 0.0:
 		draw_circle(center, (radius - 20.0) * _door, Color(1.0, 0.78, 0.25, 0.2 + 0.55 * _door))
+	_draw_crack_light()
 
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
@@ -222,9 +272,23 @@ func _draw() -> void:
 	if _bezel_flash > 0.0:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
 	if _theme_accent.a > 0.0:
-		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 3.0, true)
+		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
 	_draw_meter()
-	_draw_tap_label()
+
+
+## Gold light leaking from the door seam. Reads as "almost open" without a number.
+## The door is a 300px square texture scaled onto the ring, so its half-size follows the radius.
+func _draw_crack_light() -> void:
+	if _crack <= 0.0 or _door_sprite == null:
+		return
+	var half: float = 150.0 * _door_base_scale.x
+	var glow := Color(1.0, 0.82, 0.3, 0.12 + 0.55 * _crack)
+	var width: float = 2.0 + 12.0 * _crack
+	var rect := Rect2(Vector2(-half, -half), Vector2(half * 2.0, half * 2.0))
+	draw_rect(rect, glow, false, width)
+	# Soft halo outside the seam.
+	var halo := Color(1.0, 0.82, 0.3, 0.05 + 0.2 * _crack)
+	draw_rect(rect.grow(width * 1.5), halo, false, width * 2.0)
 
 
 func _in_coach_window() -> bool:
@@ -252,7 +316,10 @@ func _fly_door(_index: int, _payout: int) -> void:
 	_door_tween.tween_interval(0.1)
 	_door_tween.tween_property(_door_sprite, "scale", _door_base_scale * 1.65, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.28)
-	_door_tween.finished.connect(_paint_shell, CONNECT_ONE_SHOT)
+	_door_tween.finished.connect(func() -> void:
+		_paint_shell()
+		_set_crack(0.0, false)
+	, CONNECT_ONE_SHOT)
 
 
 func _restore_door() -> void:
@@ -336,15 +403,6 @@ func _draw_digit(origin: Vector2, digit: int, width: float, height: float, color
 		draw_line(origin + Vector2(0.0, t), origin + Vector2(0.0, mid - t), color, t, true)
 	if mask & 0x40:
 		draw_line(origin + Vector2(t, mid), origin + Vector2(width - t, mid), color, t, true)
-
-
-func _draw_tap_label() -> void:
-	if not _coach_hot:
-		return
-	var font: Font = ThemeDB.fallback_font
-	var text := tr("COACH_TAP")
-	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x
-	draw_string(font, Vector2(-width * 0.5, -radius - 168.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color(1.0, 0.95, 0.72, 1.0))
 
 
 func _draw_window_arc(half_deg: float, color: Color, width: float) -> void:

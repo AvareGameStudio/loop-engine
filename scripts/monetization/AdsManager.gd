@@ -1,6 +1,6 @@
 extends Node
 ## Mock mediation layer. Swap `show_rewarded` with AdMob/LevelPlay later.
-## Placements: near_miss_revive, end_multiplier, extra_energy.
+## Placements: near_miss_revive (Bribe the Cops), end_multiplier (3x loot).
 
 @export var mock_fill_rate: float = 1.0
 @export var mock_latency_ms: int = 350

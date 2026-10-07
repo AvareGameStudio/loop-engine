@@ -49,6 +49,7 @@ func _ready() -> void:
 	EventBus.run_started.connect(_stop_alarm)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.stage_cleared.connect(_on_ring_cleared)
+	EventBus.alarm_changed.connect(_on_alarm)
 
 
 func _process(delta: float) -> void:
@@ -73,6 +74,8 @@ func _on_juice(grade: String, intensity: float) -> void:
 	var power: float = intensity if grade == "perfect" else 1.0
 	match grade:
 		"perfect":
+			# Time before particles: a 60 ms freeze is what makes the Perfect land.
+			TimeScale.hitstop(0.06)
 			_add_shake(7.0 * power)
 			_zoom_punch_success()
 			_bounce_zone()
@@ -91,16 +94,15 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_flash_pin(0.12, 0.8)
 			_pulse_glow(0.9)
 		"near_miss":
+			# The almost-win must feel heavier than the win: longer freeze than a Perfect.
 			TimeScale.hitstop(0.18)
 			_add_shake(14.0)
 			_punch(0.94)
 			_burst(12, Color(1.0, 0.35, 0.42))
-			_police_alarm()
 		"miss":
 			_add_shake(18.0)
 			_punch(0.9)
 			_burst(8, Color(0.75, 0.22, 0.28))
-			_police_alarm()
 		"tension":
 			_show_vignette()
 			_add_shake(3.0)
@@ -111,7 +113,7 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_pulse_glow(2.5)
 			Settings.vibrate(30)
 		"claim":
-			# Idle Vault collect: gold explosion so the piggy emptying is a reward, not a number.
+			# Stash collect: gold explosion so the bag emptying is a reward, not a number.
 			_add_shake(10.0)
 			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
@@ -120,9 +122,35 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_add_shake(6.0)
 			_punch(0.97)
 			Settings.vibrate(18)
-		"empty_focus":
-			_add_shake(3.0)
-			Settings.vibrate(12)
+
+
+## Wall lamp strikes. One flash per strike; the third is the full police strobe.
+func _on_alarm(level: int, max_level: int) -> void:
+	if level <= 0:
+		_stop_alarm()
+		return
+	if level >= max_level:
+		_police_alarm()
+		return
+	_alarm_flash(level)
+
+
+## `count` short red flashes, 0.18 s each.
+func _alarm_flash(count: int) -> void:
+	if alarm == null:
+		return
+	if _alarm_tween:
+		_alarm_tween.kill()
+	alarm.visible = true
+	_alarm_tween = create_tween()
+	_alarm_tween.set_ignore_time_scale(true)
+	for i in count:
+		_alarm_tween.tween_property(alarm, "modulate", Color(0.95, 0.08, 0.1, 0.42), 0.04)
+		_alarm_tween.tween_property(alarm, "modulate", Color(0.95, 0.08, 0.1, 0.0), 0.14)
+	_alarm_tween.finished.connect(func() -> void:
+		if is_instance_valid(alarm):
+			alarm.visible = false
+	, CONNECT_ONE_SHOT)
 
 
 func _add_shake(amount: float) -> void:
@@ -355,7 +383,8 @@ func _explode_hoard(layer: Node, burst_name: String, texture: Texture2D, color: 
 	spill.lifetime = 1.15
 	spill.explosiveness = 0.95
 	spill.spread = 180.0
-	spill.gravity = Vector2(0, 980)
+	# Heavy gravity: the hoard bursts up, then drops into the loot bag at the bottom of the screen.
+	spill.gravity = Vector2(0, 1500)
 	spill.initial_velocity_min = 320.0
 	spill.initial_velocity_max = 880.0
 	spill.scale_amount_min = 1.3

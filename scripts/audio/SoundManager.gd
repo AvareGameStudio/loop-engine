@@ -27,18 +27,44 @@ func _ready() -> void:
 	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.juice_hit.connect(_on_juice)
+	EventBus.alarm_changed.connect(_on_alarm)
+	EventBus.loot_unlocked.connect(func(_id: String) -> void: _play_fanfare())
 
 
 func _on_run_started() -> void:
+	# Pitch climbs with the pins inside one vault, not across the whole career.
 	_phase_pitch = 1.0
 	play_tone(392.0, 0.12, 0.2)
 
 
-func _on_stage_cleared(index: int, _payout: int) -> void:
-	_phase_pitch = clampf(1.0 + float(index) * 0.08, 1.0, 1.45)
-	play_tone(55.0, 0.32, 0.46, _phase_pitch)
-	play_tone(110.0, 0.2, 0.32, _phase_pitch)
-	play_tone(380.0, 0.1, 0.24, _phase_pitch)
+## Door "ka-chunk", then the cash-register "cha-ching" 200 ms later when the loot lands.
+func _on_stage_cleared(_index: int, _payout: int) -> void:
+	play_tone(55.0, 0.32, 0.46)
+	play_tone(110.0, 0.2, 0.32)
+	play_tone(380.0, 0.1, 0.24)
+	get_tree().create_timer(0.2, true, false, true).timeout.connect(func() -> void:
+		play_tone(1760.0, 0.06, 0.2)
+		play_tone(2640.0, 0.12, 0.16)
+		play_tone(1320.0, 0.18, 0.18)
+	)
+
+
+func _play_fanfare() -> void:
+	for i in 4:
+		var freq: float = [523.0, 659.0, 784.0, 1046.0][i]
+		get_tree().create_timer(0.45 + 0.09 * float(i), true, false, true).timeout.connect(func() -> void:
+			play_tone(freq, 0.16, 0.22)
+		)
+
+
+## Strikes: a low clunk per lamp, the full siren on the third.
+func _on_alarm(level: int, max_level: int) -> void:
+	if level <= 0:
+		return
+	if level >= max_level:
+		play_siren()
+		return
+	play_tone(110.0, 0.14, 0.3)
 
 
 ## Pitch comes from TimingEngine so the combo counter and the melody stay on one ladder.
@@ -55,9 +81,15 @@ func _on_tap(result: Dictionary) -> void:
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
 			play_tone(base_freq, 0.09, volume, pitch)
 		"near_miss":
-			play_tone(140.0, 0.16, 0.3)
+			# Siren pitch sliding down: 1.0 → 0.7 across 400 ms.
+			for i in 4:
+				var pitch: float = lerpf(1.0, 0.7, float(i) / 3.0)
+				get_tree().create_timer(0.1 * float(i), true, false, true).timeout.connect(func() -> void:
+					play_tone(640.0, 0.12, 0.3, pitch)
+				)
 		"miss":
-			play_siren()
+			play_tone(140.0, 0.16, 0.3)
+			play_tone(95.0, 0.2, 0.26)
 
 
 func _on_jackpot(_mult: float, _label: String) -> void:
@@ -71,8 +103,6 @@ func _on_juice(grade: String, _intensity: float) -> void:
 		"combo_break":
 			play_tone(196.0, 0.12, 0.26)
 			play_tone(147.0, 0.16, 0.22)
-		"empty_focus":
-			play_tone(90.0, 0.06, 0.2)
 
 
 func _on_countdown(step: int) -> void:

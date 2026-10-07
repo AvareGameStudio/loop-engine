@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Loop Engine"
-config/description="One-tap hybrid-casual timing loop with behavioral retention systems."
+config/description="One-tap vault heist. Seat the pins, crack the door, bag the loot. Hyper-casual level loop with behavioral retention systems."
 config/version="0.1.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility", "Mobile")

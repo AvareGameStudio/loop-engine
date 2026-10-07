@@ -1,7 +1,7 @@
 class_name MarketPopup
 extends CanvasLayer
-## Spendable marketplace for MetaUpgrade. Pauses an active run while open; between
-## runs the tree keeps going, so passive income and affordability update live.
+## Spend cash on the Crew, Pro Gloves, and dial skins. Pauses an active vault while
+## open; between vaults the tree keeps going, so affordability updates live.
 
 @onready var root: Control = $Root
 @onready var panel: Control = $Root/Panel
@@ -13,7 +13,7 @@ extends CanvasLayer
 ## id -> {"name": Label, "effect": Label, "buy": Button}
 var _rows: Dictionary[String, Dictionary] = {}
 var _skin_rows: Dictionary[String, Dictionary] = {}
-var _themes_label: Label
+var _hideout_label: Label
 var _holding_pause: bool = false
 const _SKINS: Array[String] = ["steel", "gold", "obsidian"]
 
@@ -25,21 +25,20 @@ func _ready() -> void:
 	for skin_id: String in _SKINS:
 		_skin_rows[skin_id] = _make_skin_row(skin_id)
 	close_btn.pressed.connect(close)
-	_themes_label = Label.new()
-	_themes_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_themes_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_themes_label.add_theme_font_size_override("font_size", 15)
-	_themes_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1))
+	_hideout_label = Label.new()
+	_hideout_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hideout_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hideout_label.add_theme_font_size_override("font_size", 15)
+	_hideout_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1))
 	var box: Node = items_box.get_parent()
-	box.add_child(_themes_label)
-	box.move_child(_themes_label, items_box.get_index())
+	box.add_child(_hideout_label)
+	box.move_child(_hideout_label, items_box.get_index())
 	EventBus.cosmetic_equipped.connect(func(_id: String) -> void: _refresh())
-	EventBus.theme_unlocked.connect(func(_id: String) -> void:
+	EventBus.loot_unlocked.connect(func(_id: String) -> void:
 		if root.visible:
 			_refresh()
 	)
-	EventBus.energy_changed.connect(_on_wallet_changed)
-	EventBus.coins_changed.connect(_on_wallet_changed)
+	EventBus.cash_changed.connect(_on_wallet_changed)
 
 
 func _notification(what: int) -> void:
@@ -124,18 +123,17 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 
 
 func _refresh() -> void:
-	balance_label.text = tr("MARKET_BALANCE") % [GameState.energy, GameState.coins]
+	balance_label.text = tr("MARKET_BALANCE") % GameState.cash
 	passive_label.text = tr("MARKET_PASSIVE")
-	_themes_label.text = "%s  ·  %s" % [tr("LOOP_THEMES_TITLE"), _theme_list()]
+	_hideout_label.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()
 		var row: Dictionary = _rows[id]
 		(row.name as Label).text = "%s  ·  %s" % [tr("MARKET_%s_NAME" % key), tr("MARKET_LEVEL") % MetaUpgrade.level(id)]
 		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key)
-		var cost_key: String = "MARKET_COST_ENERGY" if item.currency == "energy" else "MARKET_COST_COINS"
 		var buy: Button = row.buy
-		buy.text = tr(cost_key) % MetaUpgrade.cost(id)
+		buy.text = tr("MARKET_COST") % MetaUpgrade.cost(id)
 		buy.disabled = not MetaUpgrade.can_afford(id)
 	for skin_id: String in _SKINS:
 		var skin_row: Dictionary = _skin_rows[skin_id]
@@ -149,16 +147,9 @@ func _refresh() -> void:
 			skin_buy.text = tr("MARKET_SKIN_EQUIP")
 			skin_buy.disabled = false
 		else:
-			var skin_cost: int = 0 if skin_id == "steel" else (80 if skin_id == "gold" else 140)
-			skin_buy.text = tr("MARKET_COST_COINS") % skin_cost
-			skin_buy.disabled = GameState.coins < skin_cost
-
-
-func _theme_list() -> String:
-	var names: PackedStringArray = []
-	for theme_id in GameState.unlocked_themes:
-		names.append(tr("THEME_%s" % String(theme_id).to_upper()))
-	return ", ".join(names)
+			var skin_cost: int = GameState.dial_cost(skin_id)
+			skin_buy.text = tr("MARKET_COST") % skin_cost
+			skin_buy.disabled = GameState.cash < skin_cost
 
 
 func _punch(target: Control, from_scale: float) -> void:
