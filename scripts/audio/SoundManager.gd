@@ -11,6 +11,7 @@ const PITCH_CAP: float = 1.8
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _cache: Dictionary[int, AudioStreamWAV] = {}
+var _drone: AudioStreamPlayer
 ## Each cleared ring lifts the lock pitch so the center feels closer.
 var _phase_pitch: float = 1.0
 
@@ -24,17 +25,50 @@ func _ready() -> void:
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.stage_cleared.connect(_on_stage_cleared)
 	EventBus.run_started.connect(_on_run_started)
-	EventBus.direction_flipped.connect(func(_d: float) -> void: play_tone(300.0, 0.05, 0.15))
+	EventBus.direction_flipped.connect(_on_flip)
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.juice_hit.connect(_on_juice)
 	EventBus.alarm_changed.connect(_on_alarm)
 	EventBus.loot_unlocked.connect(func(_id: String) -> void: _play_fanfare())
+	EventBus.approach_changed.connect(_on_approach)
+	EventBus.gold_pin_armed.connect(_on_gold_armed)
+	_drone = AudioStreamPlayer.new()
+	_drone.stream = _bake_loop(180.0, 0.25)
+	_drone.volume_db = linear_to_db(0.07)
+	add_child(_drone)
 
 
 func _on_run_started() -> void:
 	# Pitch climbs with the pins inside one vault, not across the whole career.
 	_phase_pitch = 1.0
+	_stop_drone()
 	play_tone(392.0, 0.12, 0.2)
+
+
+func _on_flip(_d: float) -> void:
+	play_tone(220.0, 0.06, 0.22)
+	play_tone(340.0, 0.05, 0.16)
+
+
+func _on_gold_armed(armed: bool) -> void:
+	if armed:
+		play_tone(880.0, 0.08, 0.18)
+
+
+func _on_approach(hot: bool, closeness: float) -> void:
+	if _drone == null:
+		return
+	if not hot:
+		_stop_drone()
+		return
+	_drone.pitch_scale = lerpf(0.8, 1.25, clampf(closeness, 0.0, 1.0))
+	if not _drone.playing:
+		_drone.play()
+
+
+func _stop_drone() -> void:
+	if _drone and _drone.playing:
+		_drone.stop()
 
 
 ## Door "ka-chunk", then the cash-register "cha-ching" 200 ms later when the loot lands.
@@ -69,6 +103,7 @@ func _on_alarm(level: int, max_level: int) -> void:
 
 ## Pitch comes from TimingEngine so the combo counter and the melody stay on one ladder.
 func _on_tap(result: Dictionary) -> void:
+	_stop_drone()
 	var grade_name: String = String(result.get("grade_name", ""))
 	match grade_name:
 		"perfect", "good":
@@ -138,6 +173,13 @@ func _get_tone(seconds: float) -> AudioStreamWAV:
 	if not _cache.has(key):
 		_cache[key] = _bake(BASE_FREQ, seconds)
 	return _cache[key]
+
+
+func _bake_loop(freq: float, seconds: float) -> AudioStreamWAV:
+	var wav := _bake(freq, seconds)
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_end = int(seconds * MIX_RATE)
+	return wav
 
 
 func _bake(freq: float, seconds: float) -> AudioStreamWAV:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/GameWorld.gd" id="1_world"]
 [ext_resource type="Script" path="res://scripts/world/RingArena.gd" id="2_arena"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/meta/MetaUpgrade.gd" id="8_meta"]
 [ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="10_vig"]
 [ext_resource type="Script" path="res://scripts/world/LockPin.gd" id="11_pin"]
+[ext_resource type="Script" path="res://scripts/world/Guard.gd" id="12_guard"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_flash"]
 shader = ExtResource("6_flash")
@@ -123,6 +124,10 @@ lifetime = 0.7
 one_shot = true
 explosiveness = 0.95
 process_material = SubResource("ParticleProcessMaterial_burst")
+
+[node name="Guard" type="Node2D" parent="."]
+z_index = 1
+script = ExtResource("12_guard")
 
 [node name="InputProcessor" type="Node" parent="."]
 script = ExtResource("3_input")

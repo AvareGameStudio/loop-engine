@@ -3,12 +3,16 @@ extends Node2D
 ## One run = one vault. A Miss raises the alarm; the third strike brings the cops.
 
 const RESPAWN_DELAY: float = 0.22
-## Real seconds between the last pin and the end-of-vault card: door flies, loot rains.
+## Real seconds between the last pin and the end-of-heist card: door flies, loot rains.
 const CRACK_BEAT: float = 1.25
+## Mid-heist door: shorter beat, then the next door spins.
+const DOOR_BEAT: float = 0.65
+const FLIP_TELEGRAPH: float = 0.4
 const REVIVE_STEP: float = 0.45
 ## DDA may only bend the stage curve this far either way.
 const DDA_BAND: float = 0.15
 const NEAR_BAND_DEG: float = 5.0
+const APPROACH_DEG: float = 45.0
 
 @onready var arena: RingArena = $Arena
 @onready var input_proc: InputProcessor = $InputProcessor
@@ -23,6 +27,12 @@ var _busy: bool = false
 var _run_cash: int = 0
 ## Frozen at run end so Retry during the ad cannot zero the 3x grant.
 var _boost_cash: int = 0
+## Doors cracked this run. Card waits until `_doors_goal`.
+var _session_doors: int = 0
+var _doors_goal: int = 3
+var _gold_armed: bool = false
+var _gold_mult: float = 1.0
+var _approach_hot: bool = false
 
 
 func _ready() -> void:
@@ -50,6 +60,10 @@ func _process(delta: float) -> void:
 		input_proc.take_buffer()
 		_on_commit("buffer", 0.0)
 		return
+	var approaching: bool = arena.spinning and err <= APPROACH_DEG
+	if approaching != _approach_hot or approaching:
+		_approach_hot = approaching
+		EventBus.approach_changed.emit(approaching, 1.0 - err / APPROACH_DEG)
 	if arena.spinning and zeigarnik.passed_pin(err, float(arena.windows.get("near", 22.0))):
 		TimeScale.pulse_slowmo(0.25, 0.3)
 		EventBus.juice_hit.emit("tension", 1.0)
@@ -75,19 +89,24 @@ func start_run() -> void:
 	TimeScale.reset()
 	_busy = false
 	_run_cash = 0
+	_session_doors = 0
+	_doors_goal = GameState.doors_left_in_heist(GameState.current_stage)
+	_gold_armed = false
+	_gold_mult = 1.0
+	_approach_hot = false
 	input_proc.clear_buffer()
 	input_proc.arm(true)
 	arena.last_grade = ""
-	arena.flips_enabled = GameState.flips_enabled(GameState.current_stage)
+	arena.flips_enabled = false
+	arena.set_gold_pin(false)
 	arena.set_vault(GameState.current_stage)
 	_apply_difficulty()
-	arena.spinning = true
-	arena.randomize_target(true)
-	zeigarnik.arm_gate()
+	_paint_wall()
 	EventBus.run_started.emit()
 	EventBus.alarm_changed.emit(GameState.session_alarm, GameState.ALARM_MAX)
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
 	EventBus.session_changed.emit()
+	_open_door(true)
 
 
 func _on_commit(mode: String, _held: float) -> void:
@@ -95,6 +114,9 @@ func _on_commit(mode: String, _held: float) -> void:
 		return
 	_busy = true
 	zeigarnik.note_tap()
+	if _approach_hot:
+		_approach_hot = false
+		EventBus.approach_changed.emit(false, 0.0)
 	input_proc.clear_buffer()
 	# Disarmed until respawn: the new target is ≥90° away, so any tap in between is a sure miss.
 	input_proc.arm(false)
@@ -129,14 +151,14 @@ func _on_commit(mode: String, _held: float) -> void:
 	_after_hit()
 
 
-## Stage curve first, DDA as a ±15% bend on top, Pro Gloves widen the Perfect slice.
+## Stage curve first, DDA as a ±15% bend on top, Wide Gate adds degrees to Good.
 func _apply_difficulty() -> void:
 	var stage: int = GameState.current_stage
 	var w: Dictionary = dda.windows()
 	var rpm_bend: float = clampf(dda.rpm / 0.55, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
 	var win_bend: float = clampf(float(w["perfect"]) / 7.0, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
-	var good: float = GameState.base_good_deg(stage) * win_bend
-	var perfect: float = clampf(good * 0.42 * MetaUpgrade.perfect_window_mult(), 3.5, good * 0.7)
+	var good: float = clampf(GameState.base_good_deg(stage) * win_bend + MetaUpgrade.gate_bonus_deg(), 8.0, 28.0)
+	var perfect: float = clampf(good * 0.42, 3.5, good * 0.7)
 	var windows := {
 		"good": good,
 		"perfect": perfect,
@@ -155,31 +177,23 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 	GameState.note_landed_hit()
 	if grade == TimingEngine.Grade.PERFECT:
 		GameState.session_perfects += 1
-	var combo_mult: float = 1.0 + float(mini(GameState.session_combo, 25)) * 0.06
 	var drop: Dictionary = vr.register_success()
-	if bool(drop.get("triggered", false)):
-		GameState.session_multiplier = float(drop.multiplier)
-		EventBus.jackpot.emit(float(drop.multiplier), String(drop.label))
+	var gold_now: bool = _gold_armed
+	_gold_armed = false
+	var cash: int = GameState.pin_cash(GameState.current_stage, grade == TimingEngine.Grade.PERFECT)
+	cash = maxi(1, ceili(float(cash) * grade_mult))
+	if gold_now:
+		cash = maxi(cash, ceili(float(cash) * _gold_mult))
 		EventBus.juice_hit.emit("jackpot", 1.2)
+	GameState.session_score += cash
+	_bank_cash(cash)
+	if bool(drop.get("triggered", false)):
+		_gold_armed = true
+		_gold_mult = float(drop.multiplier)
+		EventBus.gold_pin_armed.emit(true)
 	else:
-		GameState.session_multiplier = maxf(1.0, GameState.session_multiplier * 0.92)
-		if GameState.session_multiplier < 1.08:
-			GameState.session_multiplier = 1.0
-	EventBus.multiplier_changed.emit(GameState.session_multiplier)
+		EventBus.gold_pin_armed.emit(false)
 	EventBus.vr_tension.emit(vr.peek_tension())
-	# Pro Gloves are felt on Perfects (score + juice). Other grades get a whisper of it.
-	var power: float = MetaUpgrade.perfect_power()
-	var power_mult: float = power if grade == TimingEngine.Grade.PERFECT else lerpf(1.0, power, 0.15)
-	var payout: int = int(
-		float(TimingEngine.grade_score(grade))
-		* grade_mult
-		* combo_mult
-		* GameState.session_multiplier
-		* power_mult
-	)
-	GameState.session_score += payout
-	# Each seated pin drops a little cash; the vault itself pays on the last pin.
-	_bank_cash(maxi(1, ceili(float(payout) * 0.04 * GameState.loot_mult(GameState.current_stage))))
 
 
 func _after_hit() -> void:
@@ -194,11 +208,11 @@ func _after_hit() -> void:
 		return
 	TimeScale.set_slowmo(1.0)
 	arena.randomize_target(false)
+	arena.set_gold_pin(_gold_armed)
 	_begin_spin()
 
 
-## Last pin: the door flies, the loot rains, then the card. The vault index moves forward now
-## so the next door is already painted when the card closes.
+## Last pin: the door flies, the loot rains. Card only after the heist is done.
 func _crack_vault() -> void:
 	var stage: int = GameState.current_stage
 	var loot: int = int(float(40 + 12 * stage) * GameState.loot_mult(stage))
@@ -206,12 +220,53 @@ func _crack_vault() -> void:
 	GameState.note_stage_cleared()
 	arena.warm_shell()
 	EventBus.stage_cleared.emit(stage, loot)
-	# HUD already reads the next vault number behind the card; the painted door matches it.
 	EventBus.session_changed.emit()
 	if GameState.loot_just_unlocked():
 		EventBus.loot_unlocked.emit(GameState.LOOT_ITEMS[GameState.loot_unlocked_count() - 1])
-	await get_tree().create_timer(CRACK_BEAT, true, false, true).timeout
-	_finish_run("cracked", {})
+	_session_doors += 1
+	var heist_done: bool = _session_doors >= _doors_goal
+	await get_tree().create_timer(CRACK_BEAT if heist_done else DOOR_BEAT, true, false, true).timeout
+	if not GameState.run_active:
+		return
+	if heist_done:
+		_finish_run("cracked", {})
+		return
+	_begin_next_door()
+
+
+## Same heist, next door. Combo and alarm carry; pins reset.
+func _begin_next_door() -> void:
+	GameState.begin_door()
+	_gold_armed = false
+	arena.last_grade = ""
+	arena.set_gold_pin(false)
+	arena.set_vault(GameState.current_stage)
+	_apply_difficulty()
+	_paint_wall()
+	EventBus.door_advanced.emit(GameState.current_stage)
+	EventBus.session_changed.emit()
+	input_proc.clear_buffer()
+	await _open_door(true)
+
+
+func _open_door(snap_pointer: bool) -> void:
+	var flip: bool = GameState.flips_enabled(GameState.current_stage) and randf() < 0.5
+	arena.randomize_target(snap_pointer)
+	arena.set_gold_pin(_gold_armed)
+	if flip:
+		arena.start_flip_telegraph()
+		_busy = true
+		input_proc.arm(false)
+		await get_tree().create_timer(FLIP_TELEGRAPH, true, false, true).timeout
+		if not GameState.run_active:
+			return
+	_begin_spin()
+
+
+func _paint_wall() -> void:
+	var fill := get_node_or_null("Background/Fill") as ColorRect
+	if fill:
+		fill.color = GameState.wall_color(GameState.current_stage)
 
 
 ## One alarm strike. The third brings the cops: bribe (rewarded ad) or get caught.
@@ -233,6 +288,7 @@ func _strike(result: Dictionary) -> void:
 		return
 	arena.last_grade = ""
 	arena.randomize_target(false)
+	arena.set_gold_pin(_gold_armed)
 	_begin_spin()
 
 
@@ -247,7 +303,8 @@ func _finish_run(reason: String, result: Dictionary) -> void:
 		"score": GameState.session_score,
 		"combo": GameState.session_combo,
 		"hits": GameState.session_hits,
-		"stage": GameState.current_stage - (1 if reason == "cracked" else 0),
+		"stage": GameState.heist_for(GameState.current_stage - (1 if reason == "cracked" else 0)),
+		"door": GameState.current_stage - (1 if reason == "cracked" else 0),
 		"cash": _run_cash,
 		"result": result,
 	})
@@ -268,6 +325,7 @@ func _on_revive(success: bool) -> void:
 	TimeScale.reset()
 	arena.last_grade = ""
 	arena.randomize_target(false)
+	arena.set_gold_pin(_gold_armed)
 	# Grace countdown in real time: the pointer would otherwise resume the instant the popup closes.
 	for step in [3, 2, 1]:
 		EventBus.countdown.emit(step)

@@ -6,11 +6,17 @@ class_name GlobalEventBus
 
 signal tap_evaluated(result: Dictionary)
 signal jackpot(multiplier: float, label: String)
+## Next tumbler is gold: a variable-ratio drop is waiting on the seat.
+signal gold_pin_armed(armed: bool)
+## Pointer is inside the 45° approach; `closeness` 0..1 toward the gate.
+signal approach_changed(hot: bool, closeness: float)
 signal near_miss(result: Dictionary)
 signal miss(result: Dictionary)
 signal perfect(result: Dictionary)
 ## The last pin seated: the vault at `stage_index` is cracked and `payout` cash spilled.
 signal stage_cleared(stage_index: int, payout: int)
+## A mid-heist door finished; the next door is about to spin. Not a run end.
+signal door_advanced(stage_index: int)
 signal run_started()
 ## reason: "cracked" (vault opened) or "caught" (alarm maxed, no bribe).
 signal run_ended(reason: String, stats: Dictionary)
@@ -34,6 +40,7 @@ signal stash_changed(amount: int, delta: int)
 signal stash_ready(amount: int)
 signal stash_resolved(claimed: bool)
 signal cosmetic_equipped(id: String)
+signal glove_granted(id: String)
 ## A new hideout item joined the shelf.
 signal loot_unlocked(loot_id: String)
 ## 0..1 tease for the next variable-ratio drop.

@@ -19,8 +19,8 @@ const PRODUCTS := [
 	},
 	{
 		"id": "dial_obsidian",
-		"title": "Obsidian Dial",
-		"blurb": "Cosmetic vault face. Zero P2W.",
+		"title": "Neon Cuff",
+		"blurb": "Cosmetic cuff. Zero P2W.",
 		"price": "$1.99",
 		"flag": "cosmetic",
 	},
@@ -36,7 +36,5 @@ static func grant(product_id: String) -> void:
 			GameState.auto_tap_unlocked = true
 			GameState.auto_tap = true
 		"dial_obsidian":
-			if not GameState.cosmetics.has("obsidian"):
-				GameState.cosmetics.append("obsidian")
-			GameState.equip_dial("obsidian")
+			GameState.grant_glove("neon")
 	GameState.save_game()

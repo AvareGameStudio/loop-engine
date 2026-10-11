@@ -10,6 +10,7 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 const BOLT_SCALE := Vector2(0.72, 0.72)
 
 var locked: bool = false
+var gold: bool = false
 var _flash_tween: Tween
 var _eject_tween: Tween
 var _seat_tween: Tween
@@ -30,6 +31,11 @@ func _ready() -> void:
 
 func place(angle: float) -> void:
 	rotation = angle
+	_layout()
+
+
+func set_gold(is_gold: bool) -> void:
+	gold = is_gold
 	_layout()
 
 
@@ -80,7 +86,14 @@ func _layout() -> void:
 		return
 	var sunk: float = 16.0 if locked else 0.0
 	_bolt.position = Vector2(radius - 28.0 - sunk, 0.0)
-	_bolt.modulate = Color(1.0, 0.86, 0.45, 1.0) if locked else Color.WHITE
+	if gold:
+		_bolt.modulate = Color(1.0, 0.84, 0.22, 1.0)
+		_bolt.scale = BOLT_SCALE * 1.15
+	elif locked:
+		_bolt.modulate = Color(1.0, 0.86, 0.45, 1.0)
+	else:
+		_bolt.modulate = Color.WHITE
+		_bolt.scale = BOLT_SCALE
 
 
 func _eject(_index: int, _payout: int) -> void:

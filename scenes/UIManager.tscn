@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/ui/LootBag.gd" id="7_bag"]
 [ext_resource type="Script" path="res://scripts/ui/AlarmLamps.gd" id="8_lamps"]
 [ext_resource type="Script" path="res://scripts/ui/QuestRing.gd" id="9_ring"]
+[ext_resource type="PackedScene" path="res://scenes/HideoutPopup.tscn" id="10_hideout"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -36,7 +37,7 @@ theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
 theme_override_colors/font_outline_color = Color(0.04, 0.03, 0.02, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 32
-text = "VAULT 1"
+text = "HEIST 1"
 vertical_alignment = 1
 
 [node name="Lamps" type="Control" parent="HUD"]
@@ -203,6 +204,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
+mouse_filter = 0
 
 [node name="Ring" type="Control" parent="Card/Panel/Margin/VBox/Shelf"]
 custom_minimum_size = Vector2(96, 96)
@@ -216,6 +218,7 @@ font_size = 16
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_vertical = 4
+mouse_filter = 0
 theme_override_font_sizes/font_size = 18
 text = "CARD_NEXT_LOOT"
 autowrap_mode = 3
@@ -232,6 +235,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
 theme_override_font_sizes/font_size = 20
 text = "CARD_X3"
+
+[node name="Glove" type="Button" parent="Card/Panel/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "CARD_GLOVE"
 
 [node name="Market" type="Button" parent="Card/Panel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 48)
@@ -260,3 +270,5 @@ expand_icon = true
 [node name="MarketPopup" parent="." instance=ExtResource("5_market")]
 
 [node name="ClaimPopup" parent="." instance=ExtResource("6_claim")]
+
+[node name="HideoutPopup" parent="." instance=ExtResource("10_hideout")]
