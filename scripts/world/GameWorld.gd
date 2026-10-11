@@ -132,11 +132,11 @@ func _on_commit(mode: String, _held: float) -> void:
 
 	match int(result.grade):
 		TimingEngine.Grade.PERFECT:
-			_apply_success(result, 1.35)
+			_apply_success(result)
 			EventBus.perfect.emit(result)
 			EventBus.juice_hit.emit("perfect", MetaUpgrade.perfect_power())
 		TimingEngine.Grade.GOOD:
-			_apply_success(result, 1.0)
+			_apply_success(result)
 			EventBus.juice_hit.emit("good", 0.7)
 		TimingEngine.Grade.NEAR_MISS:
 			EventBus.near_miss.emit(result)
@@ -169,7 +169,9 @@ func _apply_difficulty() -> void:
 	arena.windows = windows
 
 
-func _apply_success(result: Dictionary, grade_mult: float) -> void:
+## Perfect bonus lives in GameState.pin_cash only; applying a grade multiplier here
+## too paid Perfects ~1.82x instead of the intended ~1.35x.
+func _apply_success(result: Dictionary) -> void:
 	var grade: TimingEngine.Grade = int(result.grade) as TimingEngine.Grade
 	GameState.session_combo += 1
 	GameState.session_hits += 1
@@ -181,7 +183,6 @@ func _apply_success(result: Dictionary, grade_mult: float) -> void:
 	var gold_now: bool = _gold_armed
 	_gold_armed = false
 	var cash: int = GameState.pin_cash(GameState.current_stage, grade == TimingEngine.Grade.PERFECT)
-	cash = maxi(1, ceili(float(cash) * grade_mult))
 	if gold_now:
 		cash = maxi(cash, ceili(float(cash) * _gold_mult))
 		EventBus.juice_hit.emit("jackpot", 1.2)
