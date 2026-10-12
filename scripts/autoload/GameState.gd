@@ -159,6 +159,33 @@ static func pins_for(stage: int) -> int:
 	return pins
 
 
+## Vault tricks: one twist on the same tap. Each is introduced alone on its heist, then
+## rotates with plain heists. Golden heists never carry one: they are the breather.
+## slide = the gate creeps against the pick · double = two gates chained in one sweep ·
+## dark = the gate only shows inside the pick's flashlight.
+const TRICK_INTRO: Dictionary[int, String] = {4: "slide", 7: "double", 11: "dark"}
+
+
+static func trick_for(stage: int) -> String:
+	var h: int = heist_for(stage)
+	if is_golden(stage):
+		return ""
+	if TRICK_INTRO.has(h):
+		return TRICK_INTRO[h]
+	var pool: Array[String] = [""]
+	for intro: int in TRICK_INTRO:
+		if h > intro:
+			pool.append(TRICK_INTRO[intro])
+	if pool.size() == 1:
+		return ""
+	return pool[h % pool.size()]
+
+
+## The heist that introduces a trick opens the gate 2° so the new twist is learned, not punished.
+static func is_trick_intro(stage: int) -> bool:
+	return TRICK_INTRO.has(heist_for(stage)) and not is_golden(stage)
+
+
 static func is_golden(stage: int) -> bool:
 	var h: int = heist_for(stage)
 	return h > 0 and h % GOLDEN_EVERY == 0
@@ -182,6 +209,8 @@ static func base_good_deg(stage: int) -> float:
 	var good: float = lerpf(20.0, 11.0, _heist_ease(heist_for(stage)))
 	if is_golden(stage):
 		good += 3.0
+	if is_trick_intro(stage):
+		good += 2.0
 	return good
 
 

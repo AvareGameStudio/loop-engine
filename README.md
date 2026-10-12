@@ -68,6 +68,10 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 - **Dial speed / window** use a sawtooth on the heist index (squeeze, then a golden breath). DDA still bends ±15%. Wide Gate adds +1.5° to Good per level (cap 5).
 - **Direction flips** from heist 2, once per new door, with a 0.4 s chevron telegraph. No mid-door random flips.
 - Target lead is **120–270°**. Target heist length: 20–30 s.
+- **Vault tricks** (`GameState.trick_for`): one twist on the same tap, for all three doors of a heist. Each is introduced alone (Good +2° that heist), then rotates with plain heists; golden heists never carry one.
+  - Heist 4 **slide**: the gate creeps against the pick at 0.06 rev/s; green chevrons show which way.
+  - Heist 7 **double**: a second gate (outlined) waits 110–170° past the first; hit both in one sweep, no respawn between.
+  - Heist 11 **dark**: wall and door dim; the gate and tumbler only show inside a warm wedge 60–110° ahead of the pick.
 - **Vault types** by door index: 1 Piggy, 3 Office, 6 Bank, 11 Museum, 26 Casino, 51 Fort Knox. The wall color behind the door changes with the type.
 
 ---
