@@ -41,6 +41,20 @@ const ARM_LEN: float = 40.0
 ## Heist 1, third strike: how long he stays up before dozing off again.
 const DOZE_DELAY: float = 0.8
 
+## Canva sprites (assets/art). Without them the silhouette below is drawn in code.
+const SLEEP_ART := "res://assets/art/guard_sleep.png"
+const ALERT_ART := "res://assets/art/guard_alert.png"
+## Feet (bottom-centre) in world space and sprite height per pose: asleep at the desk, then
+## up and growing as he steps toward the dial. The loot bag owns x 220-500 below the dial.
+const ART_FEET: Array[Vector2] = [Vector2(116, 1090), Vector2(108, 1090), Vector2(116, 1090), Vector2(124, 1090)]
+const ART_HEIGHT: PackedFloat32Array = [170.0, 200.0, 228.0, 262.0]
+## Points on the sprites as fractions of their size: flashlight lens, and heads (Zzz, "!").
+const ALERT_LENS := Vector2(0.95, 0.44)
+const ALERT_HEAD := Vector2(0.45, 0.14)
+const SLEEP_HEAD := Vector2(0.62, 0.3)
+var _sleep_tex: Texture2D = load(SLEEP_ART) if ResourceLoader.exists(SLEEP_ART) else null
+var _alert_tex: Texture2D = load(ALERT_ART) if ResourceLoader.exists(ALERT_ART) else null
+
 ## 0..3, tweened between alarm levels. Fractions blend the keyframes.
 var _pose: float = 0.0
 var _pose_tween: Tween
@@ -141,6 +155,9 @@ func _ping_alert() -> void:
 
 
 func _draw() -> void:
+	if _sleep_tex and _alert_tex:
+		_draw_art()
+		return
 	var i: int = mini(floori(_pose), 2)
 	var f: float = _pose - float(i)
 	var pos: Vector2 = POSE_POS[i].lerp(POSE_POS[i + 1], f)
@@ -165,6 +182,60 @@ func _draw() -> void:
 	_draw_alert(head, s)
 	if _reach > 0.0:
 		_draw_cuffs(pos, rot, s)
+
+
+## Sprite version: the sleeping guard cross-fades into the alert one as he wakes, which
+## then grows and steps toward the dial. Beam, Zzz, "!" and cuffs anchor to sprite points.
+func _draw_art() -> void:
+	var i: int = mini(floori(_pose), 2)
+	var f: float = _pose - float(i)
+	var feet: Vector2 = ART_FEET[i].lerp(ART_FEET[i + 1], f)
+	var punch: float = 1.0 + 0.12 * _alert * _alert
+	var height: float = lerpf(ART_HEIGHT[i], ART_HEIGHT[i + 1], f) * punch
+	# Wake-up cross-fade sits between pose 0.3 and 0.7.
+	var awake: float = clampf((_pose - 0.3) / 0.4, 0.0, 1.0)
+	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
+	_draw_spill(clampf(_pose, 0.0, 1.0))
+	var sleep_rect := _feet_rect(_sleep_tex, feet, ART_HEIGHT[0] * punch)
+	var alert_rect := _feet_rect(_alert_tex, feet, height)
+	if awake < 1.0:
+		draw_texture_rect(_sleep_tex, sleep_rect, false, Color(1, 1, 1, 1.0 - awake))
+	if awake > 0.0:
+		draw_texture_rect(_alert_tex, alert_rect, false, Color(1, 1, 1, awake))
+	var lens: Vector2 = alert_rect.position + alert_rect.size * ALERT_LENS
+	if standing > 0.0:
+		_draw_beam(lens, standing)
+	var head: Vector2 = sleep_rect.position + sleep_rect.size * SLEEP_HEAD
+	if awake > 0.5:
+		head = alert_rect.position + alert_rect.size * ALERT_HEAD
+	_draw_snore(head, 1.0 - awake)
+	_draw_alert(head, height / 200.0)
+	if _reach > 0.0:
+		_draw_cuffs_from(lens, height / 200.0)
+
+
+func _feet_rect(tex: Texture2D, feet: Vector2, height: float) -> Rect2:
+	var width: float = height * float(tex.get_width()) / float(tex.get_height())
+	return Rect2(feet - Vector2(width * 0.5, height), Vector2(width, height))
+
+
+## Flashlight cone from `from` to the dial: sweeping on pose 2, locked on pose 3.
+func _draw_beam(from: Vector2, amount: float) -> void:
+	var arena := get_parent().get_node_or_null("Arena") as Node2D
+	var centre: Vector2 = arena.position if arena else Vector2(360, 500)
+	var lock: float = clampf(_pose - 2.0, 0.0, 1.0)
+	var sweep := Vector2(sin(_t * 1.7) * 160.0, sin(_t * 1.1) * 70.0)
+	var jitter := Vector2(sin(_t * 9.0) * 6.0, cos(_t * 7.0) * 4.0)
+	var aim: Vector2 = centre + sweep.lerp(jitter, lock)
+	var dir: Vector2 = (aim - from).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	var half: float = lerpf(70.0, 95.0, lock)
+	var beam: Color = BEAM.lerp(BEAM_HARD, lock)
+	beam.a *= amount
+	draw_colored_polygon(PackedVector2Array([
+		from + perp * 6.0, aim + perp * half, aim - perp * half, from - perp * 6.0,
+	]), beam)
+	draw_circle(aim, half, Color(beam, beam.a * 0.8))
 
 
 ## Left-edge red spill: the first sign that something is wrong.
@@ -254,11 +325,14 @@ func _draw_flashlight(pos: Vector2, rot: float, s: float, amount: float) -> void
 ## Arm shoots from his shoulder to the pick tip; one cuff ring closes on the tip,
 ## the other stays on his wrist, chain between.
 func _draw_cuffs(pos: Vector2, rot: float, s: float) -> void:
+	_draw_cuffs_from(pos + SHOULDER.rotated(rot) * s, s)
+
+
+func _draw_cuffs_from(shoulder: Vector2, s: float) -> void:
 	var arena := get_parent().get_node_or_null("Arena") as RingArena
 	if arena == null:
 		return
 	var tip: Vector2 = arena.position + Vector2.from_angle(arena.pointer_angle) * PICK_TIP
-	var shoulder: Vector2 = pos + SHOULDER.rotated(rot) * s
 	var hand: Vector2 = shoulder.lerp(tip, 0.55 * _reach)
 	var cuff_at: Vector2 = shoulder.lerp(tip, _reach)
 	draw_line(shoulder, hand, BODY, 14.0 * s, true)

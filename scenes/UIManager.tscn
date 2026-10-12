@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -11,18 +11,6 @@
 [ext_resource type="Script" path="res://scripts/ui/QuestRing.gd" id="9_ring"]
 [ext_resource type="PackedScene" path="res://scenes/HideoutPopup.tscn" id="10_hideout"]
 [ext_resource type="Script" path="res://scripts/ui/DoorPips.gd" id="11_pips"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card"]
-bg_color = Color(0.043, 0.063, 0.125, 0.94)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 0.84, 0.3, 0.55)
-corner_radius_top_left = 24
-corner_radius_top_right = 24
-corner_radius_bottom_right = 24
-corner_radius_bottom_left = 24
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -143,7 +131,6 @@ offset_bottom = 290.0
 grow_horizontal = 2
 grow_vertical = 2
 pivot_offset = Vector2(270, 290)
-theme_override_styles/panel = SubResource("StyleBoxFlat_card")
 
 [node name="Margin" type="MarginContainer" parent="Card/Panel"]
 layout_mode = 2
@@ -187,6 +174,7 @@ thickness = 8.0
 font_size = 16
 
 [node name="Primary" type="Button" parent="Card/Panel/Margin/VBox"]
+theme_type_variation = &"PrimaryButton"
 custom_minimum_size = Vector2(0, 76)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
@@ -226,6 +214,7 @@ theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
 text = "HUD_STASH"
 
 [node name="SettingsButton" type="Button" parent="."]
+flat = true
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 1
 anchors_preset = 1

@@ -152,6 +152,18 @@ Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before cla
 
 ---
 
+## Art (Canva)
+
+Door, guard (asleep / alert), loot bag, the 12 hideout items, six room backgrounds (one per vault type), button and panel skins, and the app icon were generated with Canva's image generator, background-removed there, and exported from the Canva design "Vault Heist game sprites" as 1080 px PNGs. `tools/art/prepare_art.gd` turns that export into the committed game assets (trim, resize, a clean porthole cut in the door, the painted beam cut off the alert guard so `Guard.gd` can aim its own, `assets/ui/game_theme.tres` with nine-slice buttons and panels):
+
+```bash
+CANVA_DIR=/path/to/export godot --headless --path . -s res://tools/art/prepare_art.gd
+godot --headless --path . --import
+STEP=theme godot --headless --path . -s res://tools/art/prepare_art.gd
+```
+
+Every art consumer falls back to the old procedural drawing when its file is missing. The steel door carries the career as a tint (`VaultSprites.door_tint`: rust, then the metal stops). The project theme is set in `project.godot` (`gui/theme/custom`); gold primary buttons use the `PrimaryButton` variation.
+
 ## Ad capture (CPI test creative)
 
 `tools/ad_capture/AdCapture.tscn` plays a scripted ~30 s cut of the real game with a director instead of a player, and never writes the save (`GameState.no_save`):

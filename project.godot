@@ -15,7 +15,7 @@ config/description="One-tap vault heist. Seat the pins, crack the door, bag the 
 config/version="0.1.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility", "Mobile")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
 
 [autoload]
 
@@ -58,3 +58,7 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.043137, 0.047059, 0.062745, 1)
+
+[gui]
+
+theme/custom="res://assets/ui/game_theme.tres"

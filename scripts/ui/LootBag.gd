@@ -10,6 +10,10 @@ const STITCH := Color(0.62, 0.5, 0.32, 0.8)
 const GOLD := Color(1.0, 0.82, 0.3, 1.0)
 const GOLD_DEEP := Color(0.85, 0.6, 0.15, 1.0)
 
+## Canva duffel (assets/art/bag.png). Without it the bag is drawn in code as before.
+const ART := "res://assets/art/bag.png"
+var _art: Texture2D = load(ART) if ResourceLoader.exists(ART) else null
+
 var shown_cash: int = 0
 var fill: float = 0.0
 var _count_tween: Tween
@@ -79,6 +83,9 @@ func _set_fill(value: float) -> void:
 
 
 func _draw() -> void:
+	if _art:
+		_draw_art()
+		return
 	var w: float = size.x
 	var h: float = size.y
 	var body := Rect2(Vector2(w * 0.08, h * 0.3), Vector2(w * 0.84, h * 0.62))
@@ -108,6 +115,20 @@ func _draw() -> void:
 	var baseline: float = body.position.y + body.size.y * 0.66 + font.get_ascent(font_size) * 0.35
 	draw_string_outline(font, Vector2(w * 0.5 - text_w * 0.5, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 6, Color(0.05, 0.04, 0.03, 1.0))
 	draw_string(font, Vector2(w * 0.5 - text_w * 0.5, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, GOLD)
+
+
+## Painted bag fitted to the control height; the cash number sits on its lower half.
+func _draw_art() -> void:
+	var h: float = size.y
+	var w: float = h * float(_art.get_width()) / float(_art.get_height())
+	draw_texture_rect(_art, Rect2(Vector2((size.x - w) * 0.5, 0.0), Vector2(w, h)), false)
+	var font: Font = get_theme_default_font()
+	var font_size: int = 34
+	var text: String = "$%d" % shown_cash
+	var text_w: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var at := Vector2(size.x * 0.5 - text_w * 0.5, h * 0.9)
+	draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 10, Color(0.05, 0.04, 0.03, 1.0))
+	draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, GOLD)
 
 
 func _rounded(rect: Rect2, color: Color, radius: float) -> void:

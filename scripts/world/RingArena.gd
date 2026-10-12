@@ -380,13 +380,25 @@ func warm_shell() -> void:
 func _paint_shell() -> void:
 	if _door_sprite == null:
 		return
-	_door_base_scale = Vector2.ONE * (radius / 105.0)
+	_door_base_scale = _door_scale_for(VaultArt.door_for(GameState.current_stage))
 	_door_sprite.scale = _door_base_scale
 	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
-	_door_sprite.modulate = DARK_DOOR if trick == "dark" else Color.WHITE
+	_door_sprite.modulate = _door_modulate()
 	_door_sprite.rotation = 0.0
 	_door_sprite.position = Vector2.ZERO
 	_show_loot()
+
+
+## Both door textures put the dial ring on `radius`: the procedural 320 px door has it at
+## 105 px, the 640 px Canva door at 210 px. Scale follows the texture width.
+func _door_scale_for(tex: Texture2D) -> Vector2:
+	var width: float = float(tex.get_width()) if tex else 320.0
+	return Vector2.ONE * (radius / 105.0) * (320.0 / width)
+
+
+func _door_modulate() -> Color:
+	var tint: Color = VaultArt.door_tint(GameState.current_stage)
+	return tint * DARK_DOOR if trick == "dark" else tint
 
 
 func _build_sprites() -> void:
@@ -395,8 +407,8 @@ func _build_sprites() -> void:
 	_door_sprite.name = "VaultDoor"
 	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
 	_door_sprite.z_index = -2
-	# Texture dial radius is 105px. Scale it onto the gameplay ring.
-	_door_base_scale = Vector2.ONE * (radius / 105.0)
+	# Puts the texture's dial ring on the gameplay ring (see _door_scale_for).
+	_door_base_scale = _door_scale_for(VaultArt.door_for(GameState.current_stage))
 	_door_sprite.scale = _door_base_scale
 	add_child(_door_sprite)
 	move_child(_door_sprite, 0)
@@ -473,7 +485,7 @@ func _show_loot() -> void:
 	_loot_sprite.texture = VaultArt.loot_icon(GameState.window_loot_id())
 	_loot_sprite.modulate = Color.WHITE
 	_loot_sprite.visible = true
-	_loot_sprite.scale = Vector2(1.35, 1.35)
+	_loot_sprite.scale = Vector2.ONE * 1.35 * VaultArt.loot_scale(_loot_sprite.texture)
 
 
 func _place_hand(show_hand: bool) -> void:
@@ -525,7 +537,7 @@ func _draw() -> void:
 func _draw_crack_light() -> void:
 	if _crack <= 0.0 or _door_sprite == null:
 		return
-	var half: float = 150.0 * _door_base_scale.x
+	var half: float = float(_door_sprite.texture.get_width()) * VaultArt.door_frame_ratio() * _door_base_scale.x
 	var glow := Color(1.0, 0.82, 0.3, 0.12 + 0.55 * _crack)
 	var width: float = 2.0 + 12.0 * _crack
 	var rect := Rect2(Vector2(-half, -half), Vector2(half * 2.0, half * 2.0))
@@ -553,7 +565,7 @@ func _fly_door(_index: int, _payout: int) -> void:
 	if _door_tween:
 		_door_tween.kill()
 	_door_sprite.scale = _door_base_scale
-	_door_sprite.modulate = Color.WHITE
+	_door_sprite.modulate = _door_modulate()
 	_door_sprite.rotation = 0.0
 	_door_sprite.position = Vector2.ZERO
 	if _loot_sprite:
@@ -621,7 +633,7 @@ func _draw_meter() -> void:
 func _draw_window() -> void:
 	if _door_sprite == null:
 		return
-	var hole: float = 46.0 * _door_base_scale.x
+	var hole: float = float(_door_sprite.texture.get_width()) * VaultArt.door_hole_ratio() * _door_base_scale.x
 	draw_circle(Vector2.ZERO, hole * 0.92, Color(0.08, 0.08, 0.1, 0.55))
 	draw_arc(Vector2.ZERO, hole, 0.0, TAU, 64, Color(1.0, 0.84, 0.28, 0.95), 3.0, true)
 
