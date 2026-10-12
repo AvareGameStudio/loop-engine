@@ -11,6 +11,8 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 }
 ## Combo label shows from this streak up; below it the grade word is enough.
 const COMBO_SHOW_FROM: int = 3
+## The new hideout item pops onto the shelf once the card has landed.
+const SHELF_POP_DELAY: float = 0.45
 
 @onready var pips: DoorPips = $HUD/Pips
 @onready var lamps: AlarmLamps = $HUD/Lamps
@@ -20,10 +22,8 @@ const COMBO_SHOW_FROM: int = 3
 @onready var card: Control = $Card
 @onready var card_panel: Control = $Card/Panel
 @onready var card_title: Label = $Card/Panel/Margin/VBox/Title
-@onready var card_subtitle: Label = $Card/Panel/Margin/VBox/Subtitle
 @onready var card_loot: Label = $Card/Panel/Margin/VBox/Loot
 @onready var card_ring: QuestRing = $Card/Panel/Margin/VBox/Shelf/Ring
-@onready var card_shelf_text: Label = $Card/Panel/Margin/VBox/Shelf/ShelfText
 @onready var primary_btn: Button = $Card/Panel/Margin/VBox/Primary
 @onready var x3_btn: Button = $Card/Panel/Margin/VBox/X3
 @onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Meta/Market
@@ -34,7 +34,7 @@ const COMBO_SHOW_FROM: int = 3
 @onready var market_popup: MarketPopup = $MarketPopup
 @onready var claim_popup: ClaimPopup = $ClaimPopup
 @onready var hideout_popup: HideoutPopup = $HideoutPopup
-@onready var glove_btn: Button = $Card/Panel/Margin/VBox/Glove
+@onready var glove_btn: Button = $Card/Panel/Margin/VBox/Meta/Glove
 
 var _grade_tween: Tween
 var _combo_tween: Tween
@@ -54,7 +54,6 @@ func _ready() -> void:
 	glove_btn.pressed.connect(_glove_ad)
 	card_market_btn.pressed.connect(market_popup.open)
 	stash_btn.pressed.connect(_open_stash)
-	card_shelf_text.gui_input.connect(_on_shelf_input)
 	card_ring.gui_input.connect(_on_shelf_input)
 	settings_btn.pressed.connect(settings_popup.open)
 	$Card/Dim.gui_input.connect(_on_card_dim)
@@ -202,7 +201,7 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 		if not pool.is_empty():
 			glove_btn.icon = VaultSprites.cuff_for(pool[0])
 			glove_btn.expand_icon = true
-			glove_btn.add_theme_constant_override("icon_max_width", 40)
+			glove_btn.add_theme_constant_override("icon_max_width", 34)
 	card.visible = true
 	_render_card()
 	_announce_unlock(reason, stats)
@@ -219,34 +218,32 @@ func _render_card() -> void:
 	var stage: int = int(_run_end_stats.get("stage", GameState.current_stage))
 	if cracked:
 		card_title.text = tr("CARD_CRACKED") % stage
-		var door: int = int(_run_end_stats.get("door", GameState.current_stage - 1))
-		var kind_key: String = "VAULT_GOLDEN" if GameState.is_golden(door) else "VAULT_" + GameState.vault_type(door).to_upper()
-		card_subtitle.text = tr(kind_key)
 		primary_btn.text = tr("CARD_NEXT")
 	else:
 		card_title.text = tr("CARD_CAUGHT")
-		card_subtitle.text = tr("CARD_RETRY_SUB") % stage
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
 	x3_btn.text = tr(_x3_key)
-	glove_btn.text = tr("CARD_GLOVE")
+	if not glove_btn.disabled:
+		glove_btn.text = tr("CARD_GLOVE_SHORT")
 	_render_shelf(cracked)
 
 
-## Hideout shelf: a new item when the vault just completed one, otherwise the unfinished ring.
+## Hideout shelf, no text: a new item lands in colour with a pop; otherwise the next
+## item waits as a dark silhouette inside the unfinished ring.
 func _render_shelf(cracked: bool) -> void:
 	var next_id: String = GameState.next_loot_id()
 	if cracked and _loot_popped != "":
+		card_ring.set_icon(VaultSprites.loot_icon(_loot_popped))
 		card_ring.set_state(1.0, true, false)
-		card_shelf_text.text = tr("CARD_NEW_LOOT") % tr("LOOT_" + _loot_popped.to_upper())
+		get_tree().create_timer(SHELF_POP_DELAY, true, false, true).timeout.connect(card_ring.pop)
 		return
 	if next_id == "":
+		card_ring.set_icon(null)
 		card_ring.set_state(1.0, true, false)
-		card_shelf_text.text = tr("CARD_SHELF_FULL")
 		return
+	card_ring.set_icon(VaultSprites.loot_icon(next_id))
 	card_ring.set_state(ZeigarnikTracker.loot_tease(), false, true)
-	var step: Vector2i = GameState.loot_step()
-	card_shelf_text.text = tr("CARD_NEXT_LOOT") % [tr("LOOT_" + next_id.to_upper()), step.x, step.y]
 
 
 func _roll_loot(target: int) -> void:
@@ -257,8 +254,14 @@ func _roll_loot(target: int) -> void:
 		return
 	_loot_tween = create_tween()
 	_loot_tween.set_ignore_time_scale(true)
+	var beat: Array[int] = [0]
 	_loot_tween.tween_method(func(v: float) -> void:
 		card_loot.text = "+$%d" % int(round(v))
+		# The bag under the card bumps 8% at every fifth of the roll.
+		var fifth: int = int(v / float(target) * 5.0)
+		if fifth > beat[0]:
+			beat[0] = fifth
+			bag.bounce(1.08)
 	, 0.0, float(target), 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
@@ -301,7 +304,7 @@ func _glove_ad() -> void:
 
 
 func _on_glove_granted(id: String) -> void:
-	glove_btn.text = tr("CARD_GLOVE_GOT") % tr("GLOVE_" + id.to_upper())
+	glove_btn.text = ""
 	glove_btn.icon = VaultSprites.cuff_for(id)
 	glove_btn.disabled = true
 
@@ -356,10 +359,10 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 	tw.tween_property(target, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-## Market and Stash share one row on the card; the row hides until either exists.
+## Glove, Market and Stash share one row on the card; the row hides until one exists.
 func _refresh_meta_row() -> void:
 	card_market_btn.visible = GameState.market_unlocked()
-	card_meta.visible = card_market_btn.visible or stash_btn.visible
+	card_meta.visible = card_market_btn.visible or stash_btn.visible or glove_btn.visible
 
 
 ## Market buttons advertise how many upgrades are affordable right now.

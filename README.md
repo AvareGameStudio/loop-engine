@@ -93,7 +93,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 
 - **Single currency: cash ($).** Pins drop cash directly (`pin_cash`). Each door also pays `40 + 12 × door` (×2 on golden). No hidden score.
 - **Window silhouette** shows the next hideout item. Door open → the item pops and flies into the bag; gold/gem rain still falls.
-- **End-of-heist card**: `HEIST N CRACKED`, loot roll, hideout ring (tap opens the room), `NEXT HEIST`, `3x LOOT`, optional `WATCH FOR GLOVES` every 4 heists.
+- **End-of-heist card** (opaque `#0B1020` panel, gold rim): `HEIST N CRACKED`, a 60 px loot roll (the bag bumps 8% at every fifth), the hideout ring with the next item as a silhouette (new item in colour, 1.0 → 1.2 → 1.0 pop; tap opens the room), a 76 px `NEXT HEIST`, `3x LOOT`, then one row: `FREE` glove (every 4 heists) · Market · Stash. No subtitle or shelf text.
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
 - **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
 - **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
