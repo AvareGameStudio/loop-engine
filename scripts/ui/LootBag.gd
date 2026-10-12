@@ -18,6 +18,7 @@ var _fill_tween: Tween
 
 
 func _ready() -> void:
+	add_to_group("loot_bag")
 	pivot_offset = size * 0.5
 	resized.connect(func() -> void:
 		pivot_offset = size * 0.5

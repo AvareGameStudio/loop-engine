@@ -9,6 +9,8 @@ static var hand: Texture2D
 static var gold: Texture2D
 static var gem: Texture2D
 static var _door_stage: int = -1
+static var _loot: Dictionary = {}
+static var _cuffs: Dictionary = {}
 
 
 static func ensure() -> void:
@@ -50,6 +52,10 @@ static func _door(stage: int = 1) -> Image:
 				continue
 			var edge := maxf(absf(local.x), absf(local.y))
 			var dist := local.length()
+			# Glass hole. The prize sprite sits behind it.
+			if dist < 46.0:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
 			var shade := 0.34
 			if edge > 140.0:
 				shade = 0.16
@@ -163,6 +169,136 @@ static func _hand() -> Image:
 	_finger(img, Rect2(80, 50, 12, 54), 6.0, skin)
 	_disc(img, Vector2(58, 108), 32.0, skin)
 	_disc(img, Vector2(94, 96), 13.0, skin)
+	return img
+
+
+## Painted wrist the pick comes out of. Center stays clear so the prize shows through.
+static func cuff_for(id: String) -> Texture2D:
+	ensure()
+	var key: String = id if GameState.GLOVE_IDS.has(id) else "leather"
+	if _cuffs.has(key):
+		return _cuffs[key]
+	var tex := ImageTexture.create_from_image(_cuff(key))
+	_cuffs[key] = tex
+	return tex
+
+
+static func _cuff(id: String) -> Image:
+	var img := Image.create(96, 96, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := Vector2(48, 48)
+	var body := Color(0.36, 0.2, 0.1, 1.0)
+	var edge := Color(0.16, 0.09, 0.05, 1.0)
+	var stitch := Color(0.62, 0.48, 0.28, 1.0)
+	var stud := Color(0.92, 0.74, 0.28, 1.0)
+	match id:
+		"latex":
+			body = Color(0.07, 0.07, 0.08, 1.0)
+			edge = Color(0.02, 0.02, 0.03, 1.0)
+			stitch = Color(0.16, 0.16, 0.18, 1.0)
+			stud = Color(0.85, 0.88, 0.92, 1.0)
+		"gold":
+			body = Color(0.78, 0.58, 0.16, 1.0)
+			edge = Color(0.42, 0.26, 0.06, 1.0)
+			stitch = Color(0.98, 0.9, 0.55, 1.0)
+			stud = Color(1.0, 0.96, 0.75, 1.0)
+		"neon":
+			body = Color(0.1, 0.1, 0.12, 1.0)
+			edge = Color(0.04, 0.05, 0.06, 1.0)
+			stitch = Color(0.2, 0.95, 0.85, 1.0)
+			stud = Color(0.2, 0.95, 0.85, 1.0)
+		"skeleton":
+			body = Color(0.9, 0.88, 0.8, 1.0)
+			edge = Color(0.55, 0.52, 0.46, 1.0)
+			stitch = Color(0.72, 0.68, 0.58, 1.0)
+			stud = Color(0.35, 0.32, 0.28, 1.0)
+		"crimson":
+			body = Color(0.55, 0.1, 0.14, 1.0)
+			edge = Color(0.22, 0.04, 0.06, 1.0)
+			stitch = Color(0.85, 0.45, 0.42, 1.0)
+			stud = Color(0.95, 0.82, 0.4, 1.0)
+		"ice":
+			body = Color(0.62, 0.82, 0.95, 1.0)
+			edge = Color(0.28, 0.45, 0.62, 1.0)
+			stitch = Color(0.9, 0.97, 1.0, 1.0)
+			stud = Color(1.0, 1.0, 1.0, 1.0)
+		"royal":
+			body = Color(0.38, 0.2, 0.62, 1.0)
+			edge = Color(0.16, 0.08, 0.28, 1.0)
+			stitch = Color(0.72, 0.58, 0.95, 1.0)
+			stud = Color(0.95, 0.8, 0.32, 1.0)
+	_ring(img, c, 40.0, 10.0, edge)
+	_ring(img, c, 36.0, 7.0, body)
+	_ring(img, c, 34.0, 1.4, stitch)
+	if id == "skeleton":
+		for i in 8:
+			var at := c + Vector2.from_angle(float(i) * TAU / 8.0) * 34.0
+			_disc(img, at, 3.2, edge)
+	elif id == "latex":
+		_disc(img, c + Vector2(-10, -12), 5.0, Color(1, 1, 1, 0.55))
+	else:
+		_disc(img, c + Vector2(16, 14), 3.4, stud)
+		_disc(img, c + Vector2(15, 13), 1.3, Color(1, 1, 1, 0.85))
+	return img
+
+
+static func loot_icon(id: String) -> Texture2D:
+	ensure()
+	if id == "":
+		id = "gold"
+	if _loot.has(id):
+		return _loot[id]
+	var tex := ImageTexture.create_from_image(_loot_image(id))
+	_loot[id] = tex
+	return tex
+
+
+static func _loot_image(id: String) -> Image:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := Vector2(32, 32)
+	match id:
+		"cash":
+			_rect(img, Rect2(12, 20, 40, 24), Color(0.18, 0.48, 0.22, 1.0))
+			_rect(img, Rect2(16, 24, 32, 16), Color(0.32, 0.72, 0.38, 1.0))
+		"gold":
+			_bullion(img, Vector2(10, 28), 44.0, 16.0)
+		"diamond":
+			_brilliant(img, c + Vector2(0, -2), 16.0)
+		"painting":
+			_rect(img, Rect2(14, 12, 36, 40), Color(0.45, 0.28, 0.1, 1.0))
+			_rect(img, Rect2(18, 16, 28, 32), Color(0.2, 0.35, 0.55, 1.0))
+		"trophy":
+			_disc(img, Vector2(32, 22), 12.0, Color(0.92, 0.72, 0.2, 1.0))
+			_rect(img, Rect2(28, 28, 8, 18), Color(0.78, 0.58, 0.14, 1.0))
+			_rect(img, Rect2(20, 46, 24, 6), Color(0.92, 0.72, 0.2, 1.0))
+		"watch":
+			_disc(img, c, 16.0, Color(0.82, 0.64, 0.18, 1.0))
+			_disc(img, c, 12.0, Color(0.12, 0.14, 0.16, 1.0))
+			_line(img, c, c + Vector2(0, -8), 2.0, Color(0.95, 0.9, 0.7, 1.0))
+		"crown":
+			_rect(img, Rect2(14, 32, 36, 12), Color(0.92, 0.72, 0.2, 1.0))
+			_disc(img, Vector2(16, 28), 6.0, Color(0.92, 0.72, 0.2, 1.0))
+			_disc(img, Vector2(32, 22), 7.0, Color(1.0, 0.84, 0.3, 1.0))
+			_disc(img, Vector2(48, 28), 6.0, Color(0.92, 0.72, 0.2, 1.0))
+		"car":
+			_rect(img, Rect2(8, 28, 48, 14), Color(0.82, 0.12, 0.16, 1.0))
+			_disc(img, Vector2(18, 44), 6.0, Color(0.12, 0.12, 0.14, 1.0))
+			_disc(img, Vector2(46, 44), 6.0, Color(0.12, 0.12, 0.14, 1.0))
+		"yacht":
+			_rect(img, Rect2(8, 34, 48, 10), Color(0.9, 0.92, 0.95, 1.0))
+			_rect(img, Rect2(28, 18, 10, 16), Color(0.85, 0.88, 0.92, 1.0))
+		"jet":
+			_rect(img, Rect2(10, 28, 44, 8), Color(0.7, 0.76, 0.82, 1.0))
+			_rect(img, Rect2(24, 22, 28, 6), Color(0.55, 0.6, 0.68, 1.0))
+		"island":
+			_disc(img, Vector2(32, 38), 16.0, Color(0.18, 0.45, 0.72, 1.0))
+			_disc(img, Vector2(32, 30), 10.0, Color(0.32, 0.7, 0.35, 1.0))
+		"moonrock":
+			_disc(img, c, 16.0, Color(0.62, 0.64, 0.7, 1.0))
+			_disc(img, c + Vector2(-4, -3), 5.0, Color(0.45, 0.46, 0.5, 1.0))
+		_:
+			_bullion(img, Vector2(10, 28), 44.0, 16.0)
 	return img
 
 

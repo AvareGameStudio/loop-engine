@@ -130,6 +130,10 @@ func _on_alarm(level: int, max_level: int) -> void:
 		_stop_alarm()
 		return
 	if level >= max_level:
+		# Heist 1 teaches the lamps without the bust strobe.
+		if GameState.is_first_heist(GameState.current_stage):
+			_stop_alarm()
+			return
 		_police_alarm()
 		return
 	_alarm_flash(level)
@@ -183,6 +187,7 @@ func _slam_vault() -> void:
 	_tint_glow(_shell_color(_cleared_stage + 1))
 	_pulse_glow(3.0)
 	spawn_vault_rain()
+	_fly_loot()
 	_shed_rust(_cleared_stage)
 	_shed_shell(_shell_color(_cleared_stage))
 	Settings.vibrate(70, 1.0)
@@ -327,6 +332,35 @@ func spawn_hit_sparks(global_pos: Vector2) -> void:
 	sparks.global_position = global_pos
 	sparks.emitting = true
 	get_tree().create_timer(sparks.lifetime + 0.05, true, false, true).timeout.connect(sparks.queue_free)
+
+
+## Prize sprite pops, then flies into the loot bag.
+func _fly_loot() -> void:
+	VaultArt.ensure()
+	var loot_id: String = GameState.window_loot_id()
+	if GameState.loot_just_unlocked() and GameState.loot_unlocked_count() > 0:
+		loot_id = GameState.LOOT_ITEMS[GameState.loot_unlocked_count() - 1]
+	var host: Node = get_node_or_null("../FX")
+	if host == null:
+		host = get_tree().current_scene if get_tree() else self
+	var sprite := Sprite2D.new()
+	sprite.name = "FlyingLoot"
+	sprite.texture = VaultArt.loot_icon(loot_id)
+	sprite.z_index = 24
+	sprite.position = Vector2(360, 500)
+	sprite.scale = Vector2.ZERO
+	host.add_child(sprite)
+	var bag := get_tree().get_first_node_in_group("loot_bag") as Control
+	var dest := Vector2(360, 1080)
+	if bag:
+		dest = bag.get_global_rect().get_center()
+	var tw := sprite.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(sprite, "scale", Vector2(1.35, 1.35), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.08)
+	tw.tween_property(sprite, "position", dest, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(sprite, "scale", Vector2(0.35, 0.35), 0.5)
+	tw.tween_callback(sprite.queue_free)
 
 
 ## Gold bars and diamonds fill the phone when the door slams open.

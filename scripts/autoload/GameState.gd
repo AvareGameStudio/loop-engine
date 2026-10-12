@@ -4,14 +4,18 @@ extends Node
 ## vault, a crack moves to the next one, so the 200-door art progression is real.
 
 const SAVE_PATH := "user://loop_engine_save.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 
 ## Alarm strikes before the cops arrive. Each Miss / Near-Miss adds one.
 const ALARM_MAX: int = 3
-## Every Nth vault is a Golden Vault: more pins, double loot, gold door.
+## One heist is this many doors. The end card waits until the heist is done.
+const DOORS_PER_HEIST: int = 3
+## Every Nth heist is golden: wider gate, double loot, gold doors.
 const GOLDEN_EVERY: int = 5
-## A loot item joins the hideout every N cracked vaults.
+## After the first three heists, a shelf item unlocks every N heists.
 const LOOT_EVERY: int = 3
+## Wide Gate purchases stop here (level 1 is the free baseline).
+const GLOVES_MAX: int = 5
 
 ## Vault type by first vault index. Replaces the abstract Neon/Aurora colour themes.
 const VAULT_TYPE_BY_STAGE := {
@@ -45,8 +49,9 @@ var auto_tap_unlocked: bool = false
 var auto_tap_purchased: bool = false
 var stages_cleared: int = 0
 var lifetime_hits: int = 0
-var cosmetics: PackedStringArray = PackedStringArray(["default"])
+var cosmetics: PackedStringArray = PackedStringArray(["leather"])
 var equipped_dial: String = "steel"
+var equipped_gloves: String = "leather"
 
 var session_score: int = 0
 var session_combo: int = 0
@@ -116,47 +121,107 @@ func stamp_seen() -> void:
 
 # --- Level curve -------------------------------------------------------------
 
-## Pins (hits) a vault needs. 3 at the start, 8 deep in. Golden vaults add three.
+## Heist index for a door. Door 1–3 = heist 1, 4–6 = heist 2.
+static func heist_for(stage: int) -> int:
+	return (maxi(stage, 1) - 1) / DOORS_PER_HEIST + 1
+
+
+## 0, 1, or 2: which door of the current heist this stage is.
+static func door_in_heist(stage: int) -> int:
+	return (maxi(stage, 1) - 1) % DOORS_PER_HEIST
+
+
+## How many doors are left in this heist, including the current door.
+static func doors_left_in_heist(stage: int) -> int:
+	return DOORS_PER_HEIST - door_in_heist(stage)
+
+
+static func is_first_heist(stage: int) -> bool:
+	return heist_for(stage) <= 1
+
+
+## Pins a door needs. Heist 1 stays short; golden heists add two (cap 8).
 static func pins_for(stage: int) -> int:
-	var s: int = maxi(stage, 1)
+	var h: int = heist_for(stage)
 	var pins: int = 3
-	if s >= 51:
-		pins = 8
-	elif s >= 26:
-		pins = 7
-	elif s >= 11:
-		pins = 6
-	elif s >= 6:
+	if h >= 17:
 		pins = 5
-	elif s >= 3:
+	elif h >= 9:
+		pins = 5
+	elif h >= 4:
 		pins = 4
-	if is_golden(s):
-		pins = mini(pins + 3, 10)
+	elif h >= 2:
+		pins = 4
+	if door_in_heist(stage) == 0 and h <= 1:
+		pins = 3
+	elif door_in_heist(stage) >= 2:
+		pins = mini(pins + 1, 6)
+	if is_golden(stage):
+		pins = mini(pins + 2, 8)
 	return pins
 
 
 static func is_golden(stage: int) -> bool:
-	return stage > 0 and stage % GOLDEN_EVERY == 0
+	var h: int = heist_for(stage)
+	return h > 0 and h % GOLDEN_EVERY == 0
 
 
-## Dial speed in revolutions per second before DDA. 0.38 → 0.55 @10 → 0.75 @25 → 0.9 @60.
+## Sawtooth on the heist index so a golden heist breathes after a squeeze.
+static func _heist_ease(heist: int) -> float:
+	var base: float = _curve(heist, [[1, 0.0], [2, 0.06], [4, 0.2], [10, 0.42], [20, 0.66], [40, 0.86], [80, 1.0]])
+	var slot: int = (maxi(heist, 1) - 1) % GOLDEN_EVERY
+	var tooth: float = [0.0, 0.04, 0.12, 0.18, -0.1][slot]
+	return clampf(base + tooth, 0.0, 1.0)
+
+
+## Dial speed in revolutions per second before DDA.
 static func base_rpm(stage: int) -> float:
-	return _curve(stage, [[1, 0.38], [10, 0.55], [25, 0.75], [60, 0.9], [200, 1.0]])
+	return lerpf(0.38, 0.92, _heist_ease(heist_for(stage)))
 
 
-## Good window half-angle in degrees before DDA. 20° → 16° @10 → 13° @25 → 11° @60.
+## Good window half-angle in degrees before DDA. Golden heists open +3°.
 static func base_good_deg(stage: int) -> float:
-	return _curve(stage, [[1, 20.0], [10, 16.0], [25, 13.0], [60, 11.0], [200, 10.0]])
+	var good: float = lerpf(20.0, 11.0, _heist_ease(heist_for(stage)))
+	if is_golden(stage):
+		good += 3.0
+	return good
 
 
-## Direction flips only once the player has two vaults under the belt.
+## Direction flips from heist 2, and only on a new door (GameWorld).
 static func flips_enabled(stage: int) -> bool:
-	return stage >= 3
+	return heist_for(stage) >= 2
 
 
-## Loot multiplier for a cracked vault.
+## Loot multiplier for a cracked door.
 static func loot_mult(stage: int) -> float:
 	return 2.0 if is_golden(stage) else 1.0
+
+
+## Cash a seated pin drops. Perfects pay a third more. No hidden score.
+static func pin_cash(stage: int, perfect: bool) -> int:
+	var n: int = 2 + maxi(stage, 1) / 5
+	if perfect:
+		n = maxi(n + 1, ceili(float(n) * 1.35))
+	return maxi(1, int(float(n) * loot_mult(stage)))
+
+
+## Room color behind the door. Read as location, not as a label.
+static func wall_color(stage: int) -> Color:
+	if is_golden(stage):
+		return Color(0.16, 0.12, 0.05, 1.0)
+	match vault_type(stage):
+		"office":
+			return Color(0.14, 0.16, 0.18, 1.0)
+		"bank":
+			return Color(0.08, 0.12, 0.2, 1.0)
+		"museum":
+			return Color(0.18, 0.08, 0.12, 1.0)
+		"casino":
+			return Color(0.06, 0.16, 0.1, 1.0)
+		"fort":
+			return Color(0.16, 0.14, 0.1, 1.0)
+		_:
+			return Color(0.22, 0.1, 0.14, 1.0)
 
 
 static func _curve(stage: int, stops: Array) -> float:
@@ -191,15 +256,31 @@ func unlocked_vault_types() -> PackedStringArray:
 	return out
 
 
+func complete_heists() -> int:
+	return stages_cleared / DOORS_PER_HEIST
+
+
+static func loot_count_at(cleared: int) -> int:
+	var heists: int = cleared / DOORS_PER_HEIST
+	if heists <= 3:
+		return mini(heists, LOOT_ITEMS.size())
+	return mini(3 + (heists - 3) / LOOT_EVERY, LOOT_ITEMS.size())
+
+
 func loot_unlocked_count() -> int:
-	return mini(stages_cleared / LOOT_EVERY, LOOT_ITEMS.size())
+	return loot_count_at(stages_cleared)
 
 
 ## 0..1 toward the next hideout item. 1.0 only when the shelf is full.
 func loot_progress() -> float:
 	if loot_unlocked_count() >= LOOT_ITEMS.size():
 		return 1.0
-	return float(stages_cleared % LOOT_EVERY) / float(LOOT_EVERY)
+	var heists: int = complete_heists()
+	var door_frac: float = float(stages_cleared % DOORS_PER_HEIST) / float(DOORS_PER_HEIST)
+	if heists < 3:
+		return door_frac
+	var into: int = (heists - 3) % LOOT_EVERY
+	return (float(into) + door_frac) / float(LOOT_EVERY)
 
 
 func next_loot_id() -> String:
@@ -209,11 +290,28 @@ func next_loot_id() -> String:
 	return LOOT_ITEMS[n]
 
 
-## True when the vault just cracked completed a shelf item.
+## Silhouette in the door window. Gold bars once the shelf is full.
+func window_loot_id() -> String:
+	var id := next_loot_id()
+	return id if id != "" else "gold"
+
+
+## Doors toward the next shelf item, as (done, need).
+func loot_step() -> Vector2i:
+	if loot_unlocked_count() >= LOOT_ITEMS.size():
+		return Vector2i(1, 1)
+	if complete_heists() < 3:
+		return Vector2i(stages_cleared % DOORS_PER_HEIST, DOORS_PER_HEIST)
+	var span: int = LOOT_EVERY * DOORS_PER_HEIST
+	var into: int = (stages_cleared - 3 * DOORS_PER_HEIST) % span
+	return Vector2i(into, span)
+
+
+## True when the door that just cracked completed a shelf item.
 func loot_just_unlocked() -> bool:
-	if stages_cleared <= 0 or stages_cleared % LOOT_EVERY != 0:
+	if stages_cleared <= 0:
 		return false
-	return stages_cleared / LOOT_EVERY <= LOOT_ITEMS.size()
+	return loot_count_at(stages_cleared) > loot_count_at(stages_cleared - 1)
 
 
 # --- Session ------------------------------------------------------------------
@@ -235,9 +333,12 @@ func reset_run() -> void:
 
 
 ## One strike. Returns true when the cops have arrived.
+## Heist 1 never catches: the guard still walks in, the run does not end.
 func raise_alarm() -> bool:
 	session_alarm = mini(session_alarm + 1, ALARM_MAX)
 	EventBus.alarm_changed.emit(session_alarm, ALARM_MAX)
+	if is_first_heist(current_stage):
+		return false
 	return session_alarm >= ALARM_MAX
 
 
@@ -324,6 +425,13 @@ func note_stage_cleared() -> void:
 	request_save()
 
 
+## Next door of the same heist. Combo and alarm stay; pins reset.
+func begin_door() -> void:
+	hits_in_stage = 0
+	hits_needed = pins_for(current_stage)
+	request_save()
+
+
 func end_run() -> void:
 	run_active = false
 	best_combo = max(best_combo, session_combo)
@@ -350,6 +458,7 @@ func to_dict() -> Dictionary:
 		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
+		"equipped_gloves": equipped_gloves,
 		"dda_rpm": dda_rpm,
 		"dda_perfect_deg": dda_perfect_deg,
 		"dda_good_deg": dda_good_deg,
@@ -381,12 +490,132 @@ func from_dict(data: Dictionary) -> void:
 	dda_perfect_deg = float(data.get("dda_perfect_deg", 7.0))
 	dda_good_deg = float(data.get("dda_good_deg", 16.0))
 	dda_near_deg = float(data.get("dda_near_deg", 22.0))
-	var skins: Array = data.get("cosmetics", ["default"])
+	var skins: Array = data.get("cosmetics", ["leather"])
 	cosmetics = PackedStringArray(skins)
 	equipped_dial = String(data.get("equipped_dial", "steel"))
+	equipped_gloves = String(data.get("equipped_gloves", ""))
+	_migrate_gloves()
 
 
+const GLOVE_IDS: PackedStringArray = [
+	"leather", "latex", "gold", "neon", "skeleton", "crimson", "ice", "royal",
+]
+const GLOVE_COST := {
+	"leather": 0, "latex": 150, "gold": 400, "neon": 350, "crimson": 280, "ice": 320,
+}
+const GLOVE_COLOR := {
+	"leather": Color(0.42, 0.24, 0.12, 1.0),
+	"latex": Color(0.08, 0.08, 0.09, 1.0),
+	"gold": Color(0.92, 0.72, 0.22, 1.0),
+	"neon": Color(0.2, 0.95, 0.85, 1.0),
+	"skeleton": Color(0.9, 0.88, 0.8, 1.0),
+	"crimson": Color(0.62, 0.1, 0.16, 1.0),
+	"ice": Color(0.7, 0.88, 1.0, 1.0),
+	"royal": Color(0.48, 0.28, 0.82, 1.0),
+}
 const DIAL_COST := {"steel": 0, "gold": 200, "obsidian": 600}
+
+
+func _migrate_gloves() -> void:
+	var mapped: PackedStringArray = PackedStringArray()
+	for id in cosmetics:
+		var key: String = String(id)
+		match key:
+			"steel", "default":
+				key = "leather"
+			"obsidian":
+				key = "neon"
+		if GLOVE_IDS.has(key) and not mapped.has(key):
+			mapped.append(key)
+	if mapped.is_empty():
+		mapped.append("leather")
+	if not mapped.has("leather"):
+		mapped.insert(0, "leather")
+	cosmetics = mapped
+	if equipped_gloves == "" or not GLOVE_IDS.has(equipped_gloves):
+		match equipped_dial:
+			"gold":
+				equipped_gloves = "gold"
+			"obsidian":
+				equipped_gloves = "neon"
+			_:
+				equipped_gloves = "leather"
+	if not cosmetics.has(equipped_gloves):
+		cosmetics.append(equipped_gloves)
+
+
+static func glove_cost(id: String) -> int:
+	return int(GLOVE_COST.get(id, 0))
+
+
+static func glove_tint(id: String) -> Color:
+	if GLOVE_COLOR.has(id):
+		return GLOVE_COLOR[id]
+	return GLOVE_COLOR["leather"]
+
+
+func owns_glove(id: String) -> bool:
+	return id == "leather" or cosmetics.has(id)
+
+
+func unowned_gloves() -> PackedStringArray:
+	var out: PackedStringArray = PackedStringArray()
+	for id in GLOVE_IDS:
+		if not owns_glove(id):
+			out.append(id)
+	return out
+
+
+func buy_glove(id: String) -> bool:
+	if not GLOVE_COST.has(id):
+		return false
+	if owns_glove(id):
+		equip_glove(id)
+		return true
+	var cost: int = glove_cost(id)
+	if cash < cost:
+		return false
+	add_cash(-cost)
+	if not cosmetics.has(id):
+		cosmetics.append(id)
+	equip_glove(id)
+	save_game()
+	return true
+
+
+func grant_glove(id: String) -> bool:
+	if not GLOVE_IDS.has(id):
+		return false
+	if not cosmetics.has(id):
+		cosmetics.append(id)
+	equip_glove(id)
+	save_game()
+	EventBus.glove_granted.emit(id)
+	return true
+
+
+func grant_random_glove() -> String:
+	var pool: PackedStringArray = unowned_gloves()
+	if pool.is_empty():
+		return ""
+	var id: String = pool[randi() % pool.size()]
+	grant_glove(id)
+	return id
+
+
+func should_offer_glove() -> bool:
+	if unowned_gloves().is_empty():
+		return false
+	var heists: int = complete_heists()
+	return heists > 0 and heists % 4 == 0
+
+
+func equip_glove(id: String) -> void:
+	if not owns_glove(id):
+		return
+	equipped_gloves = id
+	EventBus.cosmetic_equipped.emit(id)
+	request_save()
 
 
 static func dial_cost(id: String) -> int:
@@ -394,30 +623,15 @@ static func dial_cost(id: String) -> int:
 
 
 func owns_dial(id: String) -> bool:
-	return id == "steel" or cosmetics.has(id)
+	return id == "steel" or id == equipped_dial
 
 
 func buy_dial(id: String) -> bool:
-	if not DIAL_COST.has(id):
-		return false
-	if owns_dial(id):
-		equip_dial(id)
-		return true
-	var cost: int = dial_cost(id)
-	if cash < cost:
-		return false
-	add_cash(-cost)
-	cosmetics.append(id)
-	equip_dial(id)
-	save_game()
-	return true
+	return buy_glove("gold" if id == "gold" else ("neon" if id == "obsidian" else "leather"))
 
 
 func equip_dial(id: String) -> void:
-	if not owns_dial(id):
-		return
 	equipped_dial = id
-	EventBus.cosmetic_equipped.emit(id)
 	request_save()
 
 

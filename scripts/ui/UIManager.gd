@@ -33,6 +33,8 @@ const COMBO_SHOW_FROM: int = 3
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
 @onready var claim_popup: ClaimPopup = $ClaimPopup
+@onready var hideout_popup: HideoutPopup = $HideoutPopup
+@onready var glove_btn: Button = $Card/Panel/Margin/VBox/Glove
 
 var _grade_tween: Tween
 var _combo_tween: Tween
@@ -49,9 +51,12 @@ func _ready() -> void:
 	combo_label.visible = false
 	primary_btn.pressed.connect(_primary)
 	x3_btn.pressed.connect(_x3)
+	glove_btn.pressed.connect(_glove_ad)
 	market_btn.pressed.connect(market_popup.open)
 	card_market_btn.pressed.connect(market_popup.open)
 	stash_btn.pressed.connect(_open_stash)
+	card_shelf_text.gui_input.connect(_on_shelf_input)
+	card_ring.gui_input.connect(_on_shelf_input)
 	settings_btn.pressed.connect(settings_popup.open)
 	$Card/Dim.gui_input.connect(_on_card_dim)
 	EventBus.tap_evaluated.connect(_on_tap)
@@ -67,6 +72,9 @@ func _ready() -> void:
 	EventBus.ad_finished.connect(_on_ad)
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.countdown.connect(_on_countdown)
+	EventBus.stash_ready.connect(_on_stash_ready)
+	EventBus.glove_granted.connect(_on_glove_granted)
+	stash_btn.pivot_offset = Vector2(100, 28)
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()
@@ -90,22 +98,10 @@ func _refresh_texts() -> void:
 
 func _refresh_session() -> void:
 	var stage: int = GameState.current_stage
-	var key: String = "HUD_VAULT_GOLDEN" if GameState.is_golden(stage) else "HUD_VAULT"
-	vault_label.text = tr(key) % stage
-	var combo: int = GameState.session_combo
-	var show: bool = combo >= COMBO_SHOW_FROM
-	if show and not combo_label.visible:
-		combo_label.visible = true
-	elif not show:
-		combo_label.visible = false
-	if show:
-		combo_label.text = "x%d" % combo
-		if _combo_tween:
-			_combo_tween.kill()
-		combo_label.scale = Vector2(1.3, 1.3)
-		_combo_tween = create_tween()
-		_combo_tween.set_ignore_time_scale(true)
-		_combo_tween.tween_property(combo_label, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK)
+	var heist: int = GameState.heist_for(stage)
+	var key: String = "HUD_HEIST_GOLDEN" if GameState.is_golden(stage) else "HUD_HEIST"
+	vault_label.text = tr(key) % heist
+	combo_label.visible = false
 
 
 func _on_tap(result: Dictionary) -> void:
@@ -124,8 +120,8 @@ func _show_grade(text: String, color: Color) -> void:
 	_grade_tween.tween_property(grade_label, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK)
 
 
-func _on_jackpot(mult: float, label: String) -> void:
-	_show_grade("%s  x%.0f" % [tr(label), mult], Color(1.0, 0.84, 0.2))
+func _on_jackpot(_mult: float, _label: String) -> void:
+	pass
 
 
 func _on_countdown(step: int) -> void:
@@ -157,6 +153,16 @@ func _refresh_stash() -> void:
 		stash_btn.text = tr("HUD_STASH") % n
 
 
+func _on_stash_ready(_amount: int) -> void:
+	_refresh_stash()
+	if not stash_btn.visible:
+		return
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	stash_btn.scale = Vector2(1.12, 1.12)
+	tw.tween_property(stash_btn, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK)
+
+
 func _open_stash() -> void:
 	if GameState.unclaimed_cash <= 0:
 		return
@@ -178,6 +184,14 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 	combo_label.visible = false
 	_x3_key = "CARD_X3_AUTO" if GameState.no_ads else "CARD_X3"
 	x3_btn.disabled = GameState.no_ads or int(stats.get("cash", 0)) <= 0
+	glove_btn.visible = _run_end_reason == "cracked" and GameState.should_offer_glove()
+	glove_btn.disabled = false
+	if glove_btn.visible:
+		var pool: PackedStringArray = GameState.unowned_gloves()
+		if not pool.is_empty():
+			glove_btn.icon = VaultSprites.cuff_for(pool[0])
+			glove_btn.expand_icon = true
+			glove_btn.add_theme_constant_override("icon_max_width", 40)
 	card.visible = true
 	_render_card()
 	card_panel.scale = Vector2(0.86, 0.86)
@@ -192,7 +206,8 @@ func _render_card() -> void:
 	var stage: int = int(_run_end_stats.get("stage", GameState.current_stage))
 	if cracked:
 		card_title.text = tr("CARD_CRACKED") % stage
-		var kind_key: String = "VAULT_GOLDEN" if GameState.is_golden(stage) else "VAULT_" + GameState.vault_type(stage).to_upper()
+		var door: int = int(_run_end_stats.get("door", GameState.current_stage - 1))
+		var kind_key: String = "VAULT_GOLDEN" if GameState.is_golden(door) else "VAULT_" + GameState.vault_type(door).to_upper()
 		card_subtitle.text = tr(kind_key)
 		primary_btn.text = tr("CARD_NEXT")
 	else:
@@ -201,6 +216,7 @@ func _render_card() -> void:
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
 	x3_btn.text = tr(_x3_key)
+	glove_btn.text = tr("CARD_GLOVE")
 	_render_shelf(cracked)
 
 
@@ -216,8 +232,8 @@ func _render_shelf(cracked: bool) -> void:
 		card_shelf_text.text = tr("CARD_SHELF_FULL")
 		return
 	card_ring.set_state(ZeigarnikTracker.loot_tease(), false, true)
-	var done: int = GameState.stages_cleared % GameState.LOOT_EVERY
-	card_shelf_text.text = tr("CARD_NEXT_LOOT") % [tr("LOOT_" + next_id.to_upper()), done, GameState.LOOT_EVERY]
+	var step: Vector2i = GameState.loot_step()
+	card_shelf_text.text = tr("CARD_NEXT_LOOT") % [tr("LOOT_" + next_id.to_upper()), step.x, step.y]
 
 
 func _roll_loot(target: int) -> void:
@@ -237,6 +253,7 @@ func _on_run_start() -> void:
 	card.visible = false
 	grade_label.text = ""
 	combo_label.visible = false
+	glove_btn.visible = false
 	_loot_popped = ""
 	_refresh_session()
 
@@ -257,6 +274,23 @@ func _primary() -> void:
 		world.start_run()
 
 
+func _on_shelf_input(event: InputEvent) -> void:
+	if card.visible and event is InputEventMouseButton and event.pressed:
+		hideout_popup.open()
+		get_viewport().set_input_as_handled()
+
+
+func _glove_ad() -> void:
+	glove_btn.disabled = true
+	EventBus.ad_requested.emit("glove_drop", {})
+
+
+func _on_glove_granted(id: String) -> void:
+	glove_btn.text = tr("CARD_GLOVE_GOT") % tr("GLOVE_" + id.to_upper())
+	glove_btn.icon = VaultSprites.cuff_for(id)
+	glove_btn.disabled = true
+
+
 func _x3() -> void:
 	x3_btn.disabled = true
 	EventBus.ad_requested.emit("end_multiplier", {})
@@ -272,6 +306,11 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 			var tripled: int = int(_run_end_stats.get("cash", 0)) * 3
 			_run_end_stats["cash"] = tripled
 			_roll_loot(tripled)
+	elif placement == "glove_drop":
+		if rewarded:
+			GameState.grant_random_glove()
+		else:
+			glove_btn.disabled = false
 
 
 ## Market buttons advertise how many upgrades are affordable right now.

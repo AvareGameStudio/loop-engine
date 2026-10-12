@@ -1,6 +1,6 @@
 class_name MarketPopup
 extends CanvasLayer
-## Spend cash on the Crew, Pro Gloves, and dial skins. Pauses an active vault while
+## Spend cash on the Crew, Wide Gate, and glove skins. Pauses an active vault while
 ## open; between vaults the tree keeps going, so affordability updates live.
 
 @onready var root: Control = $Root
@@ -15,7 +15,7 @@ var _rows: Dictionary[String, Dictionary] = {}
 var _skin_rows: Dictionary[String, Dictionary] = {}
 var _hideout_label: Label
 var _holding_pause: bool = false
-const _SKINS: Array[String] = ["steel", "gold", "obsidian"]
+const _SKINS: Array[String] = ["leather", "latex", "gold", "neon", "crimson"]
 
 
 func _ready() -> void:
@@ -30,6 +30,13 @@ func _ready() -> void:
 	_hideout_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hideout_label.add_theme_font_size_override("font_size", 15)
 	_hideout_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1))
+	_hideout_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_hideout_label.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			var ui := get_parent()
+			if ui and ui.get_node_or_null("HideoutPopup"):
+				ui.get_node("HideoutPopup").open()
+	)
 	var box: Node = items_box.get_parent()
 	box.add_child(_hideout_label)
 	box.move_child(_hideout_label, items_box.get_index())
@@ -97,7 +104,7 @@ func _make_row(id: String) -> Dictionary:
 
 
 func _make_skin_row(id: String) -> Dictionary:
-	var row: Dictionary = _make_row("dial_%s" % id)
+	var row: Dictionary = _make_row("glove_%s" % id)
 	var buy: Button = row.buy
 	for conn: Dictionary in buy.pressed.get_connections():
 		buy.pressed.disconnect(conn.callable)
@@ -106,7 +113,7 @@ func _make_skin_row(id: String) -> Dictionary:
 
 
 func _buy_skin(id: String) -> void:
-	if GameState.buy_dial(id):
+	if GameState.buy_glove(id):
 		_refresh()
 		_punch(_skin_rows[id].buy as Control, 1.15)
 
@@ -130,24 +137,28 @@ func _refresh() -> void:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()
 		var row: Dictionary = _rows[id]
-		(row.name as Label).text = "%s  ·  %s" % [tr("MARKET_%s_NAME" % key), tr("MARKET_LEVEL") % MetaUpgrade.level(id)]
+		(row.name as Label).text = tr("MARKET_%s_NAME" % key)
 		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key)
 		var buy: Button = row.buy
-		buy.text = tr("MARKET_COST") % MetaUpgrade.cost(id)
-		buy.disabled = not MetaUpgrade.can_afford(id)
+		if MetaUpgrade.at_cap(id):
+			buy.text = tr("MARKET_MAX")
+			buy.disabled = true
+		else:
+			buy.text = tr("MARKET_COST") % MetaUpgrade.cost(id)
+			buy.disabled = not MetaUpgrade.can_afford(id)
 	for skin_id: String in _SKINS:
 		var skin_row: Dictionary = _skin_rows[skin_id]
-		(skin_row.name as Label).text = tr("MARKET_SKIN_%s" % skin_id.to_upper())
-		(skin_row.effect as Label).text = tr("MARKET_SKIN_EFFECT")
+		(skin_row.name as Label).text = tr("GLOVE_" + skin_id.to_upper())
+		(skin_row.effect as Label).text = tr("MARKET_GLOVE_EFFECT")
 		var skin_buy: Button = skin_row.buy
-		if GameState.equipped_dial == skin_id:
+		if GameState.equipped_gloves == skin_id:
 			skin_buy.text = tr("MARKET_SKIN_EQUIPPED")
 			skin_buy.disabled = true
-		elif GameState.owns_dial(skin_id):
+		elif GameState.owns_glove(skin_id):
 			skin_buy.text = tr("MARKET_SKIN_EQUIP")
 			skin_buy.disabled = false
 		else:
-			var skin_cost: int = GameState.dial_cost(skin_id)
+			var skin_cost: int = GameState.glove_cost(skin_id)
 			skin_buy.text = tr("MARKET_COST") % skin_cost
 			skin_buy.disabled = GameState.cash < skin_cost
 

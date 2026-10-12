@@ -10,7 +10,8 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 @export var ring_width: float = 18.0
 ## Outer approach band length relative to the visible red near-miss band, per side.
 @export var outer_band_ratio: float = 1.6
-@export var min_lead_deg: float = 90.0
+@export var min_lead_deg: float = 120.0
+@export var max_lead_deg: float = 270.0
 ## Seconds of pointer travel guaranteed between respawn and target.
 @export var reaction_time: float = 0.35
 
@@ -19,6 +20,10 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 
 var _door_sprite: Sprite2D
 var _hand_sprite: Sprite2D
+var _loot_sprite: Sprite2D
+var _cuff: Sprite2D
+var _cuff_tween: Tween
+const CUFF_SCALE := Vector2(1.55, 1.55)
 
 var pointer_angle: float = -PI / 2.0
 var rpm: float = 0.55
@@ -56,8 +61,11 @@ const _VAULT_ACCENT: Dictionary[String, Color] = {
 }
 const _GOLDEN_ACCENT := Color(1.0, 0.84, 0.25, 0.9)
 
-## Direction flips are a vault-3 mechanic. Off for the first two vaults.
-var flips_enabled: bool = true
+## Kept for callers; flips now happen only through `start_flip_telegraph`.
+var flips_enabled: bool = false
+## Next tumbler is a gold pin (variable-ratio drop).
+var gold_pin: bool = false
+var _telegraph: float = 0.0
 ## 0..1 light leaking from the door seam; grows with every seated pin.
 var _crack: float = 0.0
 var _crack_tween: Tween
@@ -99,8 +107,9 @@ func _ready() -> void:
 	)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.session_changed.connect(_refresh_count)
-	EventBus.cosmetic_equipped.connect(_apply_skin)
-	_apply_skin(GameState.equipped_dial)
+	EventBus.cosmetic_equipped.connect(func(id: String) -> void: _apply_skin(id, true))
+	EventBus.juice_hit.connect(_on_cuff_juice)
+	_apply_skin(GameState.equipped_gloves, false)
 	set_vault(GameState.current_stage)
 	randomize_target(true)
 	if pin:
@@ -127,6 +136,9 @@ func _process(delta: float) -> void:
 	_place_hand(coach_now)
 	if _count_hold:
 		_count_fade = maxf(0.0, _count_fade - real_dt * 2.8)
+	if _telegraph > 0.0:
+		_telegraph = maxf(0.0, _telegraph - real_dt)
+		queue_redraw()
 	if _bezel_flash > 0.0 or _door > 0.0 or _count_hold or coach_now != _coach_hot:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
 		_door = maxf(0.0, _door - real_dt * 0.7)
@@ -176,33 +188,38 @@ func _set_crack(value: float, animate: bool) -> void:
 
 
 func randomize_target(snap_pointer: bool = false) -> void:
-	if flips_enabled and randf() < 0.35:
-		direction = -direction
-		EventBus.direction_flipped.emit(direction)
-	elif not flips_enabled and direction < 0.0:
-		direction = 1.0
 	if snap_pointer:
 		pointer_angle = -PI / 2.0
 	# Target always spawns ahead of the pointer, at least one reaction time away.
 	var min_lead: float = maxf(min_lead_deg, rpm * 360.0 * reaction_time)
-	var lead: float = deg_to_rad(randf_range(min_lead, 330.0))
+	var max_lead: float = maxf(min_lead + 8.0, max_lead_deg)
+	var lead: float = deg_to_rad(randf_range(min_lead, max_lead))
 	target_angle = wrapf(pointer_angle + lead * direction, 0.0, TAU)
 	_restore_door()
 	if pin:
 		pin.set_locked(false)
+		pin.set_gold(gold_pin)
 
 
-func _apply_skin(id: String) -> void:
-	match id:
-		"gold":
-			_rim = Color(0.46, 0.32, 0.1, 1.0)
-			_gate = Color(1.0, 0.78, 0.22, 0.9)
-		"obsidian":
-			_rim = Color(0.05, 0.06, 0.08, 1.0)
-			_gate = Color(0.35, 0.86, 1.0, 0.9)
-		_:
-			_rim = Color(0.15, 0.17, 0.22, 1.0)
-			_gate = Color(0.2, 0.95, 0.4, 0.85)
+## One flip at the start of a door. Holds the dial while chevrons sweep.
+func start_flip_telegraph() -> void:
+	direction = -direction
+	_telegraph = 0.4
+	_bezel_flash = 1.0
+	EventBus.direction_flipped.emit(direction)
+	queue_redraw()
+
+
+func set_gold_pin(armed: bool) -> void:
+	gold_pin = armed
+	if pin:
+		pin.set_gold(armed)
+
+
+func _apply_skin(_id: String, flash: bool) -> void:
+	_rim = Color(0.15, 0.17, 0.22, 1.0)
+	_gate = Color(0.2, 0.95, 0.4, 0.85)
+	_paint_cuff(flash)
 	_paint_shell()
 	queue_redraw()
 
@@ -219,6 +236,9 @@ func _paint_shell() -> void:
 	_door_sprite.scale = _door_base_scale
 	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
 	_door_sprite.modulate = Color.WHITE
+	_door_sprite.rotation = 0.0
+	_door_sprite.position = Vector2.ZERO
+	_show_loot()
 
 
 func _build_sprites() -> void:
@@ -238,7 +258,74 @@ func _build_sprites() -> void:
 	_hand_sprite.z_index = 6
 	_hand_sprite.visible = false
 	add_child(_hand_sprite)
+	_loot_sprite = Sprite2D.new()
+	_loot_sprite.name = "LootWindow"
+	_loot_sprite.z_index = -1
+	_loot_sprite.scale = Vector2(1.35, 1.35)
+	add_child(_loot_sprite)
+	_cuff = Sprite2D.new()
+	_cuff.name = "Cuff"
+	_cuff.z_index = 1
+	_cuff.scale = CUFF_SCALE
+	_cuff.texture = VaultArt.cuff_for(GameState.equipped_gloves)
+	add_child(_cuff)
+	_show_loot()
 	_refresh_count()
+
+
+func _paint_cuff(flash: bool) -> void:
+	if _cuff == null:
+		return
+	_cuff.texture = VaultArt.cuff_for(GameState.equipped_gloves)
+	_cuff.modulate = Color.WHITE
+	_cuff.scale = CUFF_SCALE
+	_cuff.rotation = 0.0
+	if not flash:
+		return
+	if _cuff_tween:
+		_cuff_tween.kill()
+	_cuff.modulate = Color(4.0, 4.0, 4.0, 1.0)
+	_cuff_tween = create_tween()
+	_cuff_tween.set_ignore_time_scale(true)
+	_cuff_tween.tween_property(_cuff, "modulate", Color.WHITE, 0.12)
+
+
+func _on_cuff_juice(grade: String, _intensity: float) -> void:
+	if _cuff == null:
+		return
+	if grade == "perfect":
+		_bounce_cuff()
+	elif grade == "miss" or grade == "near_miss":
+		_shake_cuff()
+
+
+func _bounce_cuff() -> void:
+	if _cuff_tween:
+		_cuff_tween.kill()
+	_cuff.scale = CUFF_SCALE
+	_cuff_tween = create_tween()
+	_cuff_tween.set_ignore_time_scale(true)
+	_cuff_tween.tween_property(_cuff, "scale", CUFF_SCALE * 1.08, 0.04).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_cuff_tween.tween_property(_cuff, "scale", CUFF_SCALE, 0.04).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _shake_cuff() -> void:
+	if _cuff_tween:
+		_cuff_tween.kill()
+	_cuff.rotation = 0.0
+	_cuff_tween = create_tween()
+	_cuff_tween.set_ignore_time_scale(true)
+	_cuff_tween.tween_property(_cuff, "rotation", deg_to_rad(4.0), 0.04)
+	_cuff_tween.tween_property(_cuff, "rotation", 0.0, 0.04)
+
+
+func _show_loot() -> void:
+	if _loot_sprite == null:
+		return
+	_loot_sprite.texture = VaultArt.loot_icon(GameState.window_loot_id())
+	_loot_sprite.modulate = Color.WHITE
+	_loot_sprite.visible = true
+	_loot_sprite.scale = Vector2(1.35, 1.35)
 
 
 func _place_hand(show_hand: bool) -> void:
@@ -253,7 +340,7 @@ func _place_hand(show_hand: bool) -> void:
 	_hand_sprite.position = dir * (radius + 118.0 - 16.0 * pulse)
 	_hand_sprite.rotation = target_angle + PI * 0.5
 	_hand_sprite.scale = Vector2.ONE * 0.72 * pulse
-	_hand_sprite.modulate = Color(1.0, 0.96, 0.7, 1.0)
+	_hand_sprite.modulate = Color(0.55, 0.36, 0.22, 1.0)
 
 
 func _draw() -> void:
@@ -273,6 +360,9 @@ func _draw() -> void:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
 	if _theme_accent.a > 0.0:
 		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
+	if _telegraph > 0.0:
+		_draw_flip_chevrons()
+	_draw_window()
 	_draw_meter()
 
 
@@ -310,12 +400,17 @@ func _fly_door(_index: int, _payout: int) -> void:
 		_door_tween.kill()
 	_door_sprite.scale = _door_base_scale
 	_door_sprite.modulate = Color.WHITE
+	_door_sprite.rotation = 0.0
+	_door_sprite.position = Vector2.ZERO
+	if _loot_sprite:
+		_loot_sprite.visible = false
 	_door_tween = create_tween()
 	_door_tween.set_ignore_time_scale(true)
-	# Wait out the 100ms hitstop, then this shell rushes the camera and vanishes.
+	# Wait out the 100ms hitstop, then the door swings on a hinge and vanishes.
 	_door_tween.tween_interval(0.1)
-	_door_tween.tween_property(_door_sprite, "scale", _door_base_scale * 1.65, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.28)
+	_door_tween.tween_property(_door_sprite, "rotation", -1.35, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	_door_tween.parallel().tween_property(_door_sprite, "position:x", -36.0, 0.35)
+	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.32)
 	_door_tween.finished.connect(func() -> void:
 		_paint_shell()
 		_set_crack(0.0, false)
@@ -352,57 +447,44 @@ func _draw_meter() -> void:
 	var alpha := _count_fade if _count_hold else 1.0
 	var ink := GameState.shell_color(GameState.current_stage).lerp(Color(0.96, 0.93, 0.86), 0.45)
 	ink.a = alpha
-	var swell := 1.0 + (1.0 - alpha) * 0.12 if _count_hold else 1.0
-	var spin := (1.0 - alpha) * 0.35 if _count_hold else 0.0
-	draw_set_transform(Vector2.ZERO, spin, Vector2(swell, swell))
-	draw_circle(Vector2.ZERO, 46.0, Color(0.04, 0.045, 0.06, alpha))
-	draw_arc(Vector2.ZERO, 44.0, 0.0, TAU, 48, Color(ink.r, ink.g, ink.b, alpha), 2.4, true)
 	var need := maxi(_count_need, 1)
+	var seated := clampi(_count_hits, 0, need)
 	for i in need:
 		var ang := -PI * 0.5 + TAU * float(i) / float(need)
-		var slot := Vector2.from_angle(ang) * 34.0
-		draw_circle(slot, 2.6, Color(0.1, 0.1, 0.12, alpha))
-		if i < _count_hits:
-			draw_circle(slot, 1.8, ink)
-	var label := "%d/%d" % [_count_hits, need]
-	var digit_w := 9.0
-	var digit_h := 14.0
-	var advance := 11.0
-	var width := float(label.length()) * advance
-	var cursor := -width * 0.5
-	var y := -digit_h * 0.5
-	for ch in label:
-		if ch == "/":
-			draw_line(Vector2(cursor + 2.0, y + digit_h), Vector2(cursor + advance - 2.0, y), ink, 1.6, true)
+		var sunk: float = 16.0 if i < seated else 0.0
+		var at := Vector2.from_angle(ang) * (radius - 6.0 - sunk)
+		var r: float = 7.0
+		draw_circle(at, r, Color(0.08, 0.08, 0.1, alpha))
+		if i < seated:
+			var cap := Color(1.0, 0.84, 0.28, alpha) if last_grade == "perfect" and i == seated - 1 else ink
+			draw_circle(at, r * 0.62, cap)
+			draw_circle(at + Vector2(-2.0, -2.0), 1.6, Color(1, 1, 1, 0.55 * alpha))
 		else:
-			_draw_digit(Vector2(cursor, y), int(ch), digit_w, digit_h, ink)
-		cursor += advance
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			draw_arc(at, r, 0.0, TAU, 16, Color(ink.r, ink.g, ink.b, 0.45 * alpha), 1.8, true)
 
 
-const _DIGIT_MASKS: Array[int] = [0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F]
-
-
-func _draw_digit(origin: Vector2, digit: int, width: float, height: float, color: Color) -> void:
-	if digit < 0 or digit > 9:
+## Prize sits in the door hole. Dark wash + gold bezel, bolts stay the counter.
+func _draw_window() -> void:
+	if _door_sprite == null:
 		return
-	var mask := _DIGIT_MASKS[digit]
-	var mid := height * 0.5
-	var t := 2.2
-	if mask & 0x01:
-		draw_line(origin + Vector2(t, 0.0), origin + Vector2(width - t, 0.0), color, t, true)
-	if mask & 0x02:
-		draw_line(origin + Vector2(width, t), origin + Vector2(width, mid - t), color, t, true)
-	if mask & 0x04:
-		draw_line(origin + Vector2(width, mid + t), origin + Vector2(width, height - t), color, t, true)
-	if mask & 0x08:
-		draw_line(origin + Vector2(t, height), origin + Vector2(width - t, height), color, t, true)
-	if mask & 0x10:
-		draw_line(origin + Vector2(0.0, mid + t), origin + Vector2(0.0, height - t), color, t, true)
-	if mask & 0x20:
-		draw_line(origin + Vector2(0.0, t), origin + Vector2(0.0, mid - t), color, t, true)
-	if mask & 0x40:
-		draw_line(origin + Vector2(t, mid), origin + Vector2(width - t, mid), color, t, true)
+	var hole: float = 46.0 * _door_base_scale.x
+	draw_circle(Vector2.ZERO, hole * 0.92, Color(0.08, 0.08, 0.1, 0.55))
+	draw_arc(Vector2.ZERO, hole, 0.0, TAU, 64, Color(1.0, 0.84, 0.28, 0.95), 3.0, true)
+
+
+func _draw_flip_chevrons() -> void:
+	var a: float = clampf(_telegraph / 0.4, 0.0, 1.0)
+	var col := Color(1.0, 0.95, 0.7, 0.25 + 0.55 * a)
+	var step: float = direction * 0.22
+	for i in 8:
+		var ang: float = float(i) * TAU / 8.0 + (1.0 - a) * step * 6.0
+		var outer := Vector2.from_angle(ang) * (radius + 18.0)
+		var left := Vector2.from_angle(ang - 0.18) * (radius + 4.0)
+		var right := Vector2.from_angle(ang + 0.18) * (radius + 4.0)
+		if direction < 0.0:
+			draw_colored_polygon(PackedVector2Array([outer, left, right]), col)
+		else:
+			draw_colored_polygon(PackedVector2Array([outer, right, left]), col)
 
 
 func _draw_window_arc(half_deg: float, color: Color, width: float) -> void:

@@ -43,7 +43,6 @@ func _ready() -> void:
 	# Tapping the dim (the spinning ring behind it) used to do nothing, so
 	# the game felt frozen. Treat that tap as "Later".
 	$Root/Dim.gui_input.connect(_on_dim_input)
-	EventBus.stash_ready.connect(open)
 	EventBus.stash_changed.connect(_on_stash)
 
 

@@ -1,6 +1,8 @@
 keys,en,tr
 HUD_VAULT,VAULT %d,KASA %d
 HUD_VAULT_GOLDEN,GOLDEN VAULT %d,ALTIN KASA %d
+HUD_HEIST,HEIST %d,SOYGUN %d
+HUD_HEIST_GOLDEN,GOLDEN HEIST %d,ALTIN SOYGUN %d
 HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
 HUD_STASH,STASH  $%d,ZULA  $%d
@@ -15,10 +17,13 @@ VR_X3,x3,x3
 VR_X5,x5,x5
 VR_X8,x8,x8
 COUNTDOWN_GO,GO,BAŞLA
-CARD_CRACKED,VAULT %d CRACKED,KASA %d AÇILDI
+CARD_CRACKED,HEIST %d CRACKED,SOYGUN %d BİTTİ
 CARD_CAUGHT,BUSTED,YAKALANDIN
-CARD_RETRY_SUB,Vault %d  ·  the loot is still inside,Kasa %d  ·  ganimet hâlâ içeride
-CARD_NEXT,NEXT VAULT,SONRAKİ KASA
+CARD_RETRY_SUB,Heist %d  ·  the loot is still inside,Soygun %d  ·  ganimet hâlâ içeride
+CARD_NEXT,NEXT HEIST,SONRAKİ SOYGUN
+CARD_GLOVE,WATCH FOR GLOVES,ELDİVEN İÇİN İZLE
+CARD_GLOVE_GOT,GLOVES: %s,ELDİVEN: %s
+HIDEOUT_TITLE,HIDEOUT,SAKLANMA EVİ
 CARD_RETRY,TRY AGAIN,TEKRAR DENE
 CARD_X3,3x LOOT,3x GANİMET
 CARD_X3_AUTO,3x loot auto-claimed,3x ganimet otomatik alındı
@@ -47,8 +52,10 @@ MARKET_LEVEL,Lv %d,Sv %d
 MARKET_COST,$%d,$%d
 MARKET_CREW_NAME,Crew,Ekip
 MARKET_CREW_EFFECT,Steals cash while the app is closed. Bigger crew; bigger stash.,Uygulama kapalıyken para çalar. Ekip büyüdükçe zula büyür.
-MARKET_GLOVES_NAME,Pro Gloves,Pro Eldiven
-MARKET_GLOVES_EFFECT,"Wider Perfect slice, bigger gold bursts.","Daha geniş Perfect dilimi, daha büyük altın patlaması."
+MARKET_GLOVES_NAME,Wide Gate,Geniş Kapı
+MARKET_GLOVES_EFFECT,Widens the green gate. You see the upgrade before you buy it.,Yeşil kapıyı genişletir. Aldığın şeyi kapıda görürsün.
+MARKET_MAX,MAX,MAX
+MARKET_GLOVE_EFFECT,The hands on the dial. Pure swagger.,Kadranı tutan eller. Sadece hava.
 MARKET_SKIN_STEEL,Steel Dial,Çelik Kadran
 MARKET_SKIN_GOLD,Gold Dial,Altın Kadran
 MARKET_SKIN_OBSIDIAN,Obsidian Dial,Obsidyen Kadran
@@ -81,3 +88,11 @@ LOOT_YACHT,Yacht,Yat
 LOOT_JET,Private Jet,Özel Jet
 LOOT_ISLAND,Island,Ada
 LOOT_MOONROCK,Moon Rock,Ay Taşı
+GLOVE_LEATHER,Leather Gloves,Deri Eldiven
+GLOVE_LATEX,Latex Gloves,Lateks Eldiven
+GLOVE_GOLD,Gold Gloves,Altın Eldiven
+GLOVE_NEON,Neon Gloves,Neon Eldiven
+GLOVE_SKELETON,Skeleton Gloves,İskelet Eldiven
+GLOVE_CRIMSON,Crimson Gloves,Kızıl Eldiven
+GLOVE_ICE,Ice Gloves,Buz Eldiven
+GLOVE_ROYAL,Royal Gloves,Kraliyet Eldiven

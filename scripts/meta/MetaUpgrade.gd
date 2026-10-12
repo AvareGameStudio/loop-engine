@@ -1,7 +1,7 @@
 class_name MetaUpgrade
 extends Node
 ## Idle meta loop. The Crew fills the stash only while the app is closed.
-## Pro Gloves widen the Perfect slice and scale Perfect juice. The market sells both, in cash.
+## Wide Gate adds degrees to the green Good arc. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
 signal produced(amount: int)
@@ -13,14 +13,14 @@ const OFFLINE_CAP_SECONDS: int = 8 * 3600
 ## One minute of idle = a "full" bag. Zeigarnik teases this at 90%.
 const STASH_FULL_SECONDS: float = 60.0
 
-## `id` values are save keys. UI names live in translations (Crew / Pro Gloves).
+## `id` values are save keys. UI names live in translations (Crew / Wide Gate).
 const CATALOG := [
 	{"id": "crew", "base_cost": 60, "growth": 1.35, "effect_pct": 25},
 	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
 ]
 
-## Pro Gloves: Perfect half-window grows this much per level (capped in GameWorld).
-const GLOVES_WINDOW_PCT: float = 6.0
+## Wide Gate: the green Good arc grows this many degrees per purchased level.
+const GLOVES_DEG: float = 1.5
 
 
 func _ready() -> void:
@@ -77,7 +77,13 @@ static func cost(id: String) -> int:
 	return int(float(item.base_cost) * pow(float(item.growth), level(id) - 1))
 
 
+static func at_cap(id: String) -> bool:
+	return id == "gloves" and GameState.gloves_level >= GameState.GLOVES_MAX
+
+
 static func can_afford(id: String) -> bool:
+	if at_cap(id):
+		return false
 	return GameState.cash >= cost(id)
 
 
@@ -90,7 +96,7 @@ static func affordable_count() -> int:
 
 
 static func purchase(id: String) -> bool:
-	if not can_afford(id):
+	if at_cap(id) or not can_afford(id):
 		return false
 	GameState.add_cash(-cost(id))
 	match id:
@@ -107,14 +113,19 @@ static func bonus(id: String) -> float:
 	return 1.0 + (level(id) - 1) * float(entry(id).effect_pct) / 100.0
 
 
-## Pro Gloves: score + juice scale for Perfect hits.
+## Juice scale for Perfect hits. Cash no longer uses this.
 static func perfect_power() -> float:
 	return bonus("gloves")
 
 
-## Pro Gloves: multiplier on the Perfect half-window.
+## Extra degrees on the Good gate from Wide Gate.
+static func gate_bonus_deg() -> float:
+	return float(clampi(GameState.gloves_level, 1, GameState.GLOVES_MAX) - 1) * GLOVES_DEG
+
+
+## Perfect slice still tracks the Good gate; leftover callers use this.
 static func perfect_window_mult() -> float:
-	return 1.0 + (GameState.gloves_level - 1) * GLOVES_WINDOW_PCT / 100.0
+	return 1.0
 
 
 ## Cash per second while idle (fills the stash, not the wallet).
