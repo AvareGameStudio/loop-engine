@@ -154,8 +154,9 @@ static func pins_for(stage: int) -> int:
 		pins = 3
 	elif door_in_heist(stage) >= 2:
 		pins = mini(pins + 1, 6)
+	# Golden is the breather: one extra pin, not two (two made it the longest heist, 27-37 s).
 	if is_golden(stage):
-		pins = mini(pins + 2, 8)
+		pins = mini(pins + 1, 8)
 	return pins
 
 
@@ -195,7 +196,9 @@ static func is_golden(stage: int) -> bool:
 static func _heist_ease(heist: int) -> float:
 	var base: float = _curve(heist, [[1, 0.0], [2, 0.06], [4, 0.2], [10, 0.42], [20, 0.66], [40, 0.86], [80, 1.0]])
 	var slot: int = (maxi(heist, 1) - 1) % GOLDEN_EVERY
-	var tooth: float = [0.0, 0.04, 0.12, 0.18, -0.1][slot]
+	# Gentler squeeze: at 0.12 / 0.18 heist 3 became the first wall (simulated casual players were
+	# busted four times there, before the Market even opened).
+	var tooth: float = [0.0, 0.02, 0.06, 0.12, -0.1][slot]
 	return clampf(base + tooth, 0.0, 1.0)
 
 
@@ -210,6 +213,9 @@ static func base_good_deg(stage: int) -> float:
 	if is_golden(stage):
 		good += 3.0
 	if is_trick_intro(stage):
+		good += 2.0
+	# Dark hides most of the approach, so its gate is always 2 deg wider (sim: miss rate 1.5x plain).
+	if trick_for(stage) == "dark":
 		good += 2.0
 	return good
 
