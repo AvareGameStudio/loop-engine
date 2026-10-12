@@ -1,16 +1,26 @@
 extends Node
 ## Procedural one-shots, baked once into PCM. Pitch is `pitch_scale` so the
 ## cache stays a handful of durations at 440 Hz.
+## Recorded CC0 samples in res://assets/sfx/ (Kenney) replace the key one-shots:
+## pin click, door slam, loot landing, miss clunk, cuff click, glass snap. Each name
+## has numbered variants (`door_1.ogg`, `door_2.ogg`) picked at random so repeats
+## do not drill. A missing file falls back to the old tones.
 
 const MIX_RATE: int = 22050
 const VOICES: int = 8
 const ATTACK: float = 0.005
 const BASE_FREQ: float = 440.0
 const PITCH_CAP: float = 1.8
+const SFX_DIR := "res://assets/sfx/"
+const SFX_NAMES: PackedStringArray = ["pin", "door", "loot", "miss", "cuff", "glass"]
+const SFX_MAX_VARIANTS: int = 4
+## Juice beats that a sample fully replaces.
+const JUICE_SAMPLES: Dictionary[String, String] = {"hot_hands_out": "glass", "cuffed": "cuff"}
 
 var _players: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _cache: Dictionary[int, AudioStreamWAV] = {}
+var _samples: Dictionary[String, Array] = {}
 var _drone: AudioStreamPlayer
 ## Each cleared ring lifts the lock pitch so the center feels closer.
 var _phase_pitch: float = 1.0
@@ -19,6 +29,7 @@ var _hot: bool = false
 
 
 func _ready() -> void:
+	_load_samples()
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -76,6 +87,15 @@ func _stop_drone() -> void:
 
 ## Door "ka-chunk", then the cash-register "cha-ching" 200 ms later when the loot lands.
 func _on_stage_cleared(_index: int, _payout: int) -> void:
+	if play_sample("door", 0.8):
+		# The bell tones stay: they are the "cha-ching" sparkle on top of the chips.
+		play_tone(55.0, 0.32, 0.3)
+		get_tree().create_timer(0.2, true, false, true).timeout.connect(func() -> void:
+			play_sample("loot", 0.75)
+			play_tone(1760.0, 0.06, 0.14)
+			play_tone(2640.0, 0.12, 0.1)
+		)
+		return
 	play_tone(55.0, 0.32, 0.46)
 	play_tone(110.0, 0.2, 0.32)
 	play_tone(380.0, 0.1, 0.24)
@@ -128,6 +148,8 @@ func _on_tap(result: Dictionary) -> void:
 					play_tone(640.0, 0.12, 0.3, pitch)
 				)
 		"miss":
+			if play_sample("miss", 0.7):
+				return
 			play_tone(140.0, 0.16, 0.3)
 			play_tone(95.0, 0.2, 0.26)
 
@@ -139,6 +161,8 @@ func _on_jackpot(_mult: float, _label: String) -> void:
 
 
 func _on_juice(grade: String, _intensity: float) -> void:
+	if JUICE_SAMPLES.has(grade) and play_sample(JUICE_SAMPLES[grade], 0.85):
+		return
 	match grade:
 		"hot_hands":
 			# Fast rising arpeggio: the run just caught fire.
@@ -170,6 +194,10 @@ func _on_countdown(step: int) -> void:
 
 
 func play_click() -> void:
+	# The tick climbs with the pins like the old tone did; the low thump stays as body.
+	if play_sample("pin", 0.9, _phase_pitch):
+		play_tone(78.0, 0.08, 0.3, _phase_pitch)
+		return
 	play_tone(78.0, 0.08, 0.38, _phase_pitch)
 	play_tone(150.0, 0.06, 0.28, _phase_pitch)
 	play_tone(1480.0, 0.035, 0.2, _phase_pitch)
@@ -179,6 +207,32 @@ func play_siren() -> void:
 	play_tone(640.0, 0.32, 0.38)
 	get_tree().create_timer(0.16, true, false, true).timeout.connect(func() -> void: play_tone(920.0, 0.32, 0.34))
 	get_tree().create_timer(0.34, true, false, true).timeout.connect(func() -> void: play_tone(640.0, 0.28, 0.3))
+
+
+## Plays a random variant of a recorded sample. False when none was loaded.
+func play_sample(sample: String, volume: float = 0.8, pitch_scale: float = 1.0) -> bool:
+	var variants: Array = _samples.get(sample, [])
+	if variants.is_empty():
+		return false
+	var player: AudioStreamPlayer = _players[_next_voice]
+	_next_voice = (_next_voice + 1) % VOICES
+	player.stream = variants[randi() % variants.size()]
+	# ±4% random detune on top, so two identical hits never sound copy-pasted.
+	player.pitch_scale = pitch_scale * randf_range(0.96, 1.04)
+	player.volume_db = linear_to_db(volume)
+	player.play()
+	return true
+
+
+func _load_samples() -> void:
+	for sample: String in SFX_NAMES:
+		var variants: Array = []
+		for i in range(1, SFX_MAX_VARIANTS + 1):
+			var path: String = "%s%s_%d.ogg" % [SFX_DIR, sample, i]
+			if ResourceLoader.exists(path):
+				variants.append(load(path))
+		if not variants.is_empty():
+			_samples[sample] = variants
 
 
 func play_tone(freq: float, seconds: float, volume: float = 0.3, pitch_scale: float = 1.0) -> void:

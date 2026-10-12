@@ -155,6 +155,6 @@ Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before cla
 ## Next production steps
 
 1. Swap mock ads for a mediation SDK and store IAP receipts.
-2. Production samples for pin click / door hinge / loot land (procedural tones are the prototype).
+2. More production samples: siren and Hot Hands arpeggio are still procedural. Pin click, door slam, loot landing, miss clunk, cuff click and glass snap are CC0 Kenney samples in `assets/sfx/` (see its LICENSE.txt); drop a `name_N.ogg` there to add a variant.
 3. Telemetry: grade histogram, bribe conversion, time-to-second-session.
 4. Android export: portrait, immersive, texture compression already flagged in `project.godot`.
