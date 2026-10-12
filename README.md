@@ -65,7 +65,7 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 - `current_stage` is the persistent **door** index. A bust retries that door; a crack moves on. The end card waits until `_doors_goal` doors of the current heist are cleared (`DOORS_PER_HEIST = 3`).
 - **Heist 1 cannot be failed.** The guard still walks in; `raise_alarm` never returns caught.
 - **Pins** scale with heist, 3–8. Every 5th **heist** is golden: +1 pin, 2× loot, gold door, Good window +3°.
-- **Dial speed / window** use a sawtooth on the heist index (squeeze, then a golden breath). DDA still bends ±15%. Wide Gate adds +1.5° to Good per level (cap 5).
+- **Dial speed / window** use a sawtooth on the heist index (squeeze, then a golden breath). DDA bends up to 15% easier but only 8% harder. Wide Gate adds +1.5° to Good per level (cap 5).
 - **Direction flips** from heist 2, once per new door, with a 0.4 s chevron telegraph. No mid-door random flips.
 - Target lead is **120–270°**. Target heist length: 20–30 s.
 - **Vault tricks** (`GameState.trick_for`): one twist on the same tap, for all three doors of a heist. Each is introduced alone (Good +2° that heist), then rotates with plain heists; golden heists never carry one.
@@ -84,6 +84,9 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 | Third strike | Spotlight hardens + strobe + siren. Heist 1 cuts the light (no strobe, no bust). Heist 2+: `busted` → the guard's arm shoots out and a handcuff snaps shut on the pick tip (0.3 s reach, 0.12 s close, metal click, 0.4 s hitstop, camera 1.12x toward the pick). 0.9 s later `revive_offered` → **Bribe the Cops** over that frozen frame. A bribe releases the cuffs; a bust keeps them under the card. |
 | Bribe taken | Alarm resets, 3-2-1 countdown, same vault continues with its seated pins. |
 | Bribe skipped | `run_ended("caught")` → BUSTED card → Try Again on the same vault. |
+| Bribe offer | No body text: handcuffs inside a red ring that drains in 5 s, one gold BRIBE button, a faint "get caught". The last two seconds tick and pulse 4%; at zero the cops win. Tapping the dim no longer skips. |
+| Clean door | A door cracked with no strike turns one lamp off (`GameState.lower_alarm`); the guard settles a step. |
+| Mercy | The same door lost twice in a row opens its Good gate +3° until it cracks (`GameState.mercy_deg`). |
 
 Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder than the win.
 
@@ -94,6 +97,8 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **Single currency: cash ($).** Pins drop cash directly (`pin_cash`). Each door also pays `40 + 12 × door` (×2 on golden). No hidden score.
 - **Window silhouette** shows the next hideout item. Door open → the item pops and flies into the bag; gold/gem rain still falls.
 - **End-of-heist card** (opaque `#0B1020` panel, gold rim): `HEIST N CRACKED`, a 60 px loot roll (the bag bumps 8% at every fifth), the hideout ring with the next item as a silhouette (new item in colour, 1.0 → 1.2 → 1.0 pop; tap opens the room), a 76 px `NEXT HEIST`, `3x LOOT`, then one row: `FREE` glove (every 4 heists) · Market · Stash. No subtitle or shelf text.
+- **City strip** (card top, `CityStrip.gd`): piggy shop → office → bank → museum → casino → Fort Knox → **moon vault** (door 100). Cracked cities in colour, the current one ringed in gold, the ones ahead as silhouettes; crossing into a new city pops its icon.
+- **Daily Big Heist**: once a day (UTC) after the first heist, a gold `BIG HEIST x5` button above NEXT. One golden door at 5x loot plus a guaranteed glove (or $500 once all are owned); retryable until cracked; does not move the career door index.
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
 - **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
 - **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
@@ -109,7 +114,8 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - Near-Miss: 180 ms hitstop, 14 px shake, siren pitch sliding 1.0 → 0.7 over 400 ms.
 - Miss: 18 px shake, dial jam, pin eject, low clunk.
 - Door open: 100 ms freeze → hinge swing → rust flakes / shell chips → prize flies to the bag → gold + gem rain → "ka-chunk" then "cha-ching".
-- Alarm: lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
+- Alarm: lamps + guard (painted: asleep at the desk → alert looking ahead on strike 1 → head up, flashlight raised at the dial on strikes 2-3).
+- Alarm (code fallback): lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
 - Combo ≥ 3: gold trail on the pick, not a HUD number.
 - **Hot Hands**: 4 Perfects without a strike (across doors; a Good neither counts nor breaks it) → 80 ms freeze, orange burst, rising arpeggio, flickering fire ring on the dial, double-length orange pick trail, octave-up layer on every hit. Pins pay **2x** until any strike (glass-snap) or the heist ends. Orange, not gold: the full gold dial stays reserved for the golden heist.
 - Approach inside 45°: rising drone, cut on tap.
