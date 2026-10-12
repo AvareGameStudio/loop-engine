@@ -63,6 +63,19 @@ const _GOLDEN_ACCENT := Color(1.0, 0.84, 0.25, 0.9)
 
 ## Kept for callers; flips now happen only through `start_flip_telegraph`.
 var flips_enabled: bool = false
+## Active vault trick ("" / "slide" / "double" / "dark"). GameState.trick_for picks it.
+var trick: String = ""
+## Slide: the gate creeps against the pick at this many revolutions per second.
+const SLIDE_RPS: float = 0.06
+## Double: the chained second gate sits this far past the first.
+const CHAIN_MIN_DEG: float = 110.0
+const CHAIN_MAX_DEG: float = 170.0
+var _has_next: bool = false
+var _next_target: float = 0.0
+## Dark: the gate is fully lit within DARK_FULL_DEG ahead of the pick and gone past DARK_EDGE_DEG.
+const DARK_FULL_DEG: float = 60.0
+const DARK_EDGE_DEG: float = 110.0
+const DARK_DOOR := Color(0.42, 0.42, 0.5, 1.0)
 ## Next tumbler is a gold pin (variable-ratio drop).
 var gold_pin: bool = false
 var _telegraph: float = 0.0
@@ -93,19 +106,6 @@ var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
 ## Transparent on the piggy bank, so the opening dial is unchanged.
 var _theme_accent: Color = Color(0, 0, 0, 0)
-## Active vault trick ("" / "slide" / "double" / "dark"). GameState.trick_for picks it.
-var trick: String = ""
-## Slide: the gate creeps against the pick at this many revolutions per second.
-const SLIDE_RPS: float = 0.06
-## Double: the chained second gate sits this far past the first.
-const CHAIN_MIN_DEG: float = 110.0
-const CHAIN_MAX_DEG: float = 170.0
-var _has_next: bool = false
-var _next_target: float = 0.0
-## Dark: the gate is fully lit within DARK_FULL_DEG ahead of the pick and gone past DARK_EDGE_DEG.
-const DARK_FULL_DEG: float = 60.0
-const DARK_EDGE_DEG: float = 110.0
-const DARK_DOOR := Color(0.42, 0.42, 0.5, 1.0)
 ## Hot Hands fire ring, 0..1. Orange so it never competes with the golden-heist dial.
 const HOT := Color(1.0, 0.45, 0.1, 1.0)
 const HOT_CORE := Color(1.0, 0.8, 0.35, 1.0)
