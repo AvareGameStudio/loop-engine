@@ -13,6 +13,9 @@ const GAP := Color(1.0, 0.55, 1.0, 1)
 @export var font_size: int = 20
 
 var progress: float = 0.0
+## Next hideout item. Drawn as a dark silhouette until the ring completes, then in full colour.
+var icon: Texture2D
+var _icon_scale: float = 1.0
 var complete: bool = false
 var focused: bool = false
 var _pulse: float = 0.0
@@ -41,6 +44,24 @@ func set_state(value: float, is_complete: bool, is_focus: bool) -> void:
 		_tween.kill()
 	_tween = create_tween()
 	_tween.tween_method(_set_progress, progress, value, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func set_icon(texture: Texture2D) -> void:
+	icon = texture
+	queue_redraw()
+
+
+## The item lands on the shelf: 1.0 → 1.2 → 1.0 in 120 ms.
+func pop() -> void:
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_method(_set_icon_scale, 1.0, 1.2, 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_method(_set_icon_scale, 1.2, 1.0, 0.07).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _set_icon_scale(value: float) -> void:
+	_icon_scale = value
+	queue_redraw()
 
 
 func _set_progress(value: float) -> void:
@@ -77,6 +98,11 @@ func _draw() -> void:
 		elif focused:
 			var blink: float = 0.35 + 0.65 * (0.5 + 0.5 * sin(_pulse + float(i)))
 			draw_arc(pos, thickness * 1.15, 0.0, TAU, 12, Color(GAP, blink), 1.6, true)
+	if icon:
+		var side: float = radius * 1.25 * _icon_scale
+		var tint: Color = Color.WHITE if complete else Color(0.3, 0.34, 0.46, 0.95)
+		draw_texture_rect(icon, Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side)), false, tint)
+		return
 	var font: Font = get_theme_default_font()
 	var text: String = tr("QUEST_PERCENT") % roundi(progress * 100.0)
 	var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
