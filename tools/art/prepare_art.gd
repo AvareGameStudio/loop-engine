@@ -11,7 +11,9 @@ const LOOT_IDS: PackedStringArray = [
 	"cash", "gold", "diamond", "painting", "trophy", "watch",
 	"crown", "car", "yacht", "jet", "island", "moonrock",
 ]
-const BACKGROUNDS: PackedStringArray = ["piggy", "office", "bank", "museum", "casino", "fort"]
+const BACKGROUNDS: PackedStringArray = ["piggy", "office", "bank", "museum", "casino", "fort", "moon"]
+## City strip: one building per vault type plus the moon vault at the end of the road.
+const CITY: PackedStringArray = ["piggy", "office", "bank", "museum", "casino", "fort", "moon"]
 ## The flashlight lens on guard_alert sits at ~71% of the width; the painted beam is cut past it
 ## so Guard.gd can aim its own beam at the dial.
 const ALERT_BEAM_CUT: float = 0.725
@@ -34,6 +36,16 @@ func _prepare_images(src: String) -> void:
 	_clear_right_of(alert, int(alert.get_width() * ALERT_BEAM_CUT))
 	_save(_fit_height(_trim(alert), 360), ART + "guard_alert.png")
 	_save(_fit_height(_trim(_load(src, "guard_sleep")), 280), ART + "guard_sleep.png")
+	# Third pose: head up, flashlight raised toward the dial (pose 2-3).
+	if FileAccess.file_exists(src.path_join("guard_aim.png")):
+		_save(_fit_height(_trim(_load(src, "guard_aim")), 360), ART + "guard_aim.png")
+	for kind: String in CITY:
+		var city := src.path_join("city_%s.png" % kind)
+		if FileAccess.file_exists(city):
+			_save(_square(_trim(_load(src, "city_" + kind)), 128), ART + "city_%s.png" % kind)
+	for extra: Array in [["cuffs", 240], ["tap_hand", 180], ["daily", 160]]:
+		if FileAccess.file_exists(src.path_join(extra[0] + ".png")):
+			_save(_square(_trim(_load(src, extra[0])), extra[1]), ART + extra[0] + ".png")
 	_save(_fit_width(_trim(_load(src, "bag")), 360), ART + "bag.png")
 	for id: String in LOOT_IDS:
 		_save(_square(_trim(_load(src, "loot_" + id)), LOOT_SIZE), ART + "loot_%s.png" % id)

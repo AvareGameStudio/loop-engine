@@ -11,8 +11,11 @@ const FLIP_TELEGRAPH: float = 0.4
 const REVIVE_STEP: float = 0.45
 ## Real seconds between the cuffs snapping shut and the bribe popup: the frozen bust frame.
 const BUST_BEAT: float = 0.9
-## DDA may only bend the stage curve this far either way.
-const DDA_BAND: float = 0.15
+## DDA bends the stage curve: up to 15% easier, but only 8% harder. Symmetric 15% made the
+## first door of a heist tighten to its limit after a few Perfects, and the misses followed
+## (simulated: Good 17.5 -> 14.9 deg and +15% dial speed within one door).
+const DDA_EASIER: float = 0.15
+const DDA_HARDER: float = 0.08
 const NEAR_BAND_DEG: float = 5.0
 const APPROACH_DEG: float = 45.0
 ## Perfects that light Hot Hands. The streak carries across doors, like the combo; a Good
@@ -41,6 +44,8 @@ var _gold_armed: bool = false
 var _gold_mult: float = 1.0
 var _approach_hot: bool = false
 var _perfect_streak: int = 0
+## Strikes on the current door; a door cracked with none lowers the alarm a lamp.
+var _door_strikes: int = 0
 var _hot_hands: bool = false
 
 
@@ -94,18 +99,22 @@ func _next_error(delta: float) -> float:
 	return absf(rad_to_deg(angle_difference(arena.pointer_angle + step, arena.target_angle + drift)))
 
 
-func start_run() -> void:
+## `daily`: the once-a-day Big Heist, one golden door at 5x loot that leaves the career
+## door index where it is.
+func start_run(daily: bool = false) -> void:
+	GameState.daily_active = daily
 	GameState.stamp_seen()
 	GameState.reset_run()
 	TimeScale.reset()
 	_busy = false
 	_run_cash = 0
 	_session_doors = 0
-	_doors_goal = GameState.doors_left_in_heist(GameState.current_stage)
+	_doors_goal = 1 if daily else GameState.doors_left_in_heist(GameState.current_stage)
 	_gold_armed = false
 	_gold_mult = 1.0
 	_approach_hot = false
 	_set_hot_hands(false)
+	_door_strikes = 0
 	input_proc.clear_buffer()
 	input_proc.arm(true)
 	arena.last_grade = ""
@@ -168,9 +177,9 @@ func _on_commit(mode: String, _held: float) -> void:
 func _apply_difficulty() -> void:
 	var stage: int = GameState.current_stage
 	var w: Dictionary = dda.windows()
-	var rpm_bend: float = clampf(dda.rpm / 0.55, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
-	var win_bend: float = clampf(float(w["perfect"]) / 7.0, 1.0 - DDA_BAND, 1.0 + DDA_BAND)
-	var good: float = clampf(GameState.base_good_deg(stage) * win_bend + MetaUpgrade.gate_bonus_deg(), 8.0, 28.0)
+	var rpm_bend: float = clampf(dda.rpm / 0.55, 1.0 - DDA_EASIER, 1.0 + DDA_HARDER)
+	var win_bend: float = clampf(float(w["perfect"]) / 7.0, 1.0 - DDA_HARDER, 1.0 + DDA_EASIER)
+	var good: float = clampf(GameState.base_good_deg(stage) * win_bend + MetaUpgrade.gate_bonus_deg() + GameState.mercy_deg(), 8.0, 28.0)
 	var perfect: float = clampf(good * 0.42, 3.5, good * 0.7)
 	var windows := {
 		"good": good,
@@ -243,11 +252,15 @@ func _crack_vault() -> void:
 	var stage: int = GameState.current_stage
 	var loot: int = int(float(40 + 12 * stage) * GameState.loot_mult(stage))
 	_bank_cash(loot)
-	GameState.note_stage_cleared()
+	if _door_strikes == 0:
+		GameState.lower_alarm()
+	_door_strikes = 0
+	if not GameState.daily_active:
+		GameState.note_stage_cleared()
 	arena.warm_shell()
 	EventBus.stage_cleared.emit(stage, loot)
 	EventBus.session_changed.emit()
-	if GameState.loot_just_unlocked():
+	if not GameState.daily_active and GameState.loot_just_unlocked():
 		EventBus.loot_unlocked.emit(GameState.LOOT_ITEMS[GameState.loot_unlocked_count() - 1])
 	_session_doors += 1
 	var heist_done: bool = _session_doors >= _doors_goal
@@ -315,6 +328,7 @@ func _apply_trick() -> void:
 ## One alarm strike. The third brings the cops: bribe (rewarded ad) or get caught.
 func _strike(result: Dictionary) -> void:
 	_set_hot_hands(false)
+	_door_strikes += 1
 	var caught: bool = GameState.raise_alarm()
 	# Instant deaths were persisting a too-hard DDA profile and making the
 	# next run feel broken (10° window at 0.73 rps, one miss → game over).
@@ -346,6 +360,14 @@ func _finish_run(reason: String, result: Dictionary) -> void:
 	arena.spinning = false
 	_boost_cash = _run_cash
 	_set_hot_hands(false, false)
+	if reason == "caught":
+		GameState.note_bust()
+	var daily: bool = GameState.daily_active
+	var daily_glove: String = ""
+	if daily and reason == "cracked":
+		daily_glove = GameState.complete_daily()
+	# The daily door does not advance the career, so its "cleared" door is the current one.
+	var back: int = 1 if reason == "cracked" and not daily else 0
 	GameState.end_run()
 	if GameState.no_ads:
 		_grant_end_boost()
@@ -353,11 +375,14 @@ func _finish_run(reason: String, result: Dictionary) -> void:
 		"score": GameState.session_score,
 		"combo": GameState.session_combo,
 		"hits": GameState.session_hits,
-		"stage": GameState.heist_for(GameState.current_stage - (1 if reason == "cracked" else 0)),
-		"door": GameState.current_stage - (1 if reason == "cracked" else 0),
+		"stage": GameState.heist_for(GameState.current_stage - back),
+		"door": GameState.current_stage - back,
 		"cash": _run_cash,
 		"result": result,
+		"daily": daily,
+		"daily_glove": daily_glove,
 	})
+	GameState.daily_active = false
 	_busy = false
 	input_proc.clear_buffer()
 	TimeScale.reset()

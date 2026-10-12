@@ -629,7 +629,8 @@ func _pulse_glow(peak: float = 2.5) -> void:
 	glow.visible = true
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", peak, 0.08)
 	_glow_tween.parallel().tween_property(mat, "shader_parameter/pulse", PI * 0.5, 0.08).from(0.0)
-	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 1.15, 0.45).from(0.02)
+	# 0.35, not 1.15: the ring now stops just outside the dial instead of sweeping the screen edges.
+	_glow_tween.parallel().tween_property(mat, "shader_parameter/ripple", 0.35, 0.45).from(0.02)
 	_glow_tween.tween_property(mat, "shader_parameter/intensity", 0.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_glow_tween.finished.connect(func() -> void:
 		if is_instance_valid(glow):

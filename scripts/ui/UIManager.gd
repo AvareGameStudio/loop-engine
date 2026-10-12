@@ -29,6 +29,8 @@ const SHELF_POP_DELAY: float = 0.45
 @onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Meta/Market
 @onready var stash_btn: Button = $Card/Panel/Margin/VBox/Meta/Stash
 @onready var card_meta: Control = $Card/Panel/Margin/VBox/Meta
+@onready var card_city: CityStrip = $Card/Panel/Margin/VBox/City
+@onready var daily_btn: Button = $Card/Panel/Margin/VBox/Daily
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
@@ -50,6 +52,10 @@ func _ready() -> void:
 	grade_label.text = ""
 	combo_label.visible = false
 	primary_btn.pressed.connect(_primary)
+	daily_btn.pressed.connect(_start_daily)
+	if ResourceLoader.exists("res://assets/art/daily.png"):
+		daily_btn.icon = load("res://assets/art/daily.png")
+		daily_btn.add_theme_constant_override("icon_max_width", 48)
 	x3_btn.pressed.connect(_x3)
 	glove_btn.pressed.connect(_glove_ad)
 	card_market_btn.pressed.connect(market_popup.open)
@@ -107,6 +113,9 @@ func _refresh_session() -> void:
 ## so refreshing on session_changed would wipe the gold pop of the last door.
 ## Doors already cracked this heist sit gold; a bust retries the current door.
 func _refresh_pips() -> void:
+	if GameState.daily_active:
+		pips.set_state(0, 1, true)
+		return
 	var stage: int = GameState.current_stage
 	pips.set_state(GameState.door_in_heist(stage), GameState.DOORS_PER_HEIST, GameState.is_golden(stage))
 
@@ -194,7 +203,7 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 	combo_label.visible = false
 	_x3_key = "CARD_X3_AUTO" if GameState.no_ads else "CARD_X3"
 	x3_btn.disabled = GameState.no_ads or int(stats.get("cash", 0)) <= 0
-	glove_btn.visible = _run_end_reason == "cracked" and GameState.should_offer_glove()
+	glove_btn.visible = _run_end_reason == "cracked" and GameState.should_offer_glove() and not bool(stats.get("daily", false))
 	glove_btn.disabled = false
 	if glove_btn.visible:
 		var pool: PackedStringArray = GameState.unowned_gloves()
@@ -202,6 +211,14 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 			glove_btn.icon = VaultSprites.cuff_for(pool[0])
 			glove_btn.expand_icon = true
 			glove_btn.add_theme_constant_override("icon_max_width", 34)
+	# The daily Big Heist hands its glove over on the card.
+	var daily_glove: String = String(stats.get("daily_glove", ""))
+	if daily_glove != "":
+		glove_btn.visible = true
+		glove_btn.icon = VaultSprites.cuff_for(daily_glove)
+		glove_btn.text = ""
+		glove_btn.disabled = true
+	_render_city(reason, stats)
 	card.visible = true
 	_render_card()
 	_announce_unlock(reason, stats)
@@ -216,7 +233,10 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 func _render_card() -> void:
 	var cracked: bool = _run_end_reason == "cracked"
 	var stage: int = int(_run_end_stats.get("stage", GameState.current_stage))
-	if cracked:
+	if cracked and bool(_run_end_stats.get("daily", false)):
+		card_title.text = tr("CARD_DAILY_DONE")
+		primary_btn.text = tr("CARD_NEXT")
+	elif cracked:
 		card_title.text = tr("CARD_CRACKED") % stage
 		primary_btn.text = tr("CARD_NEXT")
 	else:
@@ -224,9 +244,30 @@ func _render_card() -> void:
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
 	x3_btn.text = tr(_x3_key)
+	daily_btn.text = tr("CARD_DAILY")
+	daily_btn.visible = GameState.daily_available()
 	if not glove_btn.disabled:
 		glove_btn.text = tr("CARD_GLOVE_SHORT")
 	_render_shelf(cracked)
+
+
+## City strip: the vault the next run plays in. Crossing into a new city pops its icon.
+func _render_city(reason: String, stats: Dictionary) -> void:
+	var door: int = int(stats.get("door", GameState.current_stage))
+	var was: int = CityStrip.index_for(GameState.vault_type(door))
+	var next: int = was
+	if reason == "cracked" and not bool(stats.get("daily", false)):
+		next = CityStrip.index_for(GameState.vault_type(door + 1))
+	card_city.set_current(next, next != was)
+
+
+func _start_daily() -> void:
+	if not card.visible or not GameState.daily_available():
+		return
+	card.visible = false
+	var world := get_tree().get_first_node_in_group("game_world")
+	if world and world.has_method("start_run"):
+		world.start_run(true)
 
 
 ## Hideout shelf, no text: a new item lands in colour with a pop; otherwise the next

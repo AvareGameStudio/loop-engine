@@ -10,13 +10,17 @@ extends Node
 ## Movie Maker run (`--write-movie <dir>/mm.png` writes mm.wav) can be lined up.
 ## tools/ad_capture/encode_mp4.swift then builds the H.264/AAC mp4 without ffmpeg.
 ##
-## 0-4 s    hook: two strikes lit, guard on his feet, a late tap, the cuffs snap on the pick
-## 4-15 s   heist 7 (double gate), doors 2-3: chained gates, Hot Hands ignites, door flies
-## 15-27 s  golden heist, last door: fire ring, gold door, hoard rain, card with the loot roll
-## 27-30 s  hold on the card (NEXT HEIST is the call to action)
+## Always English (ad networks test in US/EN), with a tutorial finger pressing on each tap.
+## AD_HOOK picks the opening; AD_SIZE=1080 renders 1080x1920 instead of 720x1280.
+##   cuff (default): busted hook -> double-gate heist -> golden door -> loot card
+##   nearmiss:       two hair-width misses, then a Perfect streak -> golden door -> loot card
+##   golden:         golden door bursts first -> double-gate heist -> busted, end on the bribe
 
 const FPS: int = 30
 const SIZE := Vector2i(720, 1280)
+const FINGER := preload("res://tools/ad_capture/TapFinger.gd")
+## Where the fingertip rests (design coordinates): below the dial, right of the loot bag.
+const FINGER_AT := Vector2(560, 940)
 const MAIN := preload("res://scenes/Main.tscn")
 
 var _main: Node
@@ -30,9 +34,12 @@ var _auto: bool = false
 var _frames_dir: String = OS.get_environment("AD_FRAMES")
 var _view: SubViewport
 var _frame_index: int = 0
+var _hook_kind: String = OS.get_environment("AD_HOOK") if OS.get_environment("AD_HOOK") != "" else "cuff"
+var _finger: Node2D
 
 
 func _ready() -> void:
+	TranslationServer.set_locale("en")
 	GameState.no_save = true
 	GameState.auto_tap = false
 	# Clean numbers on screen: the bag climbs from a small stake, no stash from a real save.
@@ -44,20 +51,31 @@ func _ready() -> void:
 	else:
 		# Full-size render target, shown scaled in the window for a live preview.
 		var box := SubViewportContainer.new()
-		box.stretch = true
+		# No stretch: a stretching container would force the viewport down to the window size.
+		box.stretch = false
 		box.set_anchors_preset(Control.PRESET_FULL_RECT)
 		add_child(box)
 		_view = SubViewport.new()
-		_view.size = SIZE
+		var out_size: Vector2i = Vector2i(1080, 1920) if OS.get_environment("AD_SIZE") == "1080" else SIZE
+		_view.size = out_size
+		# The game is laid out at 720x1280; a bigger target renders the same layout sharper.
+		_view.size_2d_override = SIZE
+		_view.size_2d_override_stretch = true
 		_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		box.add_child(_view)
 		_view.add_child(_main)
-		_view.size = SIZE
+		_view.size = out_size
 		DirAccess.make_dir_recursive_absolute(_frames_dir)
 		var f := FileAccess.open(_frames_dir.path_join("start_frame.txt"), FileAccess.WRITE)
 		f.store_string(str(Engine.get_frames_drawn()))
 		f.close()
 		RenderingServer.frame_post_draw.connect(_grab)
+	var layer := CanvasLayer.new()
+	layer.layer = 60
+	_finger = FINGER.new()
+	_finger.position = FINGER_AT
+	layer.add_child(_finger)
+	(_view if _view else self).add_child(layer)
 	get_tree().current_scene = self
 	_run.call_deferred()
 
@@ -74,6 +92,7 @@ func _process(_delta: float) -> void:
 	var ahead: float = wrapf(angle_difference(_arena.pointer_angle, _arena.target_angle) * _arena.direction, -PI * 0.5, PI * 1.5)
 	var speed: float = _arena.rpm * TAU + absf(_arena.drift_rate())
 	if ahead / speed <= _offset:
+		_finger.tap()
 		_world._on_commit("tap", 0.0)
 
 
@@ -84,18 +103,52 @@ func _run() -> void:
 	_ui = _main.find_child("UIManager", true, false)
 	_popup = _main.find_child("RevivePopup", true, false)
 	_ui.bag.set_cash(GameState.cash, true)
-	await _hook()
-	await _double_heist()
-	await _golden_heist()
-	# End frame: only the loot and NEXT HEIST, no meta row.
-	await _frames(2)
-	_ui.card_meta.visible = false
-	await _seconds(3.0)
+	GameState.daily_last_day = GameState.today()
+	match _hook_kind:
+		"nearmiss":
+			await _hook_nearmiss()
+			await _golden_heist()
+			await _end_on_card()
+		"golden":
+			await _golden_heist()
+			await _seconds(1.2)
+			await _double_heist()
+			await _hook(false)
+			await _seconds(2.0)
+		_:
+			await _hook()
+			await _double_heist()
+			await _golden_heist()
+			await _end_on_card()
 	get_tree().quit()
 
 
+## End frame: only the loot and NEXT HEIST, no meta row.
+func _end_on_card() -> void:
+	await _frames(2)
+	_ui.card_meta.visible = false
+	_ui.daily_btn.visible = false
+	await _seconds(3.0)
+
+
+## Heist 9: a hair late, a hair early (two lamps, the guard rising), then a clean Perfect run.
+func _hook_nearmiss() -> void:
+	_start_at(25)
+	var good: float = deg_to_rad(float(_arena.windows.good) + 2.5)
+	var speed: float = _arena.rpm * TAU
+	_auto = true
+	_offset = -good / speed
+	await _wait_taps(1)
+	_offset = good / speed
+	await _wait_taps(1)
+	_offset = 0.0
+	await _wait_taps(4)
+	_auto = false
+	await _seconds(0.6)
+
+
 ## Two lamps lit, the guard up with his flashlight, then a late tap: near miss, third strike, cuffs.
-func _hook() -> void:
+func _hook(close_popup: bool = true) -> void:
 	_start_at(16)
 	GameState.raise_alarm()
 	GameState.raise_alarm()
@@ -107,7 +160,7 @@ func _hook() -> void:
 	await _wait_signal_or(EventBus.busted, 4.0)
 	_auto = false
 	await _seconds(1.3)
-	if _popup._open:
+	if close_popup and _popup._open:
 		_popup._close()
 
 
