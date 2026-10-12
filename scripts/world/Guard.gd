@@ -17,6 +17,15 @@ const LAMP := Color(1.0, 0.78, 0.4, 1.0)
 const BADGE := Color(0.95, 0.76, 0.3, 1.0)
 const ALERT := Color(1.0, 0.86, 0.25, 1.0)
 const SNORE := Color(0.75, 0.82, 1.0, 1.0)
+const STEEL := Color(0.78, 0.8, 0.86, 1.0)
+const STEEL_DARK := Color(0.32, 0.34, 0.4, 1.0)
+## Bust timeline (real seconds): the arm reaches, then the cuff ring closes on the pick tip.
+const REACH_SEC: float = 0.3
+const CLOSE_SEC: float = 0.12
+const CUFF_OPEN_R: float = 40.0
+const CUFF_SHUT_R: float = 22.0
+## Pick tip distance from the dial centre (RingPointer.length).
+const PICK_TIP: float = 200.0
 
 ## Pose keyframes in world space (camera centre 360, 560; the loot bag owns x 220–500 below the dial).
 ## Origin is the guard's waist. Pose 0 slumps forward so the head rests on the desk.
@@ -40,6 +49,10 @@ var _alert: float = 0.0
 var _alert_tween: Tween
 var _level: int = 0
 var _t: float = 0.0
+## 0..1 arm reach, 0..1 cuff closed.
+var _reach: float = 0.0
+var _shut: float = 0.0
+var _bust_tween: Tween
 
 
 func _ready() -> void:
@@ -48,6 +61,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	EventBus.alarm_changed.connect(_on_alarm)
 	EventBus.run_started.connect(_on_run_started)
+	EventBus.busted.connect(_on_busted)
+	# A bribe lets go of the pick; a bust keeps it cuffed under the card.
+	EventBus.revive_resolved.connect(func(success: bool) -> void:
+		if success:
+			_release()
+	)
 	queue_redraw()
 
 
@@ -58,6 +77,7 @@ func _process(delta: float) -> void:
 
 
 func _on_run_started() -> void:
+	_release()
 	_level = 0
 	if _pose_tween:
 		_pose_tween.kill()
@@ -86,6 +106,25 @@ func _on_alarm(level: int, _max_level: int) -> void:
 		_pose_tween.tween_method(_set_pose, 1.0, 0.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		return
 	_pose_tween.tween_method(_set_pose, _pose, float(show), 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _on_busted() -> void:
+	if _bust_tween:
+		_bust_tween.kill()
+	_reach = 0.0
+	_shut = 0.0
+	_bust_tween = create_tween()
+	_bust_tween.set_ignore_time_scale(true)
+	_bust_tween.tween_property(self, "_reach", 1.0, REACH_SEC).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	_bust_tween.tween_property(self, "_shut", 1.0, CLOSE_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	_bust_tween.tween_callback(func() -> void: EventBus.juice_hit.emit("cuffed", 1.0))
+
+
+func _release() -> void:
+	if _bust_tween:
+		_bust_tween.kill()
+	_reach = 0.0
+	_shut = 0.0
 
 
 func _set_pose(value: float) -> void:
@@ -124,6 +163,8 @@ func _draw() -> void:
 		_draw_flashlight(pos, rot, s, standing)
 	_draw_snore(head, 1.0 - awake)
 	_draw_alert(head, s)
+	if _reach > 0.0:
+		_draw_cuffs(pos, rot, s)
 
 
 ## Left-edge red spill: the first sign that something is wrong.
@@ -208,6 +249,39 @@ func _draw_flashlight(pos: Vector2, rot: float, s: float, amount: float) -> void
 	draw_circle(aim, half, Color(beam, beam.a * 0.8))
 	draw_line(shoulder, hand, Color(BODY, amount), 11.0 * s, true)
 	draw_circle(hand, 7.0 * s, Color(LAMP, amount))
+
+
+## Arm shoots from his shoulder to the pick tip; one cuff ring closes on the tip,
+## the other stays on his wrist, chain between.
+func _draw_cuffs(pos: Vector2, rot: float, s: float) -> void:
+	var arena := get_parent().get_node_or_null("Arena") as RingArena
+	if arena == null:
+		return
+	var tip: Vector2 = arena.position + Vector2.from_angle(arena.pointer_angle) * PICK_TIP
+	var shoulder: Vector2 = pos + SHOULDER.rotated(rot) * s
+	var hand: Vector2 = shoulder.lerp(tip, 0.55 * _reach)
+	var cuff_at: Vector2 = shoulder.lerp(tip, _reach)
+	draw_line(shoulder, hand, BODY, 14.0 * s, true)
+	draw_circle(hand, 9.0 * s, BODY)
+	# Chain: alternating links from the wrist ring to the tip ring.
+	var links: int = 7
+	for i in links:
+		var a: Vector2 = hand.lerp(cuff_at, float(i) / float(links))
+		var b: Vector2 = hand.lerp(cuff_at, float(i + 1) / float(links))
+		draw_line(a, b, STEEL_DARK if i % 2 == 0 else STEEL, 4.0, true)
+	_draw_cuff_ring(hand, 12.0 * s, 1.0)
+	var r: float = lerpf(CUFF_OPEN_R, CUFF_SHUT_R, _shut)
+	# Open cuff is a C; it closes to a full ring as `_shut` reaches 1.
+	_draw_cuff_ring(cuff_at, r, lerpf(0.7, 1.0, _shut))
+
+
+func _draw_cuff_ring(at: Vector2, r: float, closed: float) -> void:
+	var gap: float = (1.0 - closed) * TAU
+	var start: float = -PI * 0.5 + gap * 0.5
+	var end: float = start + TAU - gap
+	draw_arc(at, r, start, end, 32, STEEL_DARK, 9.0, true)
+	draw_arc(at, r, start, end, 32, STEEL, 4.0, true)
+	draw_arc(at, r - 3.0, start, start + (end - start) * 0.35, 12, Color(1, 1, 1, 0.8), 1.6, true)
 
 
 func _draw_snore(head: Vector2, amount: float) -> void:

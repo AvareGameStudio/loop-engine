@@ -19,6 +19,9 @@ const RING_TIME_SCALE: float = 0.2
 const RING_SLOWMO_SEC: float = 0.15
 const LAST_PIN_FREEZE: float = 0.1
 const HIT_ZOOM := Vector2(1.05, 1.05)
+const BUST_ZOOM: float = 1.12
+var _bust_active: bool = false
+var _bust_home: Vector2 = Vector2.ZERO
 
 var _shake: float = 0.0
 var _base_zoom: Vector2 = Vector2.ONE
@@ -50,6 +53,9 @@ func _ready() -> void:
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.stage_cleared.connect(_on_ring_cleared)
 	EventBus.alarm_changed.connect(_on_alarm)
+	EventBus.busted.connect(_bust_zoom)
+	EventBus.revive_resolved.connect(func(_ok: bool) -> void: _release_zoom())
+	EventBus.run_started.connect(_release_zoom)
 
 
 func _process(delta: float) -> void:
@@ -131,6 +137,12 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_add_shake(8.0)
 			_burst(16, Color(0.85, 0.92, 1.0))
 			Settings.vibrate(22)
+		"cuffed":
+			# The click: freeze on the cuffed pick. This is the ad's fail frame.
+			TimeScale.hitstop(0.4)
+			_add_shake(12.0)
+			_burst(14, Color(0.85, 0.88, 0.95))
+			Settings.vibrate(80, 1.0)
 		"combo_break":
 			_add_shake(6.0)
 			_punch(0.97)
@@ -172,6 +184,36 @@ func _alarm_flash(count: int) -> void:
 
 func _add_shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
+
+
+## Bust: push 1.12x toward the pick over 0.3 s and hold it under the bribe popup.
+func _bust_zoom() -> void:
+	if camera == null:
+		return
+	var arena := get_parent().get_node_or_null("Arena") as RingArena
+	if _zoom_tween:
+		_zoom_tween.kill()
+	_bust_home = camera.position
+	var focus: Vector2 = _bust_home
+	if arena:
+		focus = arena.position + Vector2.from_angle(arena.pointer_angle) * 200.0
+	_zoom_tween = create_tween()
+	_zoom_tween.set_ignore_time_scale(true)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom * BUST_ZOOM, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_zoom_tween.parallel().tween_property(camera, "position", _bust_home.lerp(focus, 0.35), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_bust_active = true
+
+
+func _release_zoom() -> void:
+	if not _bust_active or camera == null:
+		return
+	_bust_active = false
+	if _zoom_tween:
+		_zoom_tween.kill()
+	_zoom_tween = create_tween()
+	_zoom_tween.set_ignore_time_scale(true)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_zoom_tween.parallel().tween_property(camera, "position", _bust_home, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 ## Successful timing: zoom to 1.05, then ease back to 1.0 over 0.1s.

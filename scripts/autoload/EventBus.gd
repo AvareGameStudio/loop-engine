@@ -20,6 +20,8 @@ signal door_advanced(stage_index: int)
 signal run_started()
 ## reason: "cracked" (vault opened) or "caught" (alarm maxed, no bribe).
 signal run_ended(reason: String, stats: Dictionary)
+## Third strike: the guard cuffs the pick. Plays before revive_offered (GameWorld.BUST_BEAT).
+signal busted()
 ## The cops arrived. The player can bribe them (rewarded ad) or get caught.
 signal revive_offered(result: Dictionary)
 signal revive_resolved(success: bool)
