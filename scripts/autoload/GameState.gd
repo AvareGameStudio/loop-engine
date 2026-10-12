@@ -25,6 +25,7 @@ const VAULT_TYPE_BY_STAGE := {
 	11: "museum",
 	26: "casino",
 	51: "fort",
+	100: "moon",
 }
 
 ## Hideout shelf. One unlocks per LOOT_EVERY cracked vaults; names live in translations.
@@ -190,6 +191,9 @@ static func is_trick_intro(stage: int) -> bool:
 
 
 static func is_golden(stage: int) -> bool:
+	# The daily Big Heist always plays as a golden vault.
+	if GameState.daily_active:
+		return true
 	var h: int = heist_for(stage)
 	return h > 0 and h % GOLDEN_EVERY == 0
 
@@ -229,7 +233,37 @@ static func flips_enabled(stage: int) -> bool:
 
 ## Loot multiplier for a cracked door.
 static func loot_mult(stage: int) -> float:
+	if GameState.daily_active:
+		return DAILY_LOOT_MULT
 	return 2.0 if is_golden(stage) else 1.0
+
+
+# --- Daily Big Heist ------------------------------------------------------------
+## Once a day (UTC) after the first heist: one golden door, 5x loot, a guaranteed glove
+## (or a cash pile once every glove is owned). Retryable until cracked; it does not move
+## the career door index.
+const DAILY_LOOT_MULT: float = 5.0
+const DAILY_CASH_FALLBACK: int = 500
+var daily_active: bool = false
+var daily_last_day: int = -1
+
+
+static func today() -> int:
+	return int(Time.get_unix_time_from_system()) / 86400
+
+
+func daily_available() -> bool:
+	return complete_heists() >= 1 and daily_last_day != today()
+
+
+## Called when the daily door cracks. Returns the glove id granted, or "" for the cash pile.
+func complete_daily() -> String:
+	daily_last_day = today()
+	var glove: String = grant_random_glove()
+	if glove == "":
+		add_cash(DAILY_CASH_FALLBACK)
+	request_save()
+	return glove
 
 
 ## Cash a seated pin drops. Perfects pay a third more. No hidden score.
@@ -255,6 +289,8 @@ static func wall_color(stage: int) -> Color:
 			return Color(0.06, 0.16, 0.1, 1.0)
 		"fort":
 			return Color(0.16, 0.14, 0.1, 1.0)
+		"moon":
+			return Color(0.1, 0.08, 0.16, 1.0)
 		_:
 			return Color(0.22, 0.1, 0.14, 1.0)
 
@@ -397,6 +433,33 @@ func clear_alarm() -> void:
 	EventBus.alarm_changed.emit(session_alarm, ALARM_MAX)
 
 
+## A door cracked without a single strike: one lamp goes out and the guard settles a step.
+## Rewards clean play and stops one bad door from dooming the rest of the heist.
+func lower_alarm() -> void:
+	if session_alarm <= 0:
+		return
+	session_alarm -= 1
+	EventBus.alarm_changed.emit(session_alarm, ALARM_MAX)
+
+
+## Mercy: the same door lost twice in a row opens its gate this much wider until it cracks.
+const MERCY_AFTER_BUSTS: int = 2
+const MERCY_GOOD_DEG: float = 3.0
+var _bust_stage: int = 0
+var _bust_streak: int = 0
+
+
+func note_bust() -> void:
+	_bust_streak = _bust_streak + 1 if _bust_stage == current_stage else 1
+	_bust_stage = current_stage
+
+
+func mercy_deg() -> float:
+	if _bust_stage == current_stage and _bust_streak >= MERCY_AFTER_BUSTS:
+		return MERCY_GOOD_DEG
+	return 0.0
+
+
 const SHELL_COUNT := 200
 
 
@@ -505,6 +568,7 @@ func to_dict() -> Dictionary:
 		"auto_tap": auto_tap,
 		"auto_tap_purchased": auto_tap_purchased,
 		"stages_cleared": stages_cleared,
+		"daily_last_day": daily_last_day,
 		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
@@ -532,6 +596,7 @@ func from_dict(data: Dictionary) -> void:
 	no_ads = bool(data.get("no_ads", false))
 	lifetime_hits = int(data.get("lifetime_hits", 0))
 	stages_cleared = int(data.get("stages_cleared", 0))
+	daily_last_day = int(data.get("daily_last_day", -1))
 	auto_tap_purchased = bool(data.get("auto_tap_purchased", false))
 	# Auto-Tap is an IAP only now. The old first-ring reward no longer grants it.
 	auto_tap_unlocked = auto_tap_purchased

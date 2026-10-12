@@ -58,6 +58,7 @@ const _VAULT_ACCENT: Dictionary[String, Color] = {
 	"museum": Color(0.55, 0.35, 1.0, 0.7),
 	"casino": Color(1.0, 0.45, 0.75, 0.7),
 	"fort": Color(1.0, 0.42, 0.12, 0.7),
+	"moon": Color(0.7, 0.45, 1.0, 0.7),
 }
 const _GOLDEN_ACCENT := Color(1.0, 0.84, 0.25, 0.9)
 
