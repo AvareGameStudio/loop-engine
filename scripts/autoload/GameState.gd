@@ -144,12 +144,10 @@ static func is_first_heist(stage: int) -> bool:
 static func pins_for(stage: int) -> int:
 	var h: int = heist_for(stage)
 	var pins: int = 3
-	if h >= 17:
+	# Base tops out at 5 from heist 9: door 3 adds one (cap 6) and golden adds two (cap 8),
+	# which keeps a late heist near 30 s at the faster dial.
+	if h >= 9:
 		pins = 5
-	elif h >= 9:
-		pins = 5
-	elif h >= 4:
-		pins = 4
 	elif h >= 2:
 		pins = 4
 	if door_in_heist(stage) == 0 and h <= 1:
@@ -258,6 +256,21 @@ func unlocked_vault_types() -> PackedStringArray:
 
 func complete_heists() -> int:
 	return stages_cleared / DOORS_PER_HEIST
+
+
+## Meta opens one system at a time so the first session is dial + hideout only.
+## The Market (Wide Gate, glove skins) appears on the card that closes heist 3,
+## the Crew (offline stash) on the card that closes heist 5.
+const MARKET_UNLOCK_AFTER: int = 3
+const CREW_UNLOCK_AFTER: int = 5
+
+
+func market_unlocked() -> bool:
+	return complete_heists() >= MARKET_UNLOCK_AFTER
+
+
+func crew_unlocked() -> bool:
+	return complete_heists() >= CREW_UNLOCK_AFTER
 
 
 static func loot_count_at(cleared: int) -> int:

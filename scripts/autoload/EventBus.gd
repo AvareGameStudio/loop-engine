@@ -43,6 +43,8 @@ signal cosmetic_equipped(id: String)
 signal glove_granted(id: String)
 ## A new hideout item joined the shelf.
 signal loot_unlocked(loot_id: String)
+## Hot Hands: five Perfects in a row light the dial; pins pay double until a strike or the heist ends.
+signal hot_hands(on: bool)
 ## 0..1 tease for the next variable-ratio drop.
 signal vr_tension(value: float)
 

@@ -13,6 +13,9 @@ const REVIVE_STEP: float = 0.45
 const DDA_BAND: float = 0.15
 const NEAR_BAND_DEG: float = 5.0
 const APPROACH_DEG: float = 45.0
+## Perfects in a row that light Hot Hands. The streak carries across doors, like the combo.
+const HOT_HANDS_STREAK: int = 5
+const HOT_HANDS_MULT: int = 2
 
 @onready var arena: RingArena = $Arena
 @onready var input_proc: InputProcessor = $InputProcessor
@@ -33,6 +36,8 @@ var _doors_goal: int = 3
 var _gold_armed: bool = false
 var _gold_mult: float = 1.0
 var _approach_hot: bool = false
+var _perfect_streak: int = 0
+var _hot_hands: bool = false
 
 
 func _ready() -> void:
@@ -94,6 +99,7 @@ func start_run() -> void:
 	_gold_armed = false
 	_gold_mult = 1.0
 	_approach_hot = false
+	_set_hot_hands(false)
 	input_proc.clear_buffer()
 	input_proc.arm(true)
 	arena.last_grade = ""
@@ -179,6 +185,9 @@ func _apply_success(result: Dictionary) -> void:
 	GameState.note_landed_hit()
 	if grade == TimingEngine.Grade.PERFECT:
 		GameState.session_perfects += 1
+		_perfect_streak += 1
+	else:
+		_perfect_streak = 0
 	var drop: Dictionary = vr.register_success()
 	var gold_now: bool = _gold_armed
 	_gold_armed = false
@@ -186,8 +195,13 @@ func _apply_success(result: Dictionary) -> void:
 	if gold_now:
 		cash = maxi(cash, ceili(float(cash) * _gold_mult))
 		EventBus.juice_hit.emit("jackpot", 1.2)
+	if _hot_hands:
+		cash *= HOT_HANDS_MULT
 	GameState.session_score += cash
 	_bank_cash(cash)
+	# Lights after paying: the pins that follow pay double, not the one that lit it.
+	if not _hot_hands and _perfect_streak >= HOT_HANDS_STREAK:
+		_set_hot_hands(true)
 	if bool(drop.get("triggered", false)):
 		_gold_armed = true
 		_gold_mult = float(drop.multiplier)
@@ -272,6 +286,7 @@ func _paint_wall() -> void:
 
 ## One alarm strike. The third brings the cops: bribe (rewarded ad) or get caught.
 func _strike(result: Dictionary) -> void:
+	_set_hot_hands(false)
 	var caught: bool = GameState.raise_alarm()
 	# Instant deaths were persisting a too-hard DDA profile and making the
 	# next run feel broken (10° window at 0.73 rps, one miss → game over).
@@ -297,6 +312,7 @@ func _finish_run(reason: String, result: Dictionary) -> void:
 	input_proc.arm(false)
 	arena.spinning = false
 	_boost_cash = _run_cash
+	_set_hot_hands(false, false)
 	GameState.end_run()
 	if GameState.no_ads:
 		_grant_end_boost()
@@ -362,6 +378,21 @@ func _bank_cash(amount: int) -> void:
 		return
 	_run_cash += amount
 	GameState.add_cash(amount)
+
+
+## Any strike, the heist end or a new run puts the fire out and restarts the Perfect count.
+## `shatter` false ends it quietly (card / new run), true plays the break.
+func _set_hot_hands(on: bool, shatter: bool = true) -> void:
+	if not on:
+		_perfect_streak = 0
+	if on == _hot_hands:
+		return
+	_hot_hands = on
+	EventBus.hot_hands.emit(on)
+	if on:
+		EventBus.juice_hit.emit("hot_hands", 1.0)
+	elif shatter:
+		EventBus.juice_hit.emit("hot_hands_out", 1.0)
 
 
 ## Zeroes the live combo after a strike, a bust, or a bribe.

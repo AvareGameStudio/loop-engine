@@ -21,6 +21,8 @@ var grade: String = "":
 		queue_redraw()
 
 var combo: int = 0
+## Hot Hands: the trail doubles and burns orange.
+var hot: bool = false
 var _pulse: float = 0.0
 var _flip_flash: float = 0.0
 var _flash_tween: Tween
@@ -29,6 +31,10 @@ var _flash_tween: Tween
 func _ready() -> void:
 	EventBus.session_changed.connect(_on_session)
 	EventBus.run_started.connect(_on_session)
+	EventBus.hot_hands.connect(func(on: bool) -> void:
+		hot = on
+		queue_redraw()
+	)
 
 
 func _on_session() -> void:
@@ -63,13 +69,17 @@ func flash(seconds: float = 0.16, peak: float = 1.0) -> void:
 
 func _draw() -> void:
 	var tip := Vector2(length, 0.0)
-	if combo >= 3:
-		var gold_trail := Color(1.0, 0.84, 0.28, 0.35)
-		for i in 3:
-			var t: float = float(i + 1) / 3.0
-			var back := Vector2(-36.0 * t, direction * 4.0 * t)
-			gold_trail.a = 0.35 * (1.0 - t * 0.45)
-			draw_line(Vector2(56.0, 0.0) + back, tip * (1.0 - t * 0.08) + back, gold_trail, lerpf(7.0, 2.0, t), true)
+	if combo >= 3 or hot:
+		var trail := Color(1.0, 0.5, 0.12, 0.5) if hot else Color(1.0, 0.84, 0.28, 0.35)
+		var steps: int = 6 if hot else 3
+		# Hot Hands doubles the trail reach.
+		var stretch: float = 2.0 if hot else 1.0
+		var alpha: float = trail.a
+		for i in steps:
+			var t: float = float(i + 1) / float(steps)
+			var back := Vector2(-36.0 * t, direction * 4.0 * t) * stretch
+			trail.a = alpha * (1.0 - t * 0.45)
+			draw_line(Vector2(56.0, 0.0) + back, tip * (1.0 - t * 0.08) + back, trail, lerpf(9.0 if hot else 7.0, 2.0, t), true)
 	# Steel stethoscope arm. The red diaphragm is the contact point.
 	# Shaft starts outside the center plate so the counter never sits under the needle.
 	var root := 56.0

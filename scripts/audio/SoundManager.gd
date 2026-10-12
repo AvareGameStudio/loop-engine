@@ -14,6 +14,8 @@ var _cache: Dictionary[int, AudioStreamWAV] = {}
 var _drone: AudioStreamPlayer
 ## Each cleared ring lifts the lock pitch so the center feels closer.
 var _phase_pitch: float = 1.0
+## Hot Hands adds an octave-up layer to every landed hit.
+var _hot: bool = false
 
 
 func _ready() -> void:
@@ -32,6 +34,7 @@ func _ready() -> void:
 	EventBus.loot_unlocked.connect(func(_id: String) -> void: _play_fanfare())
 	EventBus.approach_changed.connect(_on_approach)
 	EventBus.gold_pin_armed.connect(_on_gold_armed)
+	EventBus.hot_hands.connect(func(on: bool) -> void: _hot = on)
 	_drone = AudioStreamPlayer.new()
 	_drone.stream = _bake_loop(180.0, 0.25)
 	_drone.volume_db = linear_to_db(0.07)
@@ -115,6 +118,8 @@ func _on_tap(result: Dictionary) -> void:
 				var power: float = MetaUpgrade.perfect_power()
 				volume = 0.32 * lerpf(1.0, 1.4, clampf((power - 1.0) / 1.5, 0.0, 1.0))
 			play_tone(base_freq, 0.09, volume, pitch)
+			if _hot:
+				play_tone(base_freq * 2.0, 0.07, volume * 0.45, pitch)
 		"near_miss":
 			# Siren pitch sliding down: 1.0 → 0.7 across 400 ms.
 			for i in 4:
@@ -135,6 +140,18 @@ func _on_jackpot(_mult: float, _label: String) -> void:
 
 func _on_juice(grade: String, _intensity: float) -> void:
 	match grade:
+		"hot_hands":
+			# Fast rising arpeggio: the run just caught fire.
+			for i in 5:
+				var freq: float = [523.0, 659.0, 784.0, 1046.0, 1318.0][i]
+				get_tree().create_timer(0.04 * float(i), true, false, true).timeout.connect(func() -> void:
+					play_tone(freq, 0.09, 0.22)
+				)
+		"hot_hands_out":
+			# Glass break: three bright, very short shards.
+			play_tone(3100.0, 0.03, 0.18)
+			play_tone(2350.0, 0.05, 0.16)
+			play_tone(1780.0, 0.08, 0.14)
 		"combo_break":
 			play_tone(196.0, 0.12, 0.26)
 			play_tone(147.0, 0.16, 0.22)

@@ -45,6 +45,10 @@ func accrue_offline() -> int:
 	if last <= 0 or GameState.run_active:
 		GameState.request_save()
 		return 0
+	# No crew yet, nothing stolen. The stamp above still moves so unlocking does not back-pay.
+	if not GameState.crew_unlocked():
+		GameState.request_save()
+		return 0
 	var dt: int = clampi(now - last, 0, OFFLINE_CAP_SECONDS)
 	if dt < 5:
 		return 0
@@ -87,16 +91,20 @@ static func can_afford(id: String) -> bool:
 	return GameState.cash >= cost(id)
 
 
+static func unlocked(id: String) -> bool:
+	return id != "crew" or GameState.crew_unlocked()
+
+
 static func affordable_count() -> int:
 	var n: int = 0
 	for item: Dictionary in CATALOG:
-		if can_afford(String(item.id)):
+		if unlocked(String(item.id)) and can_afford(String(item.id)):
 			n += 1
 	return n
 
 
 static func purchase(id: String) -> bool:
-	if at_cap(id) or not can_afford(id):
+	if not unlocked(id) or at_cap(id) or not can_afford(id):
 		return false
 	GameState.add_cash(-cost(id))
 	match id:
