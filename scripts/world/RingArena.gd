@@ -73,8 +73,9 @@ const CHAIN_MAX_DEG: float = 170.0
 var _has_next: bool = false
 var _next_target: float = 0.0
 ## Dark: the gate is fully lit within DARK_FULL_DEG ahead of the pick and gone past DARK_EDGE_DEG.
-const DARK_FULL_DEG: float = 60.0
-const DARK_EDGE_DEG: float = 110.0
+## 140/80 after the first-session sim: at 110/60 the heist-11 intro busted average players three times.
+const DARK_FULL_DEG: float = 80.0
+const DARK_EDGE_DEG: float = 140.0
 const DARK_DOOR := Color(0.42, 0.42, 0.5, 1.0)
 ## Next tumbler is a gold pin (variable-ratio drop).
 var gold_pin: bool = false

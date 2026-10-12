@@ -15,8 +15,10 @@ const BUST_BEAT: float = 0.9
 const DDA_BAND: float = 0.15
 const NEAR_BAND_DEG: float = 5.0
 const APPROACH_DEG: float = 45.0
-## Perfects in a row that light Hot Hands. The streak carries across doors, like the combo.
-const HOT_HANDS_STREAK: int = 5
+## Perfects that light Hot Hands. The streak carries across doors, like the combo; a Good
+## neither counts nor breaks it, only a strike does. At five-in-a-row the simulated casual
+## player never saw it in twelve heists.
+const HOT_HANDS_STREAK: int = 4
 const HOT_HANDS_MULT: int = 2
 
 @onready var arena: RingArena = $Arena
@@ -191,8 +193,6 @@ func _apply_success(result: Dictionary) -> void:
 	if grade == TimingEngine.Grade.PERFECT:
 		GameState.session_perfects += 1
 		_perfect_streak += 1
-	else:
-		_perfect_streak = 0
 	var drop: Dictionary = vr.register_success()
 	var gold_now: bool = _gold_armed
 	_gold_armed = false
