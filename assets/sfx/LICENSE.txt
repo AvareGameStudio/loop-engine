@@ -1,0 +1,13 @@
+Sound effects in this folder are by Kenney (www.kenney.nl), released under
+Creative Commons Zero (CC0): http://creativecommons.org/publicdomain/zero/1.0/
+Credit is not required; it is given here anyway.
+
+pin_1.ogg   <- Interface Sounds 1.0  click_002.ogg
+pin_2.ogg   <- Interface Sounds 1.0  click_003.ogg
+door_1.ogg  <- Impact Sounds 1.0     impactMetal_heavy_000.ogg
+door_2.ogg  <- Impact Sounds 1.0     impactMetal_heavy_002.ogg
+loot_1.ogg  <- Casino Audio          chips-collide-1.ogg
+loot_2.ogg  <- Casino Audio          chips-collide-2.ogg
+miss_1.ogg  <- Impact Sounds 1.0     impactPlate_heavy_000.ogg
+cuff_1.ogg  <- Impact Sounds 1.0     impactMetal_light_002.ogg
+glass_1.ogg <- Impact Sounds 1.0     impactGlass_light_002.ogg
