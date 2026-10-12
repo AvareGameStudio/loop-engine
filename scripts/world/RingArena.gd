@@ -99,6 +99,15 @@ const HOT_CORE := Color(1.0, 0.8, 0.35, 1.0)
 var _hot: float = 0.0
 var _hot_tween: Tween
 var _hot_t: float = 0.0
+## Miss ghost: where the gate was and how far the pick stopped from it, so a miss
+## reads as "a hair late" instead of "unfair". Survives the respawn, then fades.
+const GHOST_HOLD: float = 0.45
+const GHOST_FADE: float = 0.35
+var _ghost: float = 0.0
+var _ghost_tween: Tween
+var _ghost_target: float = 0.0
+var _ghost_pointer: float = 0.0
+var _ghost_good: float = 16.0
 
 
 func _ready() -> void:
@@ -203,6 +212,40 @@ func _on_tap(result: Dictionary) -> void:
 		jam()
 		if pin:
 			pin.eject()
+		_show_ghost(result)
+
+
+func _show_ghost(result: Dictionary) -> void:
+	_ghost_target = float(result.get("target", target_angle))
+	_ghost_pointer = float(result.get("pointer", pointer_angle))
+	_ghost_good = float(windows.good)
+	if _ghost_tween:
+		_ghost_tween.kill()
+	_ghost = 1.0
+	_ghost_tween = create_tween()
+	_ghost_tween.set_ignore_time_scale(true)
+	_ghost_tween.tween_interval(GHOST_HOLD)
+	_ghost_tween.tween_method(func(v: float) -> void:
+		_ghost = v
+		queue_redraw()
+	, 1.0, 0.0, GHOST_FADE)
+	queue_redraw()
+
+
+## Ghost gate at the old target, plus a white gap from where the pick stopped to the
+## nearest gate edge and a red tick at the stop. White so it never blends into the red near band.
+func _draw_miss_ghost() -> void:
+	var half: float = deg_to_rad(_ghost_good)
+	draw_arc(Vector2.ZERO, radius, _ghost_target - half, _ghost_target + half, 32, Color(0.2, 0.95, 0.4, 0.4 * _ghost), 24.0, true)
+	var rim := Color(0.55, 1.0, 0.65, 0.9 * _ghost)
+	draw_arc(Vector2.ZERO, radius - 13.0, _ghost_target - half, _ghost_target + half, 32, rim, 3.0, true)
+	draw_arc(Vector2.ZERO, radius + 13.0, _ghost_target - half, _ghost_target + half, 32, rim, 3.0, true)
+	var delta: float = angle_difference(_ghost_target, _ghost_pointer)
+	var edge: float = _ghost_target + signf(delta) * half
+	var stop_at: float = _ghost_target + delta
+	draw_arc(Vector2.ZERO, radius, minf(edge, stop_at), maxf(edge, stop_at), 16, Color(1, 1, 1, 0.95 * _ghost), 7.0, true)
+	var stop := Vector2.from_angle(_ghost_pointer)
+	draw_line(stop * (radius - 22.0), stop * (radius + 22.0), Color(1.0, 0.25, 0.3, _ghost), 6.0, true)
 
 
 func jam() -> void:
@@ -399,6 +442,8 @@ func _draw() -> void:
 		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
 	if _hot > 0.0:
 		_draw_hot_ring()
+	if _ghost > 0.0:
+		_draw_miss_ghost()
 	if _telegraph > 0.0:
 		_draw_flip_chevrons()
 	_draw_window()

@@ -76,7 +76,7 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
 | Event | What happens |
 |---|---|
-| Miss / Near-Miss | Alarm +1 (lamp lights, short red flash, pin ejects, dial jams ±3° for 200 ms). Seated pins are kept. The same vault keeps spinning. |
+| Miss / Near-Miss | Alarm +1 (lamp lights, short red flash, pin ejects, dial jams ±3° for 200 ms). A **miss ghost** keeps the old gate (green), a white gap to where the pick stopped and a red stop tick on the dial for 0.45 s, then fades over 0.35 s, past the respawn. Seated pins are kept. The same vault keeps spinning. |
 | Third strike | Spotlight hardens + strobe + siren. Heist 1 cuts the light (no strobe, no bust). Heist 2+: `revive_offered` → **Bribe the Cops**. |
 | Bribe taken | Alarm resets, 3-2-1 countdown, same vault continues with its seated pins. |
 | Bribe skipped | `run_ended("caught")` → BUSTED card → Try Again on the same vault. |
