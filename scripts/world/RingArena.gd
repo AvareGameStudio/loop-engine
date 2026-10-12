@@ -93,6 +93,12 @@ var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
 ## Transparent on the piggy bank, so the opening dial is unchanged.
 var _theme_accent: Color = Color(0, 0, 0, 0)
+## Dark track under the gate ring: the door art (rust, inlays, gems) never shows through
+## where the pick travels, so the green gate reads on every door. README dark field #0B1020.
+const TRACK := Color(0.043, 0.063, 0.125, 0.85)
+const TRACK_WIDTH: float = 36.0
+const GATE_WIDTH: float = 26.0
+const PERFECT_WIDTH: float = 10.0
 ## Hot Hands fire ring, 0..1. Orange so it never competes with the golden-heist dial.
 const HOT := Color(1.0, 0.45, 0.1, 1.0)
 const HOT_CORE := Color(1.0, 0.8, 0.35, 1.0)
@@ -429,13 +435,14 @@ func _draw() -> void:
 		draw_circle(center, (radius - 20.0) * _door, Color(1.0, 0.78, 0.25, 0.2 + 0.55 * _door))
 	_draw_crack_light()
 
+	draw_arc(center, radius, 0.0, TAU, 96, TRACK, TRACK_WIDTH, true)
 	var near: float = float(windows.near)
 	var red_band: float = near - float(windows.good)
 	_draw_side_bands(near, near + red_band * outer_band_ratio, outer_band_color, 8.0)
 	_draw_window_arc(near, danger.lerp(Color(0.25, 0.08, 0.1, 0.55), 0.4), 12.0)
 	# The gate the pick has to hit.
-	_draw_window_arc(float(windows.good), _gate, 20.0)
-	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), 8.0)
+	_draw_window_arc(float(windows.good), _gate, GATE_WIDTH)
+	_draw_window_arc(float(windows.perfect), Color(1.0, 0.84, 0.2, 0.95), PERFECT_WIDTH)
 	if _bezel_flash > 0.0:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
 	if _theme_accent.a > 0.0:

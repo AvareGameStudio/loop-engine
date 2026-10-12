@@ -113,6 +113,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 Guidelines for production art:
 
 1. One dark field (`#0B1020`), one accent (green gate), one danger (red), one loot (gold).
+   The gate ring sits on a 36 px `#0B1020` track (85%) so door art never shows under the pick. Gate 26 px, Perfect slice 10 px.
 2. Hit feedback is **time** (hitstop) before **particles**.
 3. Near-miss uses *longer* hitstop than Perfect.
 4. Golden vault is the only time the whole dial may go gold.

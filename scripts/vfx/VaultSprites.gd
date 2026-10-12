@@ -74,12 +74,13 @@ static func _door(stage: int = 1) -> Image:
 			if dist >= 58.0 and rust_cover > 0.0:
 				var flake := _unit(int(x / 10), int(y / 10))
 				if flake < rust_cover:
-					var pit := _unit(x * 3 + 11, y * 5 + 7)
+					# Pits span the middle 60% of lo..hi: 40% less noise behind the gate.
+					var pit := 0.2 + 0.6 * _unit(x * 3 + 11, y * 5 + 7)
 					var crust := rust_lo.lerp(rust_hi, pit)
 					var thick := clampf((rust_cover - flake) / 0.22, 0.35, 1.0)
 					col = col.lerp(crust, thick)
 				elif flake - rust_cover < 0.045:
-					col = col.lerp(metal.lightened(0.45), 0.65)
+					col = col.lerp(metal.lightened(0.45), 0.4)
 			img.set_pixel(x, y, col)
 	var bolt_cap := metal.lerp(rust_hi, rust_cover)
 	var bolt_sink := metal.darkened(0.55).lerp(rust_lo, rust_cover)
