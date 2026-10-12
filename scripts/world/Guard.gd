@@ -44,6 +44,11 @@ const DOZE_DELAY: float = 0.8
 ## Canva sprites (assets/art). Without them the silhouette below is drawn in code.
 const SLEEP_ART := "res://assets/art/guard_sleep.png"
 const ALERT_ART := "res://assets/art/guard_alert.png"
+## Head up, flashlight raised at the dial: the pose for strikes 2-3.
+const AIM_ART := "res://assets/art/guard_aim.png"
+const AIM_LENS := Vector2(0.9, 0.2)
+const AIM_HEAD := Vector2(0.38, 0.12)
+var _aim_tex: Texture2D = load(AIM_ART) if ResourceLoader.exists(AIM_ART) else null
 ## Feet (bottom-centre) in world space and sprite height per pose: asleep at the desk, then
 ## up and growing as he steps toward the dial. The loot bag owns x 220-500 below the dial.
 const ART_FEET: Array[Vector2] = [Vector2(116, 1090), Vector2(108, 1090), Vector2(116, 1090), Vector2(124, 1090)]
@@ -196,18 +201,27 @@ func _draw_art() -> void:
 	var awake: float = clampf((_pose - 0.3) / 0.4, 0.0, 1.0)
 	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
 	_draw_spill(clampf(_pose, 0.0, 1.0))
+	# Alert (looking ahead) hands over to the aiming pose between pose 1.3 and 1.7.
+	var aim: float = clampf((_pose - 1.3) / 0.4, 0.0, 1.0) if _aim_tex else 0.0
 	var sleep_rect := _feet_rect(_sleep_tex, feet, ART_HEIGHT[0] * punch)
 	var alert_rect := _feet_rect(_alert_tex, feet, height)
+	var aim_rect := _feet_rect(_aim_tex, feet, height) if _aim_tex else alert_rect
 	if awake < 1.0:
 		draw_texture_rect(_sleep_tex, sleep_rect, false, Color(1, 1, 1, 1.0 - awake))
-	if awake > 0.0:
-		draw_texture_rect(_alert_tex, alert_rect, false, Color(1, 1, 1, awake))
+	if awake > 0.0 and aim < 1.0:
+		draw_texture_rect(_alert_tex, alert_rect, false, Color(1, 1, 1, awake * (1.0 - aim)))
+	if aim > 0.0:
+		draw_texture_rect(_aim_tex, aim_rect, false, Color(1, 1, 1, awake * aim))
 	var lens: Vector2 = alert_rect.position + alert_rect.size * ALERT_LENS
+	if aim > 0.5:
+		lens = aim_rect.position + aim_rect.size * AIM_LENS
 	if standing > 0.0:
 		_draw_beam(lens, standing)
 	var head: Vector2 = sleep_rect.position + sleep_rect.size * SLEEP_HEAD
 	if awake > 0.5:
 		head = alert_rect.position + alert_rect.size * ALERT_HEAD
+	if aim > 0.5:
+		head = aim_rect.position + aim_rect.size * AIM_HEAD
 	_draw_snore(head, 1.0 - awake)
 	_draw_alert(head, height / 200.0)
 	if _reach > 0.0:
