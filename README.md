@@ -152,6 +152,27 @@ Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before cla
 
 ---
 
+## Ad capture (CPI test creative)
+
+`tools/ad_capture/AdCapture.tscn` plays a scripted ~30 s cut of the real game with a director instead of a player, and never writes the save (`GameState.no_save`):
+
+| Time | Beat |
+|---|---|
+| 0–4 s | Hook: two lamps lit, guard on his feet, one clean pin, then a late tap → third strike → cuffs snap on the pick |
+| 4–15 s | Heist 7 (double gate), doors 2–3: chained gates, Hot Hands ignites, doors fly |
+| 15–27 s | Golden heist, last door: gold dial, fire ring, hoard rain, card rolling the loot |
+| 27–30 s | Hold on the card (`NEXT HEIST` is the call to action) |
+
+Record a full-size mp4 (works on a laptop screen, no ffmpeg; macOS with the Swift toolchain):
+
+```bash
+mkdir -p /tmp/ad/frames
+AD_FRAMES=/tmp/ad/frames godot --path . --write-movie /tmp/ad/mm.png --fixed-fps 30 --resolution 720x1280 res://tools/ad_capture/AdCapture.tscn
+swift tools/ad_capture/encode_mp4.swift /tmp/ad/frames /tmp/ad/mm.wav ad.mp4 30
+```
+
+`AD_FRAMES` renders the game in a 720x1280 SubViewport and saves a JPG per frame; Movie Maker's own (window-sized) PNGs can be deleted, its `mm.wav` is the audio. Without `AD_FRAMES`, `--write-movie ad.avi` records the window as MJPEG AVI. Keep `tools/` out of export presets.
+
 ## Next production steps
 
 1. Swap mock ads for a mediation SDK and store IAP receipts.

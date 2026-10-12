@@ -73,6 +73,8 @@ var dda_near_deg: float = 22.0
 const SAVE_DEBOUNCE: float = 1.5
 
 var _save_pending: bool = false
+## Tools (ad capture, simulations) set this so they never touch the player's save.
+var no_save: bool = false
 
 
 func _ready() -> void:
@@ -678,7 +680,7 @@ func equip_dial(id: String) -> void:
 
 
 func request_save() -> void:
-	if _save_pending:
+	if _save_pending or no_save:
 		return
 	_save_pending = true
 	get_tree().create_timer(SAVE_DEBOUNCE, true, false, true).timeout.connect(save_game)
@@ -686,6 +688,8 @@ func request_save() -> void:
 
 func save_game() -> void:
 	_save_pending = false
+	if no_save:
+		return
 	# Write-then-rename: a crash mid-write can never truncate the real save.
 	var tmp_path: String = SAVE_PATH + ".tmp"
 	var file := FileAccess.open(tmp_path, FileAccess.WRITE)
