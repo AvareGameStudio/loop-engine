@@ -1,7 +1,7 @@
 extends CanvasLayer
-## HUD (vault number, alarm lamps, grade, loot bag), the end-of-vault card, and
-## market / stash entry points. Fully signal-driven.
-## HUD rule: three things on screen during play. Vault number, lamps, bag. Nothing else.
+## HUD (door pips, alarm lamps, grade, loot bag) and the end-of-heist card, which
+## holds the market / stash entry points. Fully signal-driven.
+## HUD rule: three things on screen during play. Door pips, lamps, bag. No buttons, no labels.
 
 const GRADE_COLORS: Dictionary[String, Color] = {
 	"perfect": Color(1.0, 0.86, 0.3),
@@ -12,13 +12,11 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 ## Combo label shows from this streak up; below it the grade word is enough.
 const COMBO_SHOW_FROM: int = 3
 
-@onready var vault_label: Label = $HUD/Vault
+@onready var pips: DoorPips = $HUD/Pips
 @onready var lamps: AlarmLamps = $HUD/Lamps
 @onready var grade_label: Label = $HUD/Grade
 @onready var combo_label: Label = $HUD/Combo
 @onready var bag: LootBag = $HUD/Bag
-@onready var market_btn: Button = $HUD/Actions/Market
-@onready var stash_btn: Button = $HUD/Actions/Stash
 @onready var card: Control = $Card
 @onready var card_panel: Control = $Card/Panel
 @onready var card_title: Label = $Card/Panel/Margin/VBox/Title
@@ -28,7 +26,8 @@ const COMBO_SHOW_FROM: int = 3
 @onready var card_shelf_text: Label = $Card/Panel/Margin/VBox/Shelf/ShelfText
 @onready var primary_btn: Button = $Card/Panel/Margin/VBox/Primary
 @onready var x3_btn: Button = $Card/Panel/Margin/VBox/X3
-@onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Market
+@onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Meta/Market
+@onready var stash_btn: Button = $Card/Panel/Margin/VBox/Meta/Stash
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
@@ -52,7 +51,6 @@ func _ready() -> void:
 	primary_btn.pressed.connect(_primary)
 	x3_btn.pressed.connect(_x3)
 	glove_btn.pressed.connect(_glove_ad)
-	market_btn.pressed.connect(market_popup.open)
 	card_market_btn.pressed.connect(market_popup.open)
 	stash_btn.pressed.connect(_open_stash)
 	card_shelf_text.gui_input.connect(_on_shelf_input)
@@ -68,16 +66,17 @@ func _ready() -> void:
 	EventBus.run_ended.connect(_on_run_end)
 	EventBus.run_started.connect(_on_run_start)
 	EventBus.stage_cleared.connect(_on_stage)
+	EventBus.door_advanced.connect(func(_stage: int) -> void: _refresh_pips())
 	EventBus.loot_unlocked.connect(func(id: String) -> void: _loot_popped = id)
 	EventBus.ad_finished.connect(_on_ad)
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.stash_ready.connect(_on_stash_ready)
 	EventBus.glove_granted.connect(_on_glove_granted)
-	stash_btn.pivot_offset = Vector2(100, 28)
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()
+	_refresh_pips()
 	_refresh_stash()
 	lamps.set_level(GameState.session_alarm, GameState.ALARM_MAX)
 
@@ -97,11 +96,15 @@ func _refresh_texts() -> void:
 
 
 func _refresh_session() -> void:
-	var stage: int = GameState.current_stage
-	var heist: int = GameState.heist_for(stage)
-	var key: String = "HUD_HEIST_GOLDEN" if GameState.is_golden(stage) else "HUD_HEIST"
-	vault_label.text = tr(key) % heist
 	combo_label.visible = false
+
+
+## Run start and next door only. A crack moves current_stage on before the card,
+## so refreshing on session_changed would wipe the gold pop of the last door.
+## Doors already cracked this heist sit gold; a bust retries the current door.
+func _refresh_pips() -> void:
+	var stage: int = GameState.current_stage
+	pips.set_state(GameState.door_in_heist(stage), GameState.DOORS_PER_HEIST, GameState.is_golden(stage))
 
 
 func _on_tap(result: Dictionary) -> void:
@@ -151,6 +154,7 @@ func _refresh_stash() -> void:
 	stash_btn.visible = n > 0
 	if n > 0:
 		stash_btn.text = tr("HUD_STASH") % n
+		stash_btn.pivot_offset = stash_btn.size * 0.5
 
 
 func _on_stash_ready(_amount: int) -> void:
@@ -170,7 +174,8 @@ func _open_stash() -> void:
 
 
 ## Door open: the loot is in the air; the bag catches it half a second later.
-func _on_stage(_index: int, _payout: int) -> void:
+func _on_stage(index: int, _payout: int) -> void:
+	pips.crack(GameState.door_in_heist(index))
 	get_tree().create_timer(0.55, true, false, true).timeout.connect(func() -> void:
 		if is_instance_valid(bag):
 			bag.bounce(1.14)
@@ -199,6 +204,7 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(card_panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_roll_loot(int(stats.get("cash", 0)))
+	_refresh_stash()
 
 
 func _render_card() -> void:
@@ -256,6 +262,7 @@ func _on_run_start() -> void:
 	glove_btn.visible = false
 	_loot_popped = ""
 	_refresh_session()
+	_refresh_pips()
 
 
 func _on_card_dim(event: InputEvent) -> void:
@@ -317,5 +324,4 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 func _refresh_market() -> void:
 	var affordable: int = MetaUpgrade.affordable_count()
 	var text: String = tr("HUD_MARKET_COUNT") % affordable if affordable > 0 else tr("HUD_MARKET")
-	market_btn.text = text
 	card_market_btn.text = text

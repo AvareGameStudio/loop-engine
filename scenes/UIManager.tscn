@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/ui/AlarmLamps.gd" id="8_lamps"]
 [ext_resource type="Script" path="res://scripts/ui/QuestRing.gd" id="9_ring"]
 [ext_resource type="PackedScene" path="res://scenes/HideoutPopup.tscn" id="10_hideout"]
+[ext_resource type="Script" path="res://scripts/ui/DoorPips.gd" id="11_pips"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -24,30 +25,24 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Vault" type="Label" parent="HUD"]
+[node name="Pips" type="Control" parent="HUD"]
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 28.0
-offset_top = 36.0
-offset_right = -104.0
-offset_bottom = 84.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -110.0
+offset_top = 38.0
+offset_right = 110.0
+offset_bottom = 98.0
+grow_horizontal = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-theme_override_colors/font_outline_color = Color(0.04, 0.03, 0.02, 1)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 32
-text = "HEIST 1"
-vertical_alignment = 1
+script = ExtResource("11_pips")
 
 [node name="Lamps" type="Control" parent="HUD"]
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
 offset_left = 28.0
-offset_top = 90.0
-offset_right = 200.0
-offset_bottom = 118.0
+offset_top = 52.0
+offset_right = 148.0
+offset_bottom = 84.0
 mouse_filter = 2
 script = ExtResource("8_lamps")
 
@@ -103,35 +98,6 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 script = ExtResource("7_bag")
-
-[node name="Actions" type="HBoxContainer" parent="HUD"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 28.0
-offset_top = -100.0
-offset_right = -28.0
-offset_bottom = -40.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_constants/separation = 12
-
-[node name="Market" type="Button" parent="HUD/Actions"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
-text = "HUD_MARKET"
-
-[node name="Stash" type="Button" parent="HUD/Actions"]
-visible = false
-custom_minimum_size = Vector2(200, 56)
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-theme_override_font_sizes/font_size = 20
-text = "HUD_STASH"
 
 [node name="Card" type="Control" parent="."]
 visible = false
@@ -243,10 +209,23 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "CARD_GLOVE"
 
-[node name="Market" type="Button" parent="Card/Panel/Margin/VBox"]
+[node name="Meta" type="HBoxContainer" parent="Card/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Market" type="Button" parent="Card/Panel/Margin/VBox/Meta"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "HUD_MARKET"
+
+[node name="Stash" type="Button" parent="Card/Panel/Margin/VBox/Meta"]
+visible = false
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+text = "HUD_STASH"
 
 [node name="SettingsButton" type="Button" parent="."]
 custom_minimum_size = Vector2(64, 64)

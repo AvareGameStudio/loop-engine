@@ -23,13 +23,13 @@ Main.tscn                          boot composition
 │   ├── MetaUpgrade                Crew (offline stash) + Wide Gate
 │   └── Juice                      hitstop / shake / loot fly / alarm / haptics
 ├── UIManager.tscn
-│   ├── HUD                        HEIST N · lamps · grade word · loot bag · Market / Stash
-│   ├── Card                       end-of-heist: CRACKED / BUSTED, loot roll, hideout, 3x ad
+│   ├── HUD                        door pips · lamps · grade word · loot bag (no buttons in play)
+│   ├── Card                       end-of-heist: CRACKED / BUSTED, loot roll, hideout, 3x ad, Market · Stash
 │   ├── RevivePopup.tscn           third strike → Bribe the Cops (rewarded) or Get Caught
 │   ├── SettingsPopup.tscn         language / sound / vibration (+ Auto-Crack if purchased)
 │   ├── MarketPopup.tscn           Crew, Wide Gate, cuff skins
 │   ├── HideoutPopup.tscn          12-item room
-│   └── ClaimPopup.tscn            Crew stash collect (HUD tap only)
+│   └── ClaimPopup.tscn            Crew stash collect (card Stash button only)
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
@@ -48,6 +48,7 @@ Autoloads: EventBus, Settings, GameState, TimeScale (sole writer of Engine.time_
 | `scripts/ui/UIManager.gd` | HUD + end-of-heist card |
 | `scripts/ui/LootBag.gd` | Duffel bag: rolling cash number, gold fill, bounce on loot |
 | `scripts/ui/AlarmLamps.gd` | Three wall lamps, no text |
+| `scripts/ui/DoorPips.gd` | Three door icons: cracked gold, current steel, ahead dark |
 | `scripts/ui/QuestRing.gd` | Unfinished ring for the next hideout item (card only) |
 | `scripts/ui/RevivePopup.gd` | Bribe the Cops |
 | `scripts/vfx/VaultSprites.gd` | Painted door per vault, tumbler, tap hand, gold bar, gem |
@@ -91,7 +92,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **End-of-heist card**: `HEIST N CRACKED`, loot roll, hideout ring (tap opens the room), `NEXT HEIST`, `3x LOOT`, optional `WATCH FOR GLOVES` every 4 heists.
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
 - **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
-- **Crew stash**: HUD chip only. The Claim popup no longer auto-opens on focus.
+- **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
 - **Auto-Crack** is IAP-only.
 
 ---

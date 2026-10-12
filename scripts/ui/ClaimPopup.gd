@@ -59,7 +59,7 @@ func _notification(what: int) -> void:
 		_refresh()
 
 
-## `from_player` is the HUD chip tap. Auto `stash_ready` never steals a live vault.
+## `from_player` is the card Stash tap. Auto `stash_ready` never steals a live vault.
 func open(_amount: int = 0, from_player: bool = false) -> void:
 	if GameState.unclaimed_cash <= 0:
 		return
