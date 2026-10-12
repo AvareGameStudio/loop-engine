@@ -9,6 +9,11 @@ static var hand: Texture2D
 static var gold: Texture2D
 static var gem: Texture2D
 static var _door_stage: int = -1
+## Painted Canva art (tools/art/prepare_art.gd). When a file is missing the procedural
+## version below is used, so the game still runs from a bare checkout of the code.
+const ART_DIR := "res://assets/art/"
+static var _art_door: Texture2D
+static var _art_checked: bool = false
 static var _loot: Dictionary = {}
 static var _cuffs: Dictionary = {}
 
@@ -23,8 +28,11 @@ static func ensure() -> void:
 
 
 ## One painted door for the current ring. Stage 1 is solid rust; stage 200 is gem-set ore.
+## With the Canva art the texture is one steel door; door_tint() carries the career instead.
 static func door_for(stage: int) -> Texture2D:
 	ensure()
+	if _door_art() != null:
+		return _art_door
 	var safe: int = maxi(stage, 1)
 	# Cache key changes every ring through the rust, then every two rings.
 	# Paint with the real stage: the key is not a stage index.
@@ -34,6 +42,36 @@ static func door_for(stage: int) -> Texture2D:
 	door = ImageTexture.create_from_image(_door(safe))
 	_door_stage = key
 	return door
+
+
+static func _door_art() -> Texture2D:
+	if not _art_checked:
+		_art_checked = true
+		var path := ART_DIR + "door.png"
+		if ResourceLoader.exists(path):
+			_art_door = load(path)
+	return _art_door
+
+
+## Porthole radius as a fraction of the door texture width (loot shows through it).
+static func door_hole_ratio() -> float:
+	return 67.7 / 640.0 if _door_art() != null else 46.0 / 320.0
+
+
+## Half the square frame as a fraction of the texture width (crack light hugs it).
+static func door_frame_ratio() -> float:
+	return 0.47
+
+
+## Art door: rust warms it, then each metal stop tints the steel (copper, gold, platinum...).
+static func door_tint(stage: int) -> Color:
+	if _door_art() == null:
+		return Color.WHITE
+	var metal: Color = GameState.shell_metal(stage)
+	var peak: float = maxf(metal.r, maxf(metal.g, metal.b))
+	var tint := Color(metal.r / peak, metal.g / peak, metal.b / peak)
+	var out := Color.WHITE.lerp(tint, 0.55)
+	return out.lerp(Color(1.0, 0.74, 0.56), GameState.shell_rust(stage) * 0.6)
 
 
 static func _door(stage: int = 1) -> Image:
@@ -249,9 +287,18 @@ static func loot_icon(id: String) -> Texture2D:
 		id = "gold"
 	if _loot.has(id):
 		return _loot[id]
+	var art := ART_DIR + "loot_%s.png" % id
+	if ResourceLoader.exists(art):
+		_loot[id] = load(art)
+		return _loot[id]
 	var tex := ImageTexture.create_from_image(_loot_image(id))
 	_loot[id] = tex
 	return tex
+
+
+## Sprites authored for the 64 px procedural icons multiply their scale by this.
+static func loot_scale(tex: Texture2D) -> float:
+	return 64.0 / float(maxi(tex.get_width(), 1))
 
 
 static func _loot_image(id: String) -> Image:

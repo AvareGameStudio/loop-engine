@@ -411,10 +411,12 @@ func _fly_loot() -> void:
 		dest = bag.get_global_rect().get_center()
 	var tw := sprite.create_tween()
 	tw.set_ignore_time_scale(true)
-	tw.tween_property(sprite, "scale", Vector2(1.35, 1.35), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.08)
+	# Scales were authored for 64 px icons; the Canva loot is larger.
+	var k: float = VaultArt.loot_scale(sprite.texture)
+	tw.tween_property(sprite, "scale", Vector2.ONE * 1.35 * k, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(sprite, "scale", Vector2.ONE * k, 0.08)
 	tw.tween_property(sprite, "position", dest, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(sprite, "scale", Vector2(0.35, 0.35), 0.5)
+	tw.parallel().tween_property(sprite, "scale", Vector2.ONE * 0.35 * k, 0.5)
 	tw.tween_callback(sprite.queue_free)
 
 

@@ -66,6 +66,16 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.043137, 0.047059, 0.062745, 1)
 
+[node name="Wall" type="TextureRect" parent="Background"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
 [node name="FX" type="CanvasLayer" parent="."]
 layer = 6
 

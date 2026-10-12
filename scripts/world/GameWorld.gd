@@ -295,6 +295,15 @@ func _paint_wall() -> void:
 	if fill:
 		var wall: Color = GameState.wall_color(GameState.current_stage)
 		fill.color = wall.darkened(0.6) if arena.trick == "dark" else wall
+	# Painted room per vault type (assets/art/bg_<type>.jpg); the flat colour stays underneath.
+	var room := get_node_or_null("Background/Wall") as TextureRect
+	if room == null:
+		return
+	var stage: int = GameState.current_stage
+	var path := "res://assets/art/bg_%s.jpg" % GameState.vault_type(stage)
+	room.texture = load(path) if ResourceLoader.exists(path) else null
+	var tint := Color(1.15, 1.0, 0.7) if GameState.is_golden(stage) else Color.WHITE
+	room.modulate = tint * Color(0.45, 0.45, 0.5) if arena.trick == "dark" else tint
 
 
 ## The heist's trick applies to all three doors; the intro heist flashes the bezel on each.
