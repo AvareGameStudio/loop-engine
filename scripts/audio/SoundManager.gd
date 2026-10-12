@@ -181,6 +181,10 @@ func _on_juice(grade: String, _intensity: float) -> void:
 			play_tone(3900.0, 0.02, 0.22)
 			play_tone(2600.0, 0.04, 0.3)
 			play_tone(180.0, 0.1, 0.34)
+		"revive_tick":
+			# Clock tick for the bribe countdown's last two seconds.
+			play_tone(1320.0, 0.03, 0.28)
+			play_tone(660.0, 0.05, 0.18)
 		"combo_break":
 			play_tone(196.0, 0.12, 0.26)
 			play_tone(147.0, 0.16, 0.22)
