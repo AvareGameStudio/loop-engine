@@ -94,6 +94,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
 - **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
 - **Auto-Crack** is IAP-only.
+- **Meta unlocks one system at a time.** Heists 1–3: dial + hideout only. The card closing heist 3 shows a gold `NEW! Market` (Wide Gate, glove skins); the card closing heist 5 shows `NEW! Hire a crew` and the crew starts stealing from then on (no back-pay). Constants: `GameState.MARKET_UNLOCK_AFTER`, `CREW_UNLOCK_AFTER`.
 
 ---
 

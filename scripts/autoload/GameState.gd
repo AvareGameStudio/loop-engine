@@ -260,6 +260,21 @@ func complete_heists() -> int:
 	return stages_cleared / DOORS_PER_HEIST
 
 
+## Meta opens one system at a time so the first session is dial + hideout only.
+## The Market (Wide Gate, glove skins) appears on the card that closes heist 3,
+## the Crew (offline stash) on the card that closes heist 5.
+const MARKET_UNLOCK_AFTER: int = 3
+const CREW_UNLOCK_AFTER: int = 5
+
+
+func market_unlocked() -> bool:
+	return complete_heists() >= MARKET_UNLOCK_AFTER
+
+
+func crew_unlocked() -> bool:
+	return complete_heists() >= CREW_UNLOCK_AFTER
+
+
 static func loot_count_at(cleared: int) -> int:
 	var heists: int = cleared / DOORS_PER_HEIST
 	if heists <= 3:

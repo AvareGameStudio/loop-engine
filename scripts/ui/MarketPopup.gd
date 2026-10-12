@@ -132,11 +132,13 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 func _refresh() -> void:
 	balance_label.text = tr("MARKET_BALANCE") % GameState.cash
 	passive_label.text = tr("MARKET_PASSIVE")
+	passive_label.visible = GameState.crew_unlocked()
 	_hideout_label.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()
 		var row: Dictionary = _rows[id]
+		(row.buy as Control).get_parent().visible = MetaUpgrade.unlocked(id)
 		(row.name as Label).text = tr("MARKET_%s_NAME" % key)
 		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key)
 		var buy: Button = row.buy

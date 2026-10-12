@@ -28,6 +28,7 @@ const COMBO_SHOW_FROM: int = 3
 @onready var x3_btn: Button = $Card/Panel/Margin/VBox/X3
 @onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Meta/Market
 @onready var stash_btn: Button = $Card/Panel/Margin/VBox/Meta/Stash
+@onready var card_meta: Control = $Card/Panel/Margin/VBox/Meta
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
@@ -155,7 +156,8 @@ func _on_stash(_amount: int, _delta: int) -> void:
 
 func _refresh_stash() -> void:
 	var n: int = GameState.unclaimed_cash
-	stash_btn.visible = n > 0
+	stash_btn.visible = n > 0 and GameState.crew_unlocked()
+	_refresh_meta_row()
 	if n > 0:
 		stash_btn.text = tr("HUD_STASH") % n
 		stash_btn.pivot_offset = stash_btn.size * 0.5
@@ -203,6 +205,7 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 			glove_btn.add_theme_constant_override("icon_max_width", 40)
 	card.visible = true
 	_render_card()
+	_announce_unlock(reason, stats)
 	card_panel.scale = Vector2(0.86, 0.86)
 	var tw := create_tween()
 	tw.set_ignore_time_scale(true)
@@ -265,6 +268,7 @@ func _on_run_start() -> void:
 	combo_label.visible = false
 	glove_btn.visible = false
 	_loot_popped = ""
+	card_market_btn.remove_theme_color_override("font_color")
 	_refresh_session()
 	_refresh_pips()
 
@@ -324,8 +328,43 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 			glove_btn.disabled = false
 
 
+## The card that closes the unlock heist names the new system and bounces its button.
+func _announce_unlock(reason: String, stats: Dictionary) -> void:
+	if reason != "cracked":
+		return
+	var heist: int = int(stats.get("stage", 0))
+	var target: Button = null
+	if heist == GameState.MARKET_UNLOCK_AFTER:
+		target = card_market_btn
+		card_market_btn.text = tr("HUD_MARKET_NEW")
+	elif heist == GameState.CREW_UNLOCK_AFTER:
+		# The crew starts stealing from now; the market row is where they are hired.
+		target = card_market_btn
+		card_market_btn.text = tr("HUD_CREW_NEW")
+	if target == null:
+		return
+	target.add_theme_color_override("font_color", GRADE_COLORS.perfect)
+	_refresh_meta_row()
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	# Wait for the card pop and the first layout pass, so the pivot sits on the real size.
+	tw.tween_interval(0.25)
+	tw.tween_callback(func() -> void:
+		target.pivot_offset = target.size * 0.5
+		target.scale = Vector2(1.3, 1.3)
+	)
+	tw.tween_property(target, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+## Market and Stash share one row on the card; the row hides until either exists.
+func _refresh_meta_row() -> void:
+	card_market_btn.visible = GameState.market_unlocked()
+	card_meta.visible = card_market_btn.visible or stash_btn.visible
+
+
 ## Market buttons advertise how many upgrades are affordable right now.
 func _refresh_market() -> void:
 	var affordable: int = MetaUpgrade.affordable_count()
 	var text: String = tr("HUD_MARKET_COUNT") % affordable if affordable > 0 else tr("HUD_MARKET")
 	card_market_btn.text = text
+	_refresh_meta_row()
