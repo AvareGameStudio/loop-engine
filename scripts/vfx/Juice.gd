@@ -118,6 +118,19 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"hot_hands":
+			# Ignite: a beat of freeze, then the dial bursts orange.
+			TimeScale.hitstop(0.08)
+			_add_shake(10.0)
+			_zoom_punch_success()
+			_burst(40, Color(1.0, 0.5, 0.12))
+			_pulse_glow(2.6)
+			Settings.vibrate(40, 0.9)
+		"hot_hands_out":
+			# Glass snap: short and sharp, so the loss is felt but the strike still owns the moment.
+			_add_shake(8.0)
+			_burst(16, Color(0.85, 0.92, 1.0))
+			Settings.vibrate(22)
 		"combo_break":
 			_add_shake(6.0)
 			_punch(0.97)

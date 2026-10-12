@@ -17,6 +17,7 @@ VR_X3,x3,x3
 VR_X5,x5,x5
 VR_X8,x8,x8
 COUNTDOWN_GO,GO,BAŞLA
+HUD_HOT_HANDS,HOT HANDS!,SICAK ELLER!
 CARD_CRACKED,HEIST %d CRACKED,SOYGUN %d BİTTİ
 CARD_CAUGHT,BUSTED,YAKALANDIN
 CARD_RETRY_SUB,Heist %d  ·  the loot is still inside,Soygun %d  ·  ganimet hâlâ içeride

@@ -93,6 +93,12 @@ var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
 ## Transparent on the piggy bank, so the opening dial is unchanged.
 var _theme_accent: Color = Color(0, 0, 0, 0)
+## Hot Hands fire ring, 0..1. Orange so it never competes with the golden-heist dial.
+const HOT := Color(1.0, 0.45, 0.1, 1.0)
+const HOT_CORE := Color(1.0, 0.8, 0.35, 1.0)
+var _hot: float = 0.0
+var _hot_tween: Tween
+var _hot_t: float = 0.0
 
 
 func _ready() -> void:
@@ -109,6 +115,7 @@ func _ready() -> void:
 	EventBus.session_changed.connect(_refresh_count)
 	EventBus.cosmetic_equipped.connect(func(id: String) -> void: _apply_skin(id, true))
 	EventBus.juice_hit.connect(_on_cuff_juice)
+	EventBus.hot_hands.connect(_on_hot_hands)
 	_apply_skin(GameState.equipped_gloves, false)
 	set_vault(GameState.current_stage)
 	randomize_target(true)
@@ -139,11 +146,41 @@ func _process(delta: float) -> void:
 	if _telegraph > 0.0:
 		_telegraph = maxf(0.0, _telegraph - real_dt)
 		queue_redraw()
+	if _hot > 0.0:
+		_hot_t += real_dt
+		queue_redraw()
 	if _bezel_flash > 0.0 or _door > 0.0 or _count_hold or coach_now != _coach_hot:
 		_bezel_flash = maxf(0.0, _bezel_flash - real_dt * 4.0)
 		_door = maxf(0.0, _door - real_dt * 0.7)
 		_coach_hot = coach_now
 		queue_redraw()
+
+
+## Ignite in 0.3 s; going out is faster so the break reads as a snap.
+func _on_hot_hands(on: bool) -> void:
+	if _hot_tween:
+		_hot_tween.kill()
+	_hot_tween = create_tween()
+	_hot_tween.set_ignore_time_scale(true)
+	_hot_tween.tween_property(self, "_hot", 1.0 if on else 0.0, 0.3 if on else 0.12)
+	_hot_tween.tween_callback(queue_redraw)
+
+
+func _draw_hot_ring() -> void:
+	var r: float = radius + 26.0
+	var flicker: float = 0.8 + 0.2 * sin(_hot_t * 23.0) * sin(_hot_t * 7.0)
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(HOT, 0.18 * _hot), 26.0, true)
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(HOT, 0.85 * _hot * flicker), 8.0, true)
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(HOT_CORE, 0.9 * _hot), 3.0, true)
+	# Twelve tongues licking outward, each on its own beat.
+	for i in 12:
+		var a: float = TAU * float(i) / 12.0 + _hot_t * 0.6
+		var lick: float = 10.0 + 14.0 * (0.5 + 0.5 * sin(_hot_t * 9.0 + float(i) * 1.7))
+		var base := Vector2.from_angle(a)
+		var side := Vector2(-base.y, base.x) * 6.0
+		draw_colored_polygon(PackedVector2Array([
+			base * (r + 2.0) + side, base * (r + 2.0 + lick * _hot), base * (r + 2.0) - side,
+		]), Color(HOT, 0.75 * _hot))
 
 
 ## Paints the door, the type accent, and the golden tint for this vault.
@@ -360,6 +397,8 @@ func _draw() -> void:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
 	if _theme_accent.a > 0.0:
 		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
+	if _hot > 0.0:
+		_draw_hot_ring()
 	if _telegraph > 0.0:
 		_draw_flip_chevrons()
 	_draw_window()

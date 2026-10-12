@@ -73,6 +73,10 @@ func _ready() -> void:
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.stash_ready.connect(_on_stash_ready)
 	EventBus.glove_granted.connect(_on_glove_granted)
+	EventBus.hot_hands.connect(func(on: bool) -> void:
+		if on:
+			_show_grade(tr("HUD_HOT_HANDS"), Color(1.0, 0.55, 0.15))
+	)
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()

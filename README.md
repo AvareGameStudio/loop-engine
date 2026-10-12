@@ -106,6 +106,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - Door open: 100 ms freeze → hinge swing → rust flakes / shell chips → prize flies to the bag → gold + gem rain → "ka-chunk" then "cha-ching".
 - Alarm: lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
 - Combo ≥ 3: gold trail on the pick, not a HUD number.
+- **Hot Hands**: 5 Perfects in a row (across doors) → 80 ms freeze, orange burst, rising arpeggio, flickering fire ring on the dial, double-length orange pick trail, octave-up layer on every hit. Pins pay **2x** until any strike (glass-snap) or the heist ends. Orange, not gold: the full gold dial stays reserved for the golden heist.
 - Approach inside 45°: rising drone, cut on tap.
 
 Guidelines for production art:
