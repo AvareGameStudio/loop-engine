@@ -9,6 +9,8 @@ const CRACK_BEAT: float = 1.25
 const DOOR_BEAT: float = 0.65
 const FLIP_TELEGRAPH: float = 0.4
 const REVIVE_STEP: float = 0.45
+## Real seconds between the cuffs snapping shut and the bribe popup: the frozen bust frame.
+const BUST_BEAT: float = 0.9
 ## DDA may only bend the stage curve this far either way.
 const DDA_BAND: float = 0.15
 const NEAR_BAND_DEG: float = 5.0
@@ -295,6 +297,11 @@ func _strike(result: Dictionary) -> void:
 		_apply_difficulty()
 	if caught:
 		input_proc.arm(false)
+		# The guard reaches over and cuffs the pick; the bribe offer lands on that frame.
+		EventBus.busted.emit()
+		await get_tree().create_timer(BUST_BEAT, true, false, true).timeout
+		if not GameState.run_active:
+			return
 		EventBus.revive_offered.emit(result)
 		return
 	# Pin ejects, dial jams for a beat, then the same vault keeps spinning.
