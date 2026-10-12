@@ -93,6 +93,19 @@ var _coach_pulse: float = 0.0
 var _coach_age: float = 0.0
 ## Transparent on the piggy bank, so the opening dial is unchanged.
 var _theme_accent: Color = Color(0, 0, 0, 0)
+## Active vault trick ("" / "slide" / "double" / "dark"). GameState.trick_for picks it.
+var trick: String = ""
+## Slide: the gate creeps against the pick at this many revolutions per second.
+const SLIDE_RPS: float = 0.06
+## Double: the chained second gate sits this far past the first.
+const CHAIN_MIN_DEG: float = 110.0
+const CHAIN_MAX_DEG: float = 170.0
+var _has_next: bool = false
+var _next_target: float = 0.0
+## Dark: the gate is fully lit within DARK_FULL_DEG ahead of the pick and gone past DARK_EDGE_DEG.
+const DARK_FULL_DEG: float = 60.0
+const DARK_EDGE_DEG: float = 110.0
+const DARK_DOOR := Color(0.42, 0.42, 0.5, 1.0)
 ## Hot Hands fire ring, 0..1. Orange so it never competes with the golden-heist dial.
 const HOT := Color(1.0, 0.45, 0.1, 1.0)
 const HOT_CORE := Color(1.0, 0.8, 0.35, 1.0)
@@ -137,6 +150,13 @@ func _process(delta: float) -> void:
 		# A hitch while the next door bakes must not skip the timing window.
 		var step: float = minf(delta, 1.0 / 30.0)
 		pointer_angle = wrapf(pointer_angle + direction * rpm * TAU * step, 0.0, TAU)
+		if trick == "slide":
+			target_angle = wrapf(target_angle + drift_rate() * step, 0.0, TAU)
+	if trick == "dark":
+		queue_redraw()
+	if pin:
+		# The tumbler would give the dark gate away, so it fades with it.
+		pin.modulate.a = _visibility(target_angle)
 	var real_dt: float = delta / maxf(Engine.time_scale, 0.001)
 	if _jam > 0.0:
 		_jam = maxf(0.0, _jam - real_dt * 5.0)
@@ -271,14 +291,55 @@ func randomize_target(snap_pointer: bool = false) -> void:
 	if snap_pointer:
 		pointer_angle = -PI / 2.0
 	# Target always spawns ahead of the pointer, at least one reaction time away.
-	var min_lead: float = maxf(min_lead_deg, rpm * 360.0 * reaction_time)
+	# A sliding gate closes the gap faster, so it counts toward the reaction distance.
+	var closing: float = rpm + (SLIDE_RPS if trick == "slide" else 0.0)
+	var min_lead: float = maxf(min_lead_deg, closing * 360.0 * reaction_time)
 	var max_lead: float = maxf(min_lead + 8.0, max_lead_deg)
 	var lead: float = deg_to_rad(randf_range(min_lead, max_lead))
 	target_angle = wrapf(pointer_angle + lead * direction, 0.0, TAU)
+	# Double: chain a second gate further along when at least two pins are still needed.
+	_has_next = trick == "double" and GameState.hits_needed - GameState.hits_in_stage >= 2
+	if _has_next:
+		_next_target = wrapf(target_angle + deg_to_rad(randf_range(CHAIN_MIN_DEG, CHAIN_MAX_DEG)) * direction, 0.0, TAU)
 	_restore_door()
 	if pin:
 		pin.set_locked(false)
 		pin.set_gold(gold_pin)
+
+
+func set_trick(id: String, intro: bool) -> void:
+	trick = id
+	_has_next = false
+	if intro:
+		_bezel_flash = 1.0
+	_paint_shell()
+	queue_redraw()
+
+
+## Signed gate drift in rad/s: against the pick, so the two close in on each other.
+func drift_rate() -> float:
+	return -direction * SLIDE_RPS * TAU if trick == "slide" else 0.0
+
+
+## Double: move straight on to the chained gate. False when there is none.
+func take_chained_target() -> bool:
+	if not _has_next:
+		return false
+	_has_next = false
+	target_angle = _next_target
+	if pin:
+		pin.set_locked(false)
+		pin.set_gold(gold_pin)
+	queue_redraw()
+	return true
+
+
+## Dark: 1 when the gate is within reach of the pick's light, 0 when it is still far ahead.
+func _visibility(angle: float) -> float:
+	if trick != "dark":
+		return 1.0
+	var ahead: float = rad_to_deg(wrapf((angle - pointer_angle) * direction, 0.0, TAU))
+	return clampf((DARK_EDGE_DEG - ahead) / (DARK_EDGE_DEG - DARK_FULL_DEG), 0.0, 1.0)
 
 
 ## One flip at the start of a door. Holds the dial while chevrons sweep.
@@ -315,7 +376,7 @@ func _paint_shell() -> void:
 	_door_base_scale = Vector2.ONE * (radius / 105.0)
 	_door_sprite.scale = _door_base_scale
 	_door_sprite.texture = VaultArt.door_for(GameState.current_stage)
-	_door_sprite.modulate = Color.WHITE
+	_door_sprite.modulate = DARK_DOOR if trick == "dark" else Color.WHITE
 	_door_sprite.rotation = 0.0
 	_door_sprite.position = Vector2.ZERO
 	_show_loot()
@@ -442,6 +503,7 @@ func _draw() -> void:
 		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
 	if _hot > 0.0:
 		_draw_hot_ring()
+	_draw_trick()
 	if _ghost > 0.0:
 		_draw_miss_ghost()
 	if _telegraph > 0.0:
@@ -571,13 +633,48 @@ func _draw_flip_chevrons() -> void:
 			draw_colored_polygon(PackedVector2Array([outer, right, left]), col)
 
 
+## Per-trick cue, no text: drift arrows for slide, the chained gate for double,
+## the pick's flashlight wedge for dark.
+func _draw_trick() -> void:
+	match trick:
+		"slide":
+			# Three chevrons trailing the gate in the direction it creeps.
+			var drift_dir: float = -direction
+			var good: float = deg_to_rad(float(windows.good))
+			for i in 3:
+				var a: float = target_angle + drift_dir * (good + deg_to_rad(6.0 + 7.0 * float(i)))
+				var fwd := Vector2.from_angle(a + drift_dir * 0.05)
+				var col := Color(0.55, 1.0, 0.65, (0.75 - 0.2 * float(i)) * _visibility(target_angle))
+				draw_colored_polygon(PackedVector2Array([
+					fwd * radius, Vector2.from_angle(a) * (radius - 9.0), Vector2.from_angle(a) * (radius + 9.0),
+				]), col)
+		"double":
+			if _has_next:
+				var half: float = deg_to_rad(float(windows.good))
+				var col := Color(0.2, 0.95, 0.4, 0.75 * _visibility(_next_target))
+				draw_arc(Vector2.ZERO, radius - 11.0, _next_target - half, _next_target + half, 24, col, 3.0, true)
+				draw_arc(Vector2.ZERO, radius + 11.0, _next_target - half, _next_target + half, 24, col, 3.0, true)
+				draw_arc(Vector2.ZERO, radius, _next_target - half * 0.3, _next_target + half * 0.3, 12, col, 6.0, true)
+		"dark":
+			# Warm light sweeping ahead of the pick, fading to nothing at the edge of sight.
+			var steps: int = 8
+			for i in steps:
+				var t0: float = float(i) / float(steps)
+				var t1: float = float(i + 1) / float(steps)
+				var a0: float = pointer_angle + direction * deg_to_rad(DARK_EDGE_DEG * t0)
+				var a1: float = pointer_angle + direction * deg_to_rad(DARK_EDGE_DEG * t1)
+				draw_arc(Vector2.ZERO, radius, minf(a0, a1), maxf(a0, a1), 6, Color(1.0, 0.9, 0.6, 0.3 * (1.0 - t0)), 40.0, true)
+
+
 func _draw_window_arc(half_deg: float, color: Color, width: float) -> void:
 	var half: float = deg_to_rad(half_deg)
+	color.a *= _visibility(target_angle)
 	draw_arc(Vector2.ZERO, radius, target_angle - half, target_angle + half, 32, color, width, true)
 
 
 func _draw_side_bands(inner_deg: float, outer_deg: float, color: Color, width: float) -> void:
 	var inner: float = deg_to_rad(inner_deg)
 	var outer: float = deg_to_rad(outer_deg)
+	color.a *= _visibility(target_angle)
 	draw_arc(Vector2.ZERO, radius, target_angle + inner, target_angle + outer, 16, color, width, true)
 	draw_arc(Vector2.ZERO, radius, target_angle - outer, target_angle - inner, 16, color, width, true)

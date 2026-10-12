@@ -84,8 +84,10 @@ func _process(delta: float) -> void:
 
 ## Where the pointer error lands next frame, mirroring how RingArena advances it.
 func _next_error(delta: float) -> float:
-	var step: float = arena.direction * arena.rpm * TAU * minf(delta, 1.0 / 30.0)
-	return absf(rad_to_deg(angle_difference(arena.pointer_angle + step, arena.target_angle)))
+	var dt: float = minf(delta, 1.0 / 30.0)
+	var step: float = arena.direction * arena.rpm * TAU * dt
+	var drift: float = arena.drift_rate() * dt
+	return absf(rad_to_deg(angle_difference(arena.pointer_angle + step, arena.target_angle + drift)))
 
 
 func start_run() -> void:
@@ -106,6 +108,7 @@ func start_run() -> void:
 	arena.flips_enabled = false
 	arena.set_gold_pin(false)
 	arena.set_vault(GameState.current_stage)
+	_apply_trick()
 	_apply_difficulty()
 	_paint_wall()
 	EventBus.run_started.emit()
@@ -217,6 +220,12 @@ func _after_hit() -> void:
 	if cleared:
 		_crack_vault()
 		return
+	# Double: the chained gate is already ahead of the pick, so keep sweeping with no respawn.
+	if arena.take_chained_target():
+		arena.set_gold_pin(_gold_armed)
+		TimeScale.set_slowmo(1.0)
+		_begin_spin()
+		return
 	# Real seconds: ignore_time_scale so the armed window cannot stretch.
 	await get_tree().create_timer(RESPAWN_DELAY, true, false, true).timeout
 	if not GameState.run_active:
@@ -256,6 +265,7 @@ func _begin_next_door() -> void:
 	arena.last_grade = ""
 	arena.set_gold_pin(false)
 	arena.set_vault(GameState.current_stage)
+	_apply_trick()
 	_apply_difficulty()
 	_paint_wall()
 	EventBus.door_advanced.emit(GameState.current_stage)
@@ -281,7 +291,14 @@ func _open_door(snap_pointer: bool) -> void:
 func _paint_wall() -> void:
 	var fill := get_node_or_null("Background/Fill") as ColorRect
 	if fill:
-		fill.color = GameState.wall_color(GameState.current_stage)
+		var wall: Color = GameState.wall_color(GameState.current_stage)
+		fill.color = wall.darkened(0.6) if arena.trick == "dark" else wall
+
+
+## The heist's trick applies to all three doors; the intro heist flashes the bezel on each.
+func _apply_trick() -> void:
+	var stage: int = GameState.current_stage
+	arena.set_trick(GameState.trick_for(stage), GameState.is_trick_intro(stage))
 
 
 ## One alarm strike. The third brings the cops: bribe (rewarded ad) or get caught.
