@@ -18,7 +18,7 @@ Main.tscn                          boot composition
 │   │   ├── LockPin                tumbler: seat bounce, gold pin, eject on miss
 │   │   ├── Pointer (RingPointer)  pick + short combo trail
 │   │   └── Burst (GPUParticles2D)
-│   ├── Guard                      edge spill + overhead spotlight (no figure)
+│   ├── Guard                      dozing guard at a desk; wakes one step per strike
 │   ├── InputProcessor             one verb: press = lock
 │   ├── MetaUpgrade                Crew (offline stash) + Wide Gate
 │   └── Juice                      hitstop / shake / loot fly / alarm / haptics
@@ -103,7 +103,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - Near-Miss: 180 ms hitstop, 14 px shake, siren pitch sliding 1.0 → 0.7 over 400 ms.
 - Miss: 18 px shake, dial jam, pin eject, low clunk.
 - Door open: 100 ms freeze → hinge swing → rust flakes / shell chips → prize flies to the bag → gold + gem rain → "ka-chunk" then "cha-ching".
-- Alarm: lamps + guard walk-in; strike 3 is flashlight + strobe.
+- Alarm: lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
 - Combo ≥ 3: gold trail on the pick, not a HUD number.
 - Approach inside 45°: rising drone, cut on tap.
 

@@ -1,55 +1,231 @@
 class_name Guard
 extends Node2D
-## Threat is light, not a person. Strike 1 spills red off the left edge.
-## Strike 2 drops a cold spotlight from above the screen. Strike 3 leaves the
-## strobe to Juice. Heist 1 cuts the light on the third miss: no bust, no beam.
+## The threat is a person you read in one glance. A guard dozes at a desk in the
+## bottom-left corner, and every strike wakes him one step further:
+## 0 asleep (Zzz) · 1 head up, eyes open · 2 on his feet, flashlight sweeping the dial ·
+## 3 stepped out from the desk, beam locked on the dial (Juice runs the strobe).
+## Heist 1 never catches: on the third strike he looks up, then dozes off again.
 
 const SPILL := Color(0.95, 0.08, 0.1, 0.28)
-const SPOT := Color(1.0, 0.92, 0.55, 0.22)
-const SPOT_HARD := Color(1.0, 0.92, 0.55, 0.40)
+const BEAM := Color(1.0, 0.92, 0.55, 0.14)
+const BEAM_HARD := Color(1.0, 0.92, 0.55, 0.32)
+const BODY := Color(0.03, 0.04, 0.08, 1.0)
+const BACKLIGHT := Color(0.45, 0.58, 0.9, 0.07)
+const DESK := Color(0.14, 0.11, 0.1, 1.0)
+const DESK_EDGE := Color(0.24, 0.19, 0.16, 1.0)
+const LAMP := Color(1.0, 0.78, 0.4, 1.0)
+const BADGE := Color(0.95, 0.76, 0.3, 1.0)
+const ALERT := Color(1.0, 0.86, 0.25, 1.0)
+const SNORE := Color(0.75, 0.82, 1.0, 1.0)
 
+## Pose keyframes in world space (camera centre 360, 560; the loot bag owns x 220–500 below the dial).
+## Origin is the guard's waist. Pose 0 slumps forward so the head rests on the desk.
+const POSE_POS: Array[Vector2] = [Vector2(120, 1048), Vector2(120, 1040), Vector2(124, 1000), Vector2(150, 985)]
+const POSE_ROT: PackedFloat32Array = [0.62, 0.0, 0.0, -0.05]
+const POSE_SCALE: PackedFloat32Array = [0.86, 0.92, 1.0, 1.2]
+const DESK_TOP := Rect2(24, 1000, 188, 14)
+const DESK_FRONT := Rect2(34, 1014, 168, 64)
+const SHOULDER := Vector2(22, -62)
+const HEAD := Vector2(0, -92)
+const HEAD_R: float = 20.0
+const ARM_LEN: float = 40.0
+## Heist 1, third strike: how long he stays up before dozing off again.
+const DOZE_DELAY: float = 0.8
+
+## 0..3, tweened between alarm levels. Fractions blend the keyframes.
+var _pose: float = 0.0
+var _pose_tween: Tween
+## 1 on a fresh strike, fades to 0: drives the "!" and the body punch.
+var _alert: float = 0.0
+var _alert_tween: Tween
 var _level: int = 0
-var _fade: float = 0.0
-var _fade_tween: Tween
+var _t: float = 0.0
 
 
 func _ready() -> void:
 	z_index = 1
+	# Overlays pause the tree; the beam keeps scanning behind the bribe popup.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	EventBus.alarm_changed.connect(_on_alarm)
-	EventBus.run_started.connect(func() -> void: _on_alarm(0, GameState.ALARM_MAX))
+	EventBus.run_started.connect(_on_run_started)
 	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	# Real seconds, so hitstop does not freeze the snore.
+	_t += delta / maxf(Engine.time_scale, 0.001)
+	queue_redraw()
+
+
+func _on_run_started() -> void:
+	_level = 0
+	if _pose_tween:
+		_pose_tween.kill()
+	_pose = 0.0
+	_alert = 0.0
 
 
 func _on_alarm(level: int, _max_level: int) -> void:
 	var show: int = clampi(level, 0, 3)
-	# Heist 1 never catches. The third miss drops the light instead of a beam.
-	if show >= 3 and GameState.is_first_heist(GameState.current_stage):
-		show = 0
+	var rising: bool = show > 0 and show >= _level
 	_level = show
-	var goal: float = 0.0 if show <= 0 else 1.0
-	if _fade_tween:
-		_fade_tween.kill()
-	_fade_tween = create_tween()
-	_fade_tween.set_ignore_time_scale(true)
-	_fade_tween.tween_method(_set_fade, _fade, goal, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if rising:
+		_ping_alert()
+	if _pose_tween:
+		_pose_tween.kill()
+	_pose_tween = create_tween()
+	_pose_tween.set_ignore_time_scale(true)
+	if show <= 0:
+		# Alarm cleared (bribe or new run): he settles back at the desk.
+		_pose_tween.tween_method(_set_pose, _pose, 0.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		return
+	if show >= 3 and GameState.is_first_heist(GameState.current_stage):
+		# Heist 1 teaches the threat without the bust: up, look around, back to sleep.
+		_pose_tween.tween_method(_set_pose, _pose, 1.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_pose_tween.tween_interval(DOZE_DELAY)
+		_pose_tween.tween_method(_set_pose, 1.0, 0.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		return
+	_pose_tween.tween_method(_set_pose, _pose, float(show), 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-func _set_fade(value: float) -> void:
-	_fade = value
-	queue_redraw()
+func _set_pose(value: float) -> void:
+	_pose = clampf(value, 0.0, 3.0)
+
+
+func _ping_alert() -> void:
+	if _alert_tween:
+		_alert_tween.kill()
+	_alert = 1.0
+	_alert_tween = create_tween()
+	_alert_tween.set_ignore_time_scale(true)
+	_alert_tween.tween_property(self, "_alert", 0.0, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func _draw() -> void:
-	if _level <= 0 or _fade <= 0.01:
+	var i: int = mini(floori(_pose), 2)
+	var f: float = _pose - float(i)
+	var pos: Vector2 = POSE_POS[i].lerp(POSE_POS[i + 1], f)
+	var rot: float = lerpf(POSE_ROT[i], POSE_ROT[i + 1], f)
+	# Strike punch: 1.18 → 1.0 as the alert fades.
+	var s: float = lerpf(POSE_SCALE[i], POSE_SCALE[i + 1], f) * (1.0 + 0.18 * _alert * _alert)
+	var awake: float = clampf(_pose * 2.0, 0.0, 1.0)
+	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
+	var out_front: bool = _pose >= 2.5
+
+	_draw_spill(clampf(_pose, 0.0, 1.0))
+	_draw_backlight(pos, rot, s)
+	if out_front:
+		_draw_desk()
+	_draw_body(pos, rot, s, awake, standing)
+	if not out_front:
+		_draw_desk()
+	var head: Vector2 = pos + HEAD.rotated(rot) * s
+	if standing > 0.0:
+		_draw_flashlight(pos, rot, s, standing)
+	_draw_snore(head, 1.0 - awake)
+	_draw_alert(head, s)
+
+
+## Left-edge red spill: the first sign that something is wrong.
+func _draw_spill(amount: float) -> void:
+	if amount <= 0.01:
 		return
 	var spill := SPILL
-	spill.a *= _fade
-	# Left edge of the 720-wide portrait, in world space (camera sits at x=360).
+	spill.a *= amount
 	draw_rect(Rect2(0.0, -120.0, 72.0, 1500.0), spill)
-	if _level < 2:
-		return
-	var spot := SPOT_HARD if _level >= 3 else SPOT
-	spot.a *= _fade
-	draw_set_transform(Vector2(360.0, -40.0), 0.0, Vector2(210.0, 90.0))
-	draw_circle(Vector2.ZERO, 1.0, spot)
+
+
+## Cold halo behind the silhouette so the dark body reads on every wall colour.
+func _draw_backlight(pos: Vector2, rot: float, s: float) -> void:
+	var chest: Vector2 = pos + Vector2(0, -60).rotated(rot) * s
+	for k in 3:
+		draw_circle(chest, (64.0 + 22.0 * k) * s, BACKLIGHT)
+
+
+func _draw_desk() -> void:
+	draw_rect(DESK_FRONT, DESK)
+	draw_rect(DESK_TOP, DESK_EDGE)
+	# Desk lamp: warm pool on the top, the only light while he sleeps.
+	var base := Vector2(DESK_TOP.position.x + 22.0, DESK_TOP.position.y)
+	draw_circle(base + Vector2(10, 4), 34.0, Color(LAMP, 0.06))
+	draw_circle(base + Vector2(10, 4), 18.0, Color(LAMP, 0.1))
+	draw_line(base, base + Vector2(0, -26), DESK_EDGE, 3.0, true)
+	draw_colored_polygon(PackedVector2Array([
+		base + Vector2(-8, -24), base + Vector2(10, -32), base + Vector2(16, -20), base + Vector2(2, -16),
+	]), DESK_EDGE)
+
+
+func _draw_body(pos: Vector2, rot: float, s: float, awake: float, standing: float) -> void:
+	draw_set_transform(pos, rot, Vector2(s, s))
+	# Legs only show once he stands; behind the desk they are hidden anyway.
+	if standing > 0.0:
+		var leg_h: float = 62.0 * standing
+		draw_rect(Rect2(-22, 0, 17, leg_h), BODY)
+		draw_rect(Rect2(5, 0, 17, leg_h), BODY)
+	# Torso: broad shoulders, narrow waist.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-36, -64), Vector2(-26, -72), Vector2(26, -72), Vector2(36, -64), Vector2(28, 2), Vector2(-28, 2),
+	]), BODY)
+	draw_circle(Vector2(-14, -48), 3.5, BADGE)
+	# Head and police cap, visor facing the dial.
+	draw_circle(HEAD, HEAD_R, BODY)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(-21, -102), Vector2(19, -102), Vector2(25, -118), Vector2(-23, -116),
+	]), BODY)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(4, -104), Vector2(32, -102), Vector2(30, -98), Vector2(4, -99),
+	]), BODY)
+	draw_circle(Vector2(1, -110), 3.0, BADGE)
+	# Eyes: closed slits while asleep, white dots once awake, wider when he is on you.
+	if awake < 0.5:
+		draw_line(Vector2(3, -93), Vector2(9, -92), Color(1, 1, 1, 0.35), 1.6, true)
+		draw_line(Vector2(12, -93), Vector2(18, -92), Color(1, 1, 1, 0.35), 1.6, true)
+	else:
+		var r: float = 2.4 + 1.0 * standing
+		draw_circle(Vector2(6, -93), r, Color(1, 1, 1, awake))
+		draw_circle(Vector2(15, -93), r, Color(1, 1, 1, awake))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Pose 2 sweeps the dial; pose 3 locks on it.
+func _draw_flashlight(pos: Vector2, rot: float, s: float, amount: float) -> void:
+	var arena := get_parent().get_node_or_null("Arena") as Node2D
+	var centre: Vector2 = arena.position if arena else Vector2(360, 500)
+	var lock: float = clampf(_pose - 2.0, 0.0, 1.0)
+	var sweep := Vector2(sin(_t * 1.7) * 160.0, sin(_t * 1.1) * 70.0)
+	var jitter := Vector2(sin(_t * 9.0) * 6.0, cos(_t * 7.0) * 4.0)
+	var aim: Vector2 = centre + sweep.lerp(jitter, lock)
+	var shoulder: Vector2 = pos + SHOULDER.rotated(rot) * s
+	var dir: Vector2 = (aim - shoulder).normalized()
+	var hand: Vector2 = shoulder + dir * ARM_LEN * s
+	var perp := Vector2(-dir.y, dir.x)
+	var half: float = lerpf(70.0, 95.0, lock)
+	var beam: Color = BEAM.lerp(BEAM_HARD, lock)
+	beam.a *= amount
+	draw_colored_polygon(PackedVector2Array([
+		hand + perp * 5.0, aim + perp * half, aim - perp * half, hand - perp * 5.0,
+	]), beam)
+	draw_circle(aim, half, Color(beam, beam.a * 0.8))
+	draw_line(shoulder, hand, Color(BODY, amount), 11.0 * s, true)
+	draw_circle(hand, 7.0 * s, Color(LAMP, amount))
+
+
+func _draw_snore(head: Vector2, amount: float) -> void:
+	if amount <= 0.01:
+		return
+	var font: Font = ThemeDB.fallback_font
+	for k in 3:
+		var phase: float = fmod(_t * 0.6 + float(k) / 3.0, 1.0)
+		var at: Vector2 = head + Vector2(20.0 + phase * 30.0, -18.0 - phase * 60.0)
+		var size: int = int(18.0 + phase * 14.0)
+		draw_string(font, at, "z", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(SNORE, amount * (1.0 - phase)))
+
+
+## "!" pops over the head on every strike.
+func _draw_alert(head: Vector2, s: float) -> void:
+	if _alert <= 0.01:
+		return
+	var font: Font = ThemeDB.fallback_font
+	var size: int = int(56.0 * (0.8 + 0.4 * _alert))
+	var at: Vector2 = head + Vector2(-10.0, -HEAD_R * s - 40.0 - 12.0 * (1.0 - _alert))
+	draw_string(font, at, "!", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(ALERT, minf(1.0, _alert * 2.0)))
