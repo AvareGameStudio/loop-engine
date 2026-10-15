@@ -12,6 +12,8 @@ const LOOT_IDS: PackedStringArray = [
 	"crown", "car", "yacht", "jet", "island", "moonrock",
 ]
 const BACKGROUNDS: PackedStringArray = ["piggy", "office", "bank", "museum", "casino", "fort", "moon"]
+## Glove skins (market grid + the hand that holds the pick).
+const GLOVES: PackedStringArray = ["leather", "latex", "gold", "neon", "skeleton", "crimson", "ice", "royal"]
 ## City strip: one building per vault type plus the moon vault at the end of the road.
 const CITY: PackedStringArray = ["piggy", "office", "bank", "museum", "casino", "fort", "moon"]
 ## The flashlight lens on guard_alert sits at ~71% of the width; the painted beam is cut past it
@@ -43,7 +45,10 @@ func _prepare_images(src: String) -> void:
 		var city := src.path_join("city_%s.png" % kind)
 		if FileAccess.file_exists(city):
 			_save(_square(_trim(_load(src, "city_" + kind)), 128), ART + "city_%s.png" % kind)
-	for extra: Array in [["cuffs", 240], ["tap_hand", 180], ["daily", 160]]:
+	for glove: String in GLOVES:
+		if FileAccess.file_exists(src.path_join("glove_%s.png" % glove)):
+			_save(_square(_trim(_load(src, "glove_" + glove)), 128), ART + "glove_%s.png" % glove)
+	for extra: Array in [["cuffs", 240], ["tap_hand", 180], ["daily", 160], ["gear", 96]]:
 		if FileAccess.file_exists(src.path_join(extra[0] + ".png")):
 			_save(_square(_trim(_load(src, extra[0])), extra[1]), ART + extra[0] + ".png")
 	_save(_fit_width(_trim(_load(src, "bag")), 360), ART + "bag.png")
