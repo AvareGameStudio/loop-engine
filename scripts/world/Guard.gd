@@ -6,7 +6,6 @@ extends Node2D
 ## 3 stepped out from the desk, beam locked on the dial (Juice runs the strobe).
 ## Heist 1 never catches: on the third strike he looks up, then dozes off again.
 
-const SPILL := Color(0.95, 0.08, 0.1, 0.28)
 const BEAM := Color(1.0, 0.92, 0.55, 0.14)
 const BEAM_HARD := Color(1.0, 0.92, 0.55, 0.32)
 const BODY := Color(0.03, 0.04, 0.08, 1.0)
@@ -173,7 +172,6 @@ func _draw() -> void:
 	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
 	var out_front: bool = _pose >= 2.5
 
-	_draw_spill(clampf(_pose, 0.0, 1.0))
 	_draw_backlight(pos, rot, s)
 	if out_front:
 		_draw_desk()
@@ -200,7 +198,6 @@ func _draw_art() -> void:
 	# Wake-up cross-fade sits between pose 0.3 and 0.7.
 	var awake: float = clampf((_pose - 0.3) / 0.4, 0.0, 1.0)
 	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
-	_draw_spill(clampf(_pose, 0.0, 1.0))
 	# Alert (looking ahead) hands over to the aiming pose between pose 1.3 and 1.7.
 	var aim: float = clampf((_pose - 1.3) / 0.4, 0.0, 1.0) if _aim_tex else 0.0
 	var sleep_rect := _feet_rect(_sleep_tex, feet, ART_HEIGHT[0] * punch)
@@ -250,15 +247,6 @@ func _draw_beam(from: Vector2, amount: float) -> void:
 		from + perp * 6.0, aim + perp * half, aim - perp * half, from - perp * 6.0,
 	]), beam)
 	draw_circle(aim, half, Color(beam, beam.a * 0.8))
-
-
-## Left-edge red spill: the first sign that something is wrong.
-func _draw_spill(amount: float) -> void:
-	if amount <= 0.01:
-		return
-	var spill := SPILL
-	spill.a *= amount
-	draw_rect(Rect2(0.0, -120.0, 72.0, 1500.0), spill)
 
 
 ## Cold halo behind the silhouette so the dark body reads on every wall colour.
