@@ -384,16 +384,18 @@ func loot_unlocked_count() -> int:
 
 # --- Hideout shop: the cash sink ------------------------------------------------
 ## The next item can always be bought outright; every few heists one still drops free.
-## Prices climb x1.55 per shelf slot (slot 3 ~ $1.5k, slot 11 ~ $50k), and every owned item
-## adds LOOT_BONUS_STEP to all cash (12 items = +24%).
-const LOOT_PRICE_BASE: float = 400.0
-const LOOT_PRICE_GROWTH: float = 1.6
+## The first bought slot (3) costs $2k, then x1.55 per slot (slot 11 ~ $66k); every owned
+## item adds LOOT_BONUS_STEP to all cash (12 items = +24%). Economy model (tools/economy/
+## econ_model.py): an item every 2-5 heists, shelf full around heist 50. The old 400 x 1.6^slot let a
+## saved-up player buy five items in three seconds.
+const LOOT_PRICE_BASE: float = 2000.0
+const LOOT_PRICE_GROWTH: float = 1.55
 const LOOT_BONUS_STEP: float = 0.02
 var loot_bought: int = 0
 
 
 static func loot_price(slot: int) -> int:
-	return int(round(LOOT_PRICE_BASE * pow(LOOT_PRICE_GROWTH, slot) / 50.0)) * 50
+	return int(round(LOOT_PRICE_BASE * pow(LOOT_PRICE_GROWTH, slot - LOOT_FREE) / 50.0)) * 50
 
 
 func next_loot_price() -> int:
@@ -695,8 +697,10 @@ func from_dict(data: Dictionary) -> void:
 const GLOVE_IDS: PackedStringArray = [
 	"leather", "latex", "gold", "neon", "skeleton", "crimson", "ice", "royal",
 ]
+## Staggered so one glove is the next goal every few heists from heist 3 to ~18
+## (a heist pays ~$600 at heist 5, ~$2.5k at heist 18). Skeleton and royal are drops only.
 const GLOVE_COST := {
-	"leather": 0, "latex": 150, "gold": 400, "neon": 350, "crimson": 280, "ice": 320,
+	"leather": 0, "latex": 800, "crimson": 1500, "ice": 2500, "neon": 4000, "gold": 6000,
 }
 const GLOVE_COLOR := {
 	"leather": Color(0.42, 0.24, 0.12, 1.0),

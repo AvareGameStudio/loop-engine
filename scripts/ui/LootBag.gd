@@ -2,8 +2,8 @@ class_name LootBag
 extends Control
 ## The thief's duffel bag at the bottom of the screen. Cash is shown as a number
 ## on the bag and as a gold fill inside it; loot "lands" here with a bounce.
-## Fill is relative to the next hideout item, so a full bag means "go spend"; once it is
-## affordable a gold "!" badge hops on the bag's corner (the HUD has no buttons in play).
+## Fill is relative to the next hideout item, so a full bag means "go spend". No badge:
+## a "!" on the bag read as a button mid-heist and cost a tap; the card's BUY button says it.
 
 const LEATHER := Color(0.16, 0.12, 0.1, 1.0)
 const LEATHER_HI := Color(0.26, 0.2, 0.16, 1.0)
@@ -20,8 +20,6 @@ var fill: float = 0.0
 var _count_tween: Tween
 var _bounce_tween: Tween
 var _fill_tween: Tween
-var _t: float = 0.0
-var _badge: bool = false
 
 
 func _ready() -> void:
@@ -31,36 +29,7 @@ func _ready() -> void:
 		pivot_offset = size * 0.5
 		queue_redraw()
 	)
-	EventBus.cash_changed.connect(func(_a: int, _d: int) -> void: _refresh_badge())
-	EventBus.loot_unlocked.connect(func(_id: String) -> void: _refresh_badge())
-	_refresh_badge()
 	queue_redraw()
-
-
-func _refresh_badge() -> void:
-	_badge = GameState.can_buy_loot()
-	set_process(_badge)
-	queue_redraw()
-
-
-func _process(delta: float) -> void:
-	_t += delta / maxf(Engine.time_scale, 0.001)
-	queue_redraw()
-
-
-## Gold coin with "!" on the top-right corner, hopping 3 times then resting, every 2 s.
-func _draw_badge() -> void:
-	var phase: float = fmod(_t, 2.0)
-	var hop: float = absf(sin(phase * PI * 3.0)) * 10.0 if phase < 1.0 else 0.0
-	var r: float = 24.0
-	var c := Vector2(size.x * 0.5 + size.y * 0.42, size.y * 0.16 - hop)
-	draw_circle(c + Vector2(0, 3), r, Color(0, 0, 0, 0.35))
-	draw_circle(c, r, GOLD)
-	draw_arc(c, r, 0.0, TAU, 32, Color(0.45, 0.28, 0.05, 1.0), 3.0, true)
-	var font: Font = get_theme_default_font()
-	var fs: int = 36
-	var w: float = font.get_string_size("!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(font, c + Vector2(-w * 0.5, fs * 0.36), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.3, 0.12, 0.02, 1.0))
 
 
 func _notification(what: int) -> void:
@@ -117,8 +86,6 @@ func _set_fill(value: float) -> void:
 func _draw() -> void:
 	if _art:
 		_draw_art()
-		if _badge:
-			_draw_badge()
 		return
 	var w: float = size.x
 	var h: float = size.y
@@ -149,8 +116,6 @@ func _draw() -> void:
 	var baseline: float = body.position.y + body.size.y * 0.66 + font.get_ascent(font_size) * 0.35
 	draw_string_outline(font, Vector2(w * 0.5 - text_w * 0.5, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 6, Color(0.05, 0.04, 0.03, 1.0))
 	draw_string(font, Vector2(w * 0.5 - text_w * 0.5, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, GOLD)
-	if _badge:
-		_draw_badge()
 
 
 ## Painted bag fitted to the control height; the cash number sits on its lower half.

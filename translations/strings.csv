@@ -7,6 +7,8 @@ HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
 HUD_MARKET_NEW,NEW! Market,YENİ! Pazar
 HUD_HIDEOUT,Hideout,Saklanma Evi
+HUD_HEIST,HEIST %d,SOYGUN %d
+CARD_NEXT_CITY,Next city: %s  ·  in %d heists,Sonraki şehir: %s  ·  %d soygun sonra
 CARD_BUY,BUY: %s  $%d  (+%d%% cash),AL: %s  $%d  (+%%%d para)
 CARD_LOOT_BONUS,+$%d hideout bonus (+%d%%),+$%d saklanma evi bonusu (+%%%d)
 HUD_CREW_NEW,NEW! Hire a crew,YENİ! Ekip kur
@@ -68,8 +70,8 @@ MARKET_BALANCE,$%d,$%d
 MARKET_HIDEOUT,Hideout  ·  %d / %d loot items,Saklanma evi  ·  %d / %d ganimet
 MARKET_LEVEL,Lv %d,Sv %d
 MARKET_COST,$%d,$%d
-MARKET_GLOVES_NAME,Wide Gate,Geniş Kapı
-MARKET_GLOVES_EFFECT,Widens the green gate. You see the upgrade before you buy it.,Yeşil kapıyı genişletir. Aldığın şeyi kapıda görürsün.
+MARKET_GLOVES_NAME,Bigger Green Zone,Büyük Yeşil Alan
+MARKET_GLOVES_EFFECT,"The green zone on the dial gets +%d%% wider: easier hits, fewer misses. Now: +%d%%","Kadrandaki yeşil vuruş alanı +%%%d büyür: daha kolay isabet, daha az ıska. Şu an: +%%%d"
 MARKET_MAX,MAX,MAX
 MARKET_GLOVE_EFFECT,The hands on the dial. Pure swagger.,Kadranı tutan eller. Sadece hava.
 MARKET_SKIN_STEEL,Steel Dial,Çelik Kadran

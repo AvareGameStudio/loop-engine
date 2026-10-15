@@ -1,6 +1,6 @@
 class_name MarketPopup
 extends CanvasLayer
-## Spend cash on the Crew, Wide Gate and glove skins; a big button leads to the hideout shop. Pauses an active vault while
+## Spend cash on the Crew, Bigger Green Zone and glove skins; a big button leads to the hideout shop. Pauses an active vault while
 ## open; between vaults the tree keeps going, so affordability updates live.
 
 @onready var root: Control = $Root
@@ -171,6 +171,10 @@ func _refresh() -> void:
 		(row.effect as Label).text = tr("MARKET_%s_EFFECT" % key)
 		if id == "crew":
 			(row.effect as Label).text = tr("MARKET_CREW_EFFECT") % [int(MetaUpgrade.hourly_rate()), int(MetaUpgrade.OFFLINE_CAP_HOURS)]
+		elif id == "gloves":
+			var pct: int = MetaUpgrade.gate_step_pct()
+			(row.effect as Label).text = tr("MARKET_GLOVES_EFFECT") % [pct, pct * (MetaUpgrade.level(id) - 1)]
+		(row.name as Label).text += "  ·  " + tr("MARKET_LEVEL") % MetaUpgrade.level(id)
 		var buy: Button = row.buy
 		if MetaUpgrade.at_cap(id):
 			buy.text = tr("MARKET_MAX")
