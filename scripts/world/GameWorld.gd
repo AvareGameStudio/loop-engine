@@ -181,6 +181,8 @@ func _apply_difficulty() -> void:
 	var win_bend: float = clampf(float(w["perfect"]) / 7.0, 1.0 - DDA_HARDER, 1.0 + DDA_EASIER)
 	var good: float = clampf(GameState.base_good_deg(stage) * win_bend + MetaUpgrade.gate_bonus_deg() + GameState.mercy_deg(), 8.0, 28.0)
 	var perfect: float = clampf(good * 0.42, 3.5, good * 0.7)
+	if GameState.glove_perk() == "latex":
+		perfect = minf(perfect * GameState.GLOVE_PERFECT_MULT, good * 0.75)
 	var windows := {
 		"good": good,
 		"perfect": perfect,
@@ -188,6 +190,8 @@ func _apply_difficulty() -> void:
 	}
 	timing.configure(windows)
 	arena.rpm = clampf(GameState.base_rpm(stage) * rpm_bend, dda.rpm_min, dda.rpm_max)
+	if GameState.glove_perk() == "ice":
+		arena.rpm *= GameState.GLOVE_RPM_MULT
 	arena.windows = windows
 
 
@@ -206,6 +210,8 @@ func _apply_success(result: Dictionary) -> void:
 	var gold_now: bool = _gold_armed
 	_gold_armed = false
 	var cash: int = GameState.pin_cash(GameState.current_stage, grade == TimingEngine.Grade.PERFECT)
+	if GameState.glove_perk() == "gold":
+		cash = int(ceil(float(cash) * GameState.GLOVE_CASH_MULT))
 	if gold_now:
 		cash = maxi(cash, ceili(float(cash) * _gold_mult))
 		EventBus.juice_hit.emit("jackpot", 1.2)
@@ -215,7 +221,8 @@ func _apply_success(result: Dictionary) -> void:
 	GameState.session_score += cash
 	_bank_cash(cash)
 	# Lights after paying: the pins that follow pay double, not the one that lit it.
-	if not _hot_hands and _perfect_streak >= HOT_HANDS_STREAK:
+	var streak_needed: int = GameState.GLOVE_HOT_STREAK if GameState.glove_perk() == "neon" else HOT_HANDS_STREAK
+	if not _hot_hands and _perfect_streak >= streak_needed:
 		_set_hot_hands(true)
 	if bool(drop.get("triggered", false)):
 		_gold_armed = true
@@ -330,7 +337,9 @@ func _apply_trick() -> void:
 func _strike(result: Dictionary) -> void:
 	_set_hot_hands(false)
 	_door_strikes += 1
-	var caught: bool = GameState.raise_alarm()
+	# Skeleton gloves: the first miss on each door is silent; the pin still ejects.
+	var silent: bool = GameState.glove_perk() == "skeleton" and _door_strikes == 1
+	var caught: bool = false if silent else GameState.raise_alarm()
 	# Instant deaths were persisting a too-hard DDA profile and making the
 	# next run feel broken (10° window at 0.73 rps, one miss → game over).
 	if caught and GameState.session_hits <= 1:
@@ -403,7 +412,8 @@ func _on_revive(success: bool) -> void:
 	arena.randomize_target(false)
 	arena.set_gold_pin(_gold_armed)
 	# Grace countdown in real time: the pointer would otherwise resume the instant the popup closes.
-	for step in [3, 2, 1]:
+	# Crimson gloves: back on the dial after a 1-second count instead of 3.
+	for step in ([1] if GameState.glove_perk() == "crimson" else [3, 2, 1]):
 		EventBus.countdown.emit(step)
 		await get_tree().create_timer(REVIVE_STEP, true, false, true).timeout
 		if not GameState.run_active:
