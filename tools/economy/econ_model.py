@@ -44,3 +44,13 @@ if __name__ == "__main__":
     full,bursts,_=run(live,H=80)
     print("shelf full at heist",full,"| 3+ buys at once:",bursts)
     run(live,H=50,verbose=True)
+    # Gold Collection after the shelf: $50k x1.18, 85% of income (Crew takes the rest).
+    cash, h, got = 0.0, 50, []
+    for k in range(12):
+        price = 50000 * 1.18 ** k
+        while cash < price:
+            h += 1
+            cash += income(h, 12 + k) * 0.85
+        cash -= price
+        got.append(h)
+    print("gold items at heists", got)

@@ -392,6 +392,38 @@ const LOOT_PRICE_BASE: float = 2000.0
 const LOOT_PRICE_GROWTH: float = 1.55
 const LOOT_BONUS_STEP: float = 0.02
 var loot_bought: int = 0
+## Gold Collection: after the shelf is full every item can be gilded in shelf order, each
+## +LOOT_BONUS_STEP more (24 steps = +48%). $50k x1.18 per item: one every 6-11 heists,
+## done around heist 150 (tools/economy/econ_model.py). Gives the post-shelf game a goal.
+const GOLD_PRICE_BASE: float = 50000.0
+## Modulate for a gilded item: colours pushed toward gold, brighter than white.
+const GOLD_TINT := Color(1.5, 1.15, 0.35, 1.0)
+const GOLD_PRICE_GROWTH: float = 1.18
+var gold_bought: int = 0
+## The last shop purchase was a gilding (analytics and the pop tint read this).
+var last_buy_gold: bool = false
+
+
+static func gold_price(index: int) -> int:
+	return int(round(GOLD_PRICE_BASE * pow(GOLD_PRICE_GROWTH, index) / 500.0)) * 500
+
+
+## "Gold Painting". Items already gold by name get their own key (LOOT_<ID>_GILDED:
+## Platinum Bar, Diamond Watch) instead of "Gold Gold Bar".
+func gold_item_name(id: String) -> String:
+	var own: String = "LOOT_%s_GILDED" % id.to_upper()
+	if tr(own) != own:
+		return tr(own)
+	return tr("GOLD_ITEM") % tr("LOOT_" + id.to_upper())
+
+
+func shelf_full() -> bool:
+	return loot_unlocked_count() >= LOOT_ITEMS.size()
+
+
+## The next shop purchase is a gilding (shelf full, collection not finished).
+func next_is_gold() -> bool:
+	return shelf_full() and gold_bought < LOOT_ITEMS.size()
 
 
 static func loot_price(slot: int) -> int:
@@ -400,31 +432,42 @@ static func loot_price(slot: int) -> int:
 
 func next_loot_price() -> int:
 	var slot: int = loot_unlocked_count()
-	return loot_price(slot) if slot < LOOT_ITEMS.size() else 0
+	if slot < LOOT_ITEMS.size():
+		return loot_price(slot)
+	return gold_price(gold_bought) if gold_bought < LOOT_ITEMS.size() else 0
 
 
 func can_buy_loot() -> bool:
-	return loot_unlocked_count() < LOOT_ITEMS.size() and cash >= next_loot_price()
+	var price: int = next_loot_price()
+	return price > 0 and cash >= price
 
 
-## Buys the next shelf item. Returns its id, or "" when it can't.
+## Buys the next shelf item, or gilds the next one once the shelf is full.
+## Returns its id, or "" when it can't.
 func buy_next_loot() -> String:
 	if not can_buy_loot():
 		return ""
-	var id: String = LOOT_ITEMS[loot_unlocked_count()]
+	var gold: bool = shelf_full()
+	var id: String = LOOT_ITEMS[gold_bought if gold else loot_unlocked_count()]
 	add_cash(-next_loot_price())
-	loot_bought += 1
+	if gold:
+		gold_bought += 1
+	else:
+		loot_bought += 1
+	last_buy_gold = gold
 	request_save()
 	EventBus.loot_unlocked.emit(id)
 	return id
 
 
 func loot_bonus() -> float:
-	return 1.0 + LOOT_BONUS_STEP * float(loot_unlocked_count())
+	return 1.0 + LOOT_BONUS_STEP * float(loot_unlocked_count() + gold_bought)
 
 
 ## 0..1 toward the next hideout item. 1.0 only when the shelf is full.
 func loot_progress() -> float:
+	if next_is_gold():
+		return clampf(float(cash) / float(maxi(next_loot_price(), 1)), 0.0, 1.0)
 	if loot_unlocked_count() >= LOOT_ITEMS.size():
 		return 1.0
 	# Past the free drops the ring fills with cash toward the next item's price.
@@ -441,7 +484,7 @@ func loot_progress() -> float:
 func next_loot_id() -> String:
 	var n := loot_unlocked_count()
 	if n >= LOOT_ITEMS.size():
-		return ""
+		return LOOT_ITEMS[gold_bought] if gold_bought < LOOT_ITEMS.size() else ""
 	return LOOT_ITEMS[n]
 
 
@@ -642,6 +685,7 @@ func to_dict() -> Dictionary:
 		"stages_cleared": stages_cleared,
 		"daily_last_day": daily_last_day,
 		"loot_bought": loot_bought,
+		"gold_bought": gold_bought,
 		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
@@ -677,6 +721,7 @@ func from_dict(data: Dictionary) -> void:
 	stages_cleared = int(data.get("stages_cleared", 0))
 	daily_last_day = int(data.get("daily_last_day", -1))
 	loot_bought = int(data.get("loot_bought", 0))
+	gold_bought = clampi(int(data.get("gold_bought", 0)), 0, LOOT_ITEMS.size())
 	if int(data.get("v", 0)) < 4:
 		loot_bought = maxi(0, _legacy_loot_count(stages_cleared) - loot_count_at(stages_cleared))
 	auto_tap_purchased = bool(data.get("auto_tap_purchased", false))

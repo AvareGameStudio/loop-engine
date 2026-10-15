@@ -212,6 +212,12 @@ static func _hand() -> Image:
 
 
 ## Painted wrist the pick comes out of. Center stays clear so the prize shows through.
+## UI icon for a glove: the painted Canva glove when it exists, else the drawn cuff.
+static func glove_icon(id: String) -> Texture2D:
+	var art := "res://assets/art/glove_%s.png" % id
+	return load(art) if ResourceLoader.exists(art) else cuff_for(id)
+
+
 static func cuff_for(id: String) -> Texture2D:
 	ensure()
 	var key: String = id if GameState.GLOVE_IDS.has(id) else "leather"

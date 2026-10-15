@@ -30,7 +30,11 @@ func _ready() -> void:
 	EventBus.revive_resolved.connect(func(ok: bool) -> void: design("bribe:taken" if ok else "bribe:declined"))
 	EventBus.ad_finished.connect(func(placement: String, rewarded: bool) -> void:
 		design("ad:%s:%s" % [placement, "rewarded" if rewarded else "failed"]))
-	EventBus.loot_unlocked.connect(func(id: String) -> void: design("hideout:item:" + id, GameState.loot_unlocked_count()))
+	EventBus.loot_unlocked.connect(func(id: String) -> void:
+		if GameState.last_buy_gold:
+			design("hideout:gold:" + id, GameState.gold_bought)
+		else:
+			design("hideout:item:" + id, GameState.loot_unlocked_count()))
 	EventBus.cosmetic_equipped.connect(func(id: String) -> void: design("glove:equip:" + id))
 	EventBus.hot_hands.connect(func(on: bool) -> void:
 		if on:

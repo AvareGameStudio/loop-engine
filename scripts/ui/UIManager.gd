@@ -237,7 +237,10 @@ func _render_buy() -> void:
 	buy_btn.visible = GameState.can_buy_loot() and id != ""
 	if not buy_btn.visible:
 		return
-	buy_btn.text = tr("CARD_BUY") % [tr("LOOT_" + id.to_upper()), GameState.next_loot_price(), roundi(GameState.LOOT_BONUS_STEP * 100.0)]
+	var item: String = tr("LOOT_" + id.to_upper())
+	if GameState.next_is_gold():
+		item = GameState.gold_item_name(id)
+	buy_btn.text = tr("CARD_BUY") % [item, GameState.next_loot_price(), roundi(GameState.LOOT_BONUS_STEP * 100.0)]
 	buy_btn.icon = VaultSprites.loot_icon(id)
 
 
@@ -246,7 +249,8 @@ func _buy_loot() -> void:
 	var id: String = GameState.buy_next_loot()
 	if id == "":
 		return
-	EventBus.juice_hit.emit("claim", 1.0)
+	EventBus.juice_hit.emit("claim", 1.4 if GameState.last_buy_gold else 1.0)
+	card_ring.gold = GameState.last_buy_gold
 	card_ring.set_icon(VaultSprites.loot_icon(id))
 	card_ring.set_state(1.0, true, false)
 	card_ring.buyable = false
@@ -286,14 +290,14 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 	if glove_btn.visible:
 		var pool: PackedStringArray = GameState.unowned_gloves()
 		if not pool.is_empty():
-			glove_btn.icon = VaultSprites.cuff_for(pool[0])
+			glove_btn.icon = VaultSprites.glove_icon(pool[0])
 			glove_btn.expand_icon = true
 			glove_btn.add_theme_constant_override("icon_max_width", 34)
 	# The daily Big Heist hands its glove over on the card.
 	var daily_glove: String = String(stats.get("daily_glove", ""))
 	if daily_glove != "":
 		glove_btn.visible = true
-		glove_btn.icon = VaultSprites.cuff_for(daily_glove)
+		glove_btn.icon = VaultSprites.glove_icon(daily_glove)
 		glove_btn.text = ""
 		glove_btn.disabled = true
 	_render_city(reason, stats)
@@ -355,6 +359,7 @@ func _start_daily() -> void:
 func _render_shelf(cracked: bool) -> void:
 	var next_id: String = GameState.next_loot_id()
 	card_ring.buyable = false
+	card_ring.gold = GameState.next_is_gold()
 	if cracked and _loot_popped != "":
 		card_ring.set_icon(VaultSprites.loot_icon(_loot_popped))
 		card_ring.set_state(1.0, true, false)
@@ -428,7 +433,7 @@ func _glove_ad() -> void:
 
 func _on_glove_granted(id: String) -> void:
 	glove_btn.text = ""
-	glove_btn.icon = VaultSprites.cuff_for(id)
+	glove_btn.icon = VaultSprites.glove_icon(id)
 	glove_btn.disabled = true
 
 
