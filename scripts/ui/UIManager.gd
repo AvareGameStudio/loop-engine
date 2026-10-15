@@ -62,6 +62,9 @@ func _ready() -> void:
 	stash_btn.pressed.connect(_open_stash)
 	card_ring.gui_input.connect(_on_shelf_input)
 	settings_btn.pressed.connect(settings_popup.open)
+	# The theme's nine-slice margins squeezed the gear icon to a dot; the icon is the button.
+	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		settings_btn.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	$Card/Dim.gui_input.connect(_on_card_dim)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
@@ -274,6 +277,7 @@ func _start_daily() -> void:
 ## item waits as a dark silhouette inside the unfinished ring.
 func _render_shelf(cracked: bool) -> void:
 	var next_id: String = GameState.next_loot_id()
+	card_ring.buyable = false
 	if cracked and _loot_popped != "":
 		card_ring.set_icon(VaultSprites.loot_icon(_loot_popped))
 		card_ring.set_state(1.0, true, false)
@@ -285,6 +289,7 @@ func _render_shelf(cracked: bool) -> void:
 		return
 	card_ring.set_icon(VaultSprites.loot_icon(next_id))
 	card_ring.set_state(ZeigarnikTracker.loot_tease(), false, true)
+	card_ring.buyable = GameState.can_buy_loot()
 
 
 func _roll_loot(target: int) -> void:

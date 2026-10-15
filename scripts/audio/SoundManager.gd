@@ -181,6 +181,9 @@ func _on_juice(grade: String, _intensity: float) -> void:
 			play_tone(3900.0, 0.02, 0.22)
 			play_tone(2600.0, 0.04, 0.3)
 			play_tone(180.0, 0.1, 0.34)
+		"claim":
+			# Stash collect or a hideout purchase: the chips land.
+			play_sample("loot", 0.85)
 		"revive_tick":
 			# Clock tick for the bribe countdown's last two seconds.
 			play_tone(1320.0, 0.03, 0.28)

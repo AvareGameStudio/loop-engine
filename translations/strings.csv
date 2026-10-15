@@ -69,6 +69,8 @@ MARKET_SKIN_EFFECT,Changes the vault face and the tumbler glow.,Kasa kapağını
 MARKET_SKIN_EQUIP,Equip,Kuşan
 MARKET_SKIN_EQUIPPED,Equipped,Kuşanıldı
 MARKET_CLOSE,Close,Kapat
+HIDEOUT_BONUS,+%d%% loot,+%%%d ganimet
+MARKET_SKIN_DROP,Drop,Hediye
 CLAIM_MARKET,Market,Pazar
 CLAIM_TITLE,CREW STASH,EKİP ZULASI
 CLAIM_AMOUNT,+$%d,+$%d
