@@ -11,7 +11,11 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 const GOLD := Color(1.0, 0.84, 0.3, 1.0)
 const INK := Color(0.04, 0.03, 0.02, 1.0)
 ## Hero art per unlock. A missing file falls back to the fan of painted gloves / nothing.
-const HERO_ART := {"market": "res://assets/art/market.png", "crew": "res://assets/art/crew.png"}
+const HERO_ART := {
+	"market": "res://assets/art/market.png",
+	"crew": "res://assets/art/crew.png",
+	"daily": "res://assets/art/daily.png",
+}
 ## Three gloves fanned behind the market hero: what the shop sells, no words needed.
 const FAN_GLOVES: PackedStringArray = ["latex", "crimson", "ice"]
 
@@ -45,7 +49,7 @@ func is_open() -> bool:
 	return _root.visible
 
 
-## `kind`: "market" or "crew".
+## `kind`: "market", "crew" or "daily".
 func show_unlock(kind: String) -> void:
 	_kind = kind
 	_fill_hero()
@@ -130,6 +134,7 @@ func _build() -> void:
 	_root.add_child(col)
 
 	_title = _label(68, GOLD, 12)
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_title)
 
 	_hero = Control.new()

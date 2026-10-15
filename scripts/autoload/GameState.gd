@@ -145,6 +145,9 @@ static func pins_for(stage: int) -> int:
 	# Golden is the breather: one extra pin, not two (two made it the longest heist, 27-37 s).
 	if is_golden(stage):
 		pins = mini(pins + 1, 8)
+	# A new trick is learned on a short heist: one pin fewer per door (4/4/5 -> 3/3/4, ~25% shorter).
+	if is_trick_intro(stage):
+		pins = maxi(pins - 1, 3)
 	return pins
 
 
@@ -173,6 +176,11 @@ static func trick_for(stage: int) -> String:
 ## The heist that introduces a trick opens the gate 2° so the new twist is learned, not punished.
 static func is_trick_intro(stage: int) -> bool:
 	return TRICK_INTRO.has(heist_for(stage)) and not is_golden(stage)
+
+
+## The door that closes the heist (or the daily door) gets the big finish (Juice, RingArena).
+static func is_heist_finale(stage: int) -> bool:
+	return GameState.daily_active or door_in_heist(stage) == DOORS_PER_HEIST - 1
 
 
 static func is_golden(stage: int) -> bool:

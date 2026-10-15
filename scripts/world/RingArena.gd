@@ -541,6 +541,8 @@ func _draw() -> void:
 		draw_arc(center, radius, 0.0, TAU, 64, Color(1, 1, 1, 0.35 * _bezel_flash), 6.0, true)
 	if _theme_accent.a > 0.0:
 		draw_arc(center, radius + 26.0, 0.0, TAU, 48, _theme_accent, 4.0 if _golden else 3.0, true)
+	if GameState.glove_perk() == "ice":
+		_draw_frost()
 	if _hot > 0.0:
 		_draw_hot_ring()
 	_draw_trick()
@@ -550,6 +552,16 @@ func _draw() -> void:
 		_draw_flip_chevrons()
 	_draw_window()
 	_draw_meter()
+
+
+## Ice gloves: a pale frost rim with 24 crystal ticks just outside the track, so the
+## slower dial reads as cold.
+func _draw_frost() -> void:
+	var r: float = radius + TRACK_WIDTH * 0.5 + 3.0
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 96, Color(0.75, 0.92, 1.0, 0.4), 4.0, true)
+	for i in 24:
+		var dir := Vector2.from_angle(TAU * float(i) / 24.0)
+		draw_line(dir * r, dir * (r + (9.0 if i % 2 == 0 else 5.0)), Color(0.85, 0.96, 1.0, 0.55), 2.0, true)
 
 
 ## Gold light leaking from the door seam. Reads as "almost open" without a number.
@@ -577,7 +589,7 @@ func _in_coach_window() -> bool:
 	return err <= maxf(float(windows.get("near", 22.0)), 42.0)
 
 
-func _fly_door(_index: int, _payout: int) -> void:
+func _fly_door(index: int, _payout: int) -> void:
 	_door = 1.0
 	_shatter_count()
 	if _door_sprite == null:
@@ -592,11 +604,20 @@ func _fly_door(_index: int, _payout: int) -> void:
 		_loot_sprite.visible = false
 	_door_tween = create_tween()
 	_door_tween.set_ignore_time_scale(true)
-	# Wait out the 100ms hitstop, then the door swings on a hinge and vanishes.
-	_door_tween.tween_interval(0.1)
-	_door_tween.tween_property(_door_sprite, "rotation", -1.35, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	_door_tween.parallel().tween_property(_door_sprite, "position:x", -36.0, 0.35)
-	_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.32)
+	if GameState.is_heist_finale(index):
+		# Heist finale: the door tips off its hinges and falls at the camera (1.0 -> 1.6x,
+		# drops 140 px, tilts 14 deg) through the 0.3x slow-mo.
+		_door_tween.tween_interval(0.12)
+		_door_tween.tween_property(_door_sprite, "scale", _door_base_scale * 1.6, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_door_tween.parallel().tween_property(_door_sprite, "position:y", 140.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_door_tween.parallel().tween_property(_door_sprite, "rotation", 0.25, 0.5)
+		_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.22).set_delay(0.3)
+	else:
+		# Wait out the 100ms hitstop, then the door swings on a hinge and vanishes.
+		_door_tween.tween_interval(0.1)
+		_door_tween.tween_property(_door_sprite, "rotation", -1.35, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		_door_tween.parallel().tween_property(_door_sprite, "position:x", -36.0, 0.35)
+		_door_tween.parallel().tween_property(_door_sprite, "modulate:a", 0.0, 0.32)
 	_door_tween.finished.connect(func() -> void:
 		_paint_shell()
 		_set_crack(0.0, false)

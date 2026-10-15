@@ -57,6 +57,10 @@ var _city_label: Label
 var _splash: UnlockSplash
 ## The splash waits for the card pop and the loot roll before it lands.
 const SPLASH_DELAY: float = 0.75
+## Card diet: the hideout-bonus line and the "Next city" line stay off the card until this
+## heist. Early cards carry loot, one goal and Next; the extras explain systems that only
+## matter once the player owns a few items and has crossed a city.
+const CARD_EXTRAS_FROM_HEIST: int = 10
 
 
 func _ready() -> void:
@@ -102,7 +106,12 @@ func _ready() -> void:
 	EventBus.glove_granted.connect(_on_glove_granted)
 	_splash = UnlockSplash.new()
 	add_child(_splash)
-	_splash.accepted.connect(func(_kind: String) -> void: market_popup.open())
+	_splash.accepted.connect(func(kind: String) -> void:
+		if kind == "daily":
+			_start_daily()
+		else:
+			market_popup.open()
+	)
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()
@@ -175,8 +184,8 @@ func _render_next_city() -> void:
 	for key in GameState.VAULT_TYPE_BY_STAGE.keys():
 		if int(key) > next_door and (best == 0 or int(key) < best):
 			best = int(key)
-	_city_label.visible = best > 0
-	if best > 0:
+	_city_label.visible = best > 0 and _card_extras()
+	if _city_label.visible:
 		var heists: int = maxi(GameState.heist_for(best) - GameState.heist_for(next_door), 1)
 		var city: String = tr("VAULT_" + String(GameState.VAULT_TYPE_BY_STAGE[best]).to_upper())
 		_city_label.text = tr("CARD_NEXT_CITY") % [city, heists]
@@ -232,9 +241,13 @@ func _render_bonus_line() -> void:
 	var run_cash: int = int(_run_end_stats.get("cash", 0))
 	var bonus: float = GameState.loot_bonus()
 	var extra: int = run_cash - int(round(float(run_cash) / bonus))
-	_bonus_label.visible = extra > 0
-	if extra > 0:
+	_bonus_label.visible = extra > 0 and _card_extras()
+	if _bonus_label.visible:
 		_bonus_label.text = tr("CARD_LOOT_BONUS") % [extra, roundi((bonus - 1.0) * 100.0)]
+
+
+func _card_extras() -> bool:
+	return GameState.complete_heists() >= CARD_EXTRAS_FROM_HEIST
 
 
 ## Play data: $144k banked, 3 of 12 shelf items bought. When the next item is affordable
@@ -488,6 +501,9 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_CREW_NEW")
 		kind = "crew"
+	elif heist == GameState.DAILY_UNLOCK_AFTER and GameState.daily_available():
+		target = daily_btn
+		kind = "daily"
 	if target == null:
 		return
 	# The gold word on the meta row alone was too small to notice: a full-screen moment first.
@@ -495,7 +511,8 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 		if card.visible:
 			_splash.show_unlock(kind)
 	)
-	target.add_theme_color_override("font_color", GRADE_COLORS.perfect)
+	if target != daily_btn:
+		target.add_theme_color_override("font_color", GRADE_COLORS.perfect)
 	_refresh_meta_row()
 	var tw := create_tween()
 	tw.set_ignore_time_scale(true)

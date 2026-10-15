@@ -212,6 +212,9 @@ func _apply_success(result: Dictionary) -> void:
 	var cash: int = GameState.pin_cash(GameState.current_stage, grade == TimingEngine.Grade.PERFECT)
 	if GameState.glove_perk() == "gold":
 		cash = int(ceil(float(cash) * GameState.GLOVE_CASH_MULT))
+		EventBus.glove_perk.emit("gold")
+	elif GameState.glove_perk() == "latex" and grade == TimingEngine.Grade.PERFECT:
+		EventBus.glove_perk.emit("latex")
 	if gold_now:
 		cash = maxi(cash, ceili(float(cash) * _gold_mult))
 		EventBus.juice_hit.emit("jackpot", 1.2)
@@ -342,6 +345,8 @@ func _strike(result: Dictionary) -> void:
 	# Skeleton gloves: the first miss on each door is silent; the pin still ejects.
 	var silent: bool = GameState.glove_perk() == "skeleton" and _door_strikes == 1
 	var caught: bool = false if silent else GameState.raise_alarm()
+	if silent:
+		EventBus.glove_perk.emit("skeleton")
 	# Instant deaths were persisting a too-hard DDA profile and making the
 	# next run feel broken (10° window at 0.73 rps, one miss → game over).
 	if caught and GameState.session_hits <= 1:
