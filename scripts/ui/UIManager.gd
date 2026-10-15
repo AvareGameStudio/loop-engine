@@ -61,6 +61,10 @@ const SPLASH_DELAY: float = 0.75
 ## heist. Early cards carry loot, one goal and Next; the extras explain systems that only
 ## matter once the player owns a few items and has crossed a city.
 const CARD_EXTRAS_FROM_HEIST: int = 10
+## The card spent cash or watched a rewarded ad: no interstitial on its Next tap.
+var _card_quiet: bool = false
+## NEXT was tapped and the interstitial is playing; the heist starts when it finishes.
+var _interstitial_pending: bool = false
 
 
 func _ready() -> void:
@@ -104,6 +108,11 @@ func _ready() -> void:
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.glove_granted.connect(_on_glove_granted)
+	EventBus.city_entered.connect(_stamp_city)
+	EventBus.hot_hands.connect(func(on: bool) -> void:
+		if on:
+			bag.bounce(1.14)
+	)
 	_splash = UnlockSplash.new()
 	add_child(_splash)
 	_splash.accepted.connect(func(kind: String) -> void:
@@ -223,6 +232,8 @@ func _on_alarm(level: int, max_level: int) -> void:
 
 
 func _on_cash(amount: int, delta: int) -> void:
+	if delta < 0 and card.visible:
+		_card_quiet = true
 	bag.set_cash(amount)
 	if delta > 0:
 		bag.bounce(1.06)
@@ -244,6 +255,51 @@ func _render_bonus_line() -> void:
 	_bonus_label.visible = extra > 0 and _card_extras()
 	if _bonus_label.visible:
 		_bonus_label.text = tr("CARD_LOOT_BONUS") % [extra, roundi((bonus - 1.0) * 100.0)]
+
+
+## First door of a new city: its icon stamps down mid-screen (0 -> 1.3 -> 1.0), the name
+## under it, then both shrink into the heist counter. The dial waits (GameWorld.CITY_BEAT).
+func _stamp_city(vault_type: String) -> void:
+	var art := "res://assets/art/city_%s.png" % vault_type
+	var stamp := Control.new()
+	stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stamp.size = Vector2(320, 330)
+	stamp.position = Vector2(360 - 160, 250)
+	stamp.pivot_offset = Vector2(160, 140)
+	var icon := TextureRect.new()
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size = Vector2(280, 280)
+	icon.position = Vector2(20, 0)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if ResourceLoader.exists(art):
+		icon.texture = load(art)
+	stamp.add_child(icon)
+	var name_label := Label.new()
+	name_label.text = tr("VAULT_" + vault_type.to_upper())
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.size = Vector2(320, 50)
+	name_label.position = Vector2(0, 278)
+	name_label.add_theme_font_size_override("font_size", 40)
+	name_label.add_theme_color_override("font_color", GRADE_COLORS.perfect)
+	name_label.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 1))
+	name_label.add_theme_constant_override("outline_size", 10)
+	stamp.add_child(name_label)
+	$HUD.add_child(stamp)
+	stamp.scale = Vector2.ZERO
+	var dest: Vector2 = Vector2(360, 110)
+	if _heist_label:
+		dest = _heist_label.get_global_rect().get_center()
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(stamp, "scale", Vector2(1.3, 1.3), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void: EventBus.juice_hit.emit("city", 1.0))
+	tw.tween_property(stamp, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.5)
+	tw.tween_property(stamp, "position", dest - stamp.pivot_offset, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(stamp, "scale", Vector2(0.15, 0.15), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(stamp, "modulate:a", 0.0, 0.2).set_delay(0.15)
+	tw.tween_callback(stamp.queue_free)
 
 
 func _card_extras() -> bool:
@@ -301,6 +357,9 @@ func _on_stage(index: int, _payout: int) -> void:
 func _on_run_end(reason: String, stats: Dictionary) -> void:
 	_run_end_reason = reason
 	_run_end_stats = stats
+	GameState.note_heist_card(reason == "cracked", bool(stats.get("daily", false)))
+	# A bust card never ends in an interstitial.
+	_card_quiet = reason != "cracked"
 	grade_label.text = ""
 	combo_label.visible = false
 	_x3_key = "CARD_X3_AUTO" if GameState.no_ads else "CARD_X3"
@@ -433,8 +492,18 @@ func _on_card_dim(event: InputEvent) -> void:
 
 
 func _primary() -> void:
-	if not card.visible or _splash.is_open():
+	if not card.visible or _splash.is_open() or _interstitial_pending:
 		return
+	if GameState.interstitial_due(_card_quiet):
+		_interstitial_pending = true
+		GameState.note_interstitial_shown()
+		EventBus.ad_requested.emit("interstitial", {})
+		return
+	_next_heist()
+
+
+func _next_heist() -> void:
+	_interstitial_pending = false
 	card.visible = false
 	var world := get_tree().get_first_node_in_group("game_world")
 	if world and world.has_method("start_run"):
@@ -469,6 +538,13 @@ func _x3() -> void:
 
 
 func _on_ad(placement: String, rewarded: bool) -> void:
+	if placement == "interstitial":
+		# Filled or not, the next heist starts: an interstitial never holds the player.
+		if _interstitial_pending:
+			_next_heist()
+		return
+	if rewarded and card.visible:
+		_card_quiet = true
 	if placement == "end_multiplier":
 		x3_btn.disabled = false
 		if rewarded:

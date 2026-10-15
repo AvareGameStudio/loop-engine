@@ -331,6 +331,23 @@ static func vault_type(stage: int) -> String:
 	return String(VAULT_TYPE_BY_STAGE.get(best_key, "piggy"))
 
 
+## Highest city door whose entry stamp was shown. Saved, so a bust at a city door does
+## not stamp again on the retry.
+var city_seen: int = 0
+
+
+## The city this door opens, when it is a city's first door the player has not entered yet.
+func city_entry(stage: int) -> String:
+	if daily_active or stage <= 1 or stage <= city_seen or not VAULT_TYPE_BY_STAGE.has(stage):
+		return ""
+	return String(VAULT_TYPE_BY_STAGE[stage])
+
+
+func mark_city_seen(stage: int) -> void:
+	city_seen = maxi(city_seen, stage)
+	request_save()
+
+
 ## Vault types are unlocked by progress, so the list is derived, not stored.
 func unlocked_vault_types() -> PackedStringArray:
 	var out: PackedStringArray = []
@@ -357,6 +374,37 @@ func market_unlocked() -> bool:
 
 func crew_unlocked() -> bool:
 	return complete_heists() >= CREW_UNLOCK_AFTER
+
+
+# --- Interstitial ---------------------------------------------------------------
+## Between-heist interstitial: from heist 5, every 2nd cracked heist, at least 45 s apart.
+## Never after a bust, the daily, a card where the player spent cash or watched a rewarded
+## ad, or with No Ads. Shown when NEXT is tapped, before the next heist starts.
+const INTERSTITIAL_FROM_HEIST: int = 5
+const INTERSTITIAL_EVERY: int = 2
+const INTERSTITIAL_COOLDOWN_MS: int = 45000
+var _cards_since_interstitial: int = 0
+var _last_interstitial_ms: int = -INTERSTITIAL_COOLDOWN_MS
+
+
+## Called once per end card. Only cracked career heists count toward the next interstitial.
+func note_heist_card(cracked: bool, daily: bool) -> void:
+	if cracked and not daily:
+		_cards_since_interstitial += 1
+
+
+## `quiet`: the card already earned the player's goodwill (spent cash, watched an ad) or was a bust.
+func interstitial_due(quiet: bool) -> bool:
+	if no_ads or quiet or complete_heists() < INTERSTITIAL_FROM_HEIST:
+		return false
+	if _cards_since_interstitial < INTERSTITIAL_EVERY:
+		return false
+	return Time.get_ticks_msec() - _last_interstitial_ms >= INTERSTITIAL_COOLDOWN_MS
+
+
+func note_interstitial_shown() -> void:
+	_cards_since_interstitial = 0
+	_last_interstitial_ms = Time.get_ticks_msec()
 
 
 ## Collects the Crew's take; `mult` 2 after the rewarded ad. Returns what was paid.
@@ -697,6 +745,7 @@ func to_dict() -> Dictionary:
 		"daily_last_day": daily_last_day,
 		"loot_bought": loot_bought,
 		"gold_bought": gold_bought,
+		"city_seen": city_seen,
 		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
@@ -733,6 +782,8 @@ func from_dict(data: Dictionary) -> void:
 	daily_last_day = int(data.get("daily_last_day", -1))
 	loot_bought = int(data.get("loot_bought", 0))
 	gold_bought = clampi(int(data.get("gold_bought", 0)), 0, LOOT_ITEMS.size())
+	# Older saves: every city up to the cleared doors was already entered.
+	city_seen = int(data.get("city_seen", stages_cleared))
 	if int(data.get("v", 0)) < 4:
 		loot_bought = maxi(0, _legacy_loot_count(stages_cleared) - loot_count_at(stages_cleared))
 	auto_tap_purchased = bool(data.get("auto_tap_purchased", false))
@@ -862,11 +913,15 @@ func grant_random_glove(equip: bool = false) -> String:
 	return id
 
 
+const GLOVE_OFFER_FROM: int = 8
+
+
 func should_offer_glove() -> bool:
 	if unowned_gloves().is_empty():
 		return false
 	var heists: int = complete_heists()
-	return heists > 0 and heists % 4 == 0
+	# First offer on heist 8: heist 4 already opens the Big Heist and the slide trick.
+	return heists >= GLOVE_OFFER_FROM and heists % 4 == 0
 
 
 func equip_glove(id: String) -> void:

@@ -138,6 +138,11 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"city":
+			# City stamp: the camera leans 1.15 into the vault, a heavy thud lands the stamp.
+			_city_push()
+			_add_shake(8.0)
+			Settings.vibrate(40, 1.0)
 		"unlock":
 			# A new system opens (Market, Crew): a beat of freeze, then a big gold bang.
 			TimeScale.hitstop(0.06)
@@ -291,6 +296,19 @@ func _finale_push() -> void:
 	_zoom_tween.tween_property(camera, "zoom", _base_zoom * FINALE_ZOOM, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_zoom_tween.tween_interval(FINALE_SLOWMO_SEC)
 	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## City entry: 1.15 push over 0.3 s, hold, ease back over 0.4 s (real time).
+func _city_push() -> void:
+	if camera == null:
+		return
+	if _zoom_tween:
+		_zoom_tween.kill()
+	_zoom_tween = create_tween()
+	_zoom_tween.set_ignore_time_scale(true)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom * 1.15, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_zoom_tween.tween_interval(0.45)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 ## Glove icon + tag rising off the pick tip: the perk is seen, not read in the Market.

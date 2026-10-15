@@ -181,6 +181,14 @@ func _on_juice(grade: String, _intensity: float) -> void:
 			play_tone(3900.0, 0.02, 0.22)
 			play_tone(2600.0, 0.04, 0.3)
 			play_tone(180.0, 0.1, 0.34)
+		"city":
+			# Rubber stamp: a low thud, then a bright ring.
+			play_tone(110.0, 0.14, 0.4)
+			play_tone(70.0, 0.2, 0.32)
+			get_tree().create_timer(0.08, true, false, true).timeout.connect(func() -> void:
+				play_tone(1046.0, 0.18, 0.2)
+				play_tone(1568.0, 0.22, 0.14)
+			)
 		"unlock":
 			# Fanfare for a new system: the loot chips, then a bright rising major arpeggio.
 			play_sample("loot", 0.9)

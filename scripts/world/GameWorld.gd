@@ -8,6 +8,8 @@ const CRACK_BEAT: float = 1.25
 ## Mid-heist door: shorter beat, then the next door spins.
 const DOOR_BEAT: float = 0.65
 const FLIP_TELEGRAPH: float = 0.4
+## City entry stamp: the dial waits this long (real seconds) for the stamp before spinning.
+const CITY_BEAT: float = 1.2
 const REVIVE_STEP: float = 0.45
 ## Real seconds between the cuffs snapping shut and the bribe popup: the frozen bust frame.
 const BUST_BEAT: float = 0.9
@@ -128,7 +130,22 @@ func start_run(daily: bool = false) -> void:
 	EventBus.alarm_changed.emit(GameState.session_alarm, GameState.ALARM_MAX)
 	EventBus.multiplier_changed.emit(GameState.session_multiplier)
 	EventBus.session_changed.emit()
+	await _city_entry()
+	if not GameState.run_active:
+		return
 	_open_door(true)
+
+
+## First door of a new city: hold the dial while the city stamp lands.
+func _city_entry() -> void:
+	var city: String = GameState.city_entry(GameState.current_stage)
+	if city == "":
+		return
+	GameState.mark_city_seen(GameState.current_stage)
+	_busy = true
+	input_proc.arm(false)
+	EventBus.city_entered.emit(city)
+	await get_tree().create_timer(CITY_BEAT, true, false, true).timeout
 
 
 func _on_commit(mode: String, _held: float) -> void:
@@ -299,6 +316,9 @@ func _begin_next_door() -> void:
 	EventBus.door_advanced.emit(GameState.current_stage)
 	EventBus.session_changed.emit()
 	input_proc.clear_buffer()
+	await _city_entry()
+	if not GameState.run_active:
+		return
 	await _open_door(true)
 
 
