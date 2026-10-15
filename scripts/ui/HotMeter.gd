@@ -3,8 +3,8 @@ extends Control
 ## Makes Hot Hands visible as a goal and as a reward.
 ## Under the grade word: one flame per Perfect needed. Each Perfect lights the next flame
 ## (pop 1.0 -> 1.35 -> 1.0); a strike breaks the row (red flash, flames drop). Hidden at 0.
-## Lighting it: a full-width banner "HOT HANDS! / x2 CASH" scales in (0 -> 1.15 -> 1.0),
-## holds 1.4 s, then shrinks into a pulsing "🔥 x2" badge that stays while it burns.
+## Lighting it: the "flame x2" badge slams in at 1.6x and settles over 0.35 s, then breathes
+## while it burns. No text banner: the fire ring, the badge and the arpeggio already say it.
 
 const FLAME := Color(1.0, 0.5, 0.12, 1.0)
 const FLAME_CORE := Color(1.0, 0.85, 0.35, 1.0)
@@ -12,7 +12,6 @@ const FLAME_OFF := Color(0.3, 0.32, 0.42, 0.75)
 const BROKEN := Color(1.0, 0.25, 0.3, 1.0)
 const FLAME_W: float = 26.0
 const GAP: float = 12.0
-const BANNER_HOLD: float = 1.4
 
 var _count: int = 0
 var _needed: int = 4
@@ -65,22 +64,19 @@ func _on_hot(on: bool) -> void:
 		_banner = 0.0
 		queue_redraw()
 		return
+	# `_banner` is the badge's extra scale now: 0.6 -> 0 (1.6x -> 1.0x).
+	_banner = 0.6
 	var tw := create_tween()
 	tw.set_ignore_time_scale(true)
-	tw.tween_property(self, "_banner", 1.15, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(self, "_banner", 1.0, 0.1)
-	tw.tween_interval(BANNER_HOLD)
-	tw.tween_property(self, "_banner", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "_banner", 0.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _draw() -> void:
 	var font: Font = get_theme_default_font()
 	var cx: float = size.x * 0.5
-	if _banner > 0.01:
-		_draw_banner(font, cx)
-	elif _active:
-		# Badge while it burns: flame + "x2" breathing 6%.
-		var s: float = 1.0 + 0.06 * sin(_t * 7.0)
+	if _active:
+		# Badge while it burns: flame + "x2" breathing 6%, slammed in at 1.6x.
+		var s: float = (1.0 + 0.06 * sin(_t * 7.0)) * (1.0 + _banner)
 		_flame(Vector2(cx - 30.0, 34.0), 30.0 * s, 1.0)
 		_text(font, Vector2(cx + 14.0, 46.0), "x2", int(34 * s), FLAME_CORE, false)
 		return
@@ -96,20 +92,6 @@ func _draw() -> void:
 		else:
 			_flame(Vector2(x, 30.0), FLAME_W * p, 1.0 if lit else 0.0)
 		x += FLAME_W + GAP
-
-
-func _draw_banner(font: Font, cx: float) -> void:
-	var s: float = _banner
-	var a: float = clampf(_banner * 1.5, 0.0, 1.0)
-	var h: float = 118.0 * s
-	var rect := Rect2(Vector2(0.0, 52.0 - h * 0.5), Vector2(size.x, h))
-	draw_rect(rect, Color(0.08, 0.03, 0.02, 0.82 * a))
-	draw_rect(Rect2(rect.position, Vector2(size.x, 4.0)), Color(FLAME, a))
-	draw_rect(Rect2(Vector2(0.0, rect.end.y - 4.0), Vector2(size.x, 4.0)), Color(FLAME, a))
-	_flame(Vector2(cx - 230.0 * s, 46.0), 46.0 * s, a)
-	_flame(Vector2(cx + 230.0 * s, 46.0), 46.0 * s, a)
-	_text(font, Vector2(cx, 50.0), tr("HUD_HOT_HANDS"), int(52 * s), Color(FLAME_CORE, a), true)
-	_text(font, Vector2(cx, 92.0), tr("HUD_HOT_X2"), int(30 * s), Color(1, 1, 1, a), true)
 
 
 func _text(font: Font, at: Vector2, text: String, fs: int, color: Color, center: bool) -> void:

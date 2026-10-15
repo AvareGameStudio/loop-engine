@@ -97,6 +97,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **Single currency: cash ($).** Pins drop cash directly (`pin_cash`). Each door also pays `40 + 12 × door` (×2 on golden). No hidden score.
 - **Window silhouette** shows the next hideout item. Door open → the item pops and flies into the bag; gold/gem rain still falls.
 - **End-of-heist card** (opaque `#0B1020` panel, gold rim): `HEIST N CRACKED`, a 60 px loot roll (the bag bumps 8% at every fifth), the hideout ring with the next item as a silhouette (new item in colour, 1.0 → 1.2 → 1.0 pop; tap opens the room), a 76 px `NEXT HEIST`, `3x LOOT`, then one row: `FREE` glove (every 4 heists) · Market · Stash. No subtitle or shelf text. **Card diet**: the hideout-bonus line and `Next city` line only appear from heist 10 (`UIManager.CARD_EXTRAS_FROM_HEIST`).
+- **City entry stamp**: the first door of a new city (doors 3, 6, 11, 26, 51, 100) holds the dial 1.2 s while the city icon stamps down mid-screen (0 → 1.3 → 1.0) with its name, the camera leans 1.15x, a thud + ring plays, 40 ms haptic; then the stamp shrinks into the heist counter. Once per city (save field `city_seen`), never on the daily.
 - **City strip** (card top, `CityStrip.gd`): piggy shop → office → bank → museum → casino → Fort Knox → **moon vault** (door 100). Cracked cities in colour, the current one ringed in gold, the ones ahead as silhouettes; crossing into a new city pops its icon.
 - **Daily Big Heist**: once a day (UTC) from the card after heist 4 (one heist after the Market, so the Market card carries one new thing), a gold `BIG HEIST x5` button above NEXT. One golden door at 5x loot plus a guaranteed glove (or $500 once all are owned), added to the Market but not worn: the card's glove button reads `WEAR` and one tap equips it; retryable until cracked; does not move the career door index.
 - **Hideout shop (the cash sink)**: one free item per heist for heists 1–3, then every item is bought. Prices climb x1.6 per slot ($650 … ~$70k) and each owned item adds +2% to all cash (12 = +24%). The next slot breathes when affordable; the card's shelf ring shows a gold "$" coin. Save v3 players keep the items the old every-3-heists drop gave them. Simulated (avg player): a purchase every 3–6 heists through heist 30, the last two around 35–40.
@@ -129,7 +130,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **Glove perks are seen in play** (`EventBus.glove_perk` → `Juice.spawn_perk_tag`): gold puts its glove + `+10%` over every pin, latex the same on every Perfect, skeleton `SAVED!` when it swallows a miss; ice draws a frost rim with crystal ticks round the dial. Neon (3-flame Hot meter), crimson (1 s count) and royal (x3 card) already show.
 - The equipped glove (painted fist, `assets/art/glove_<id>.png`) grips the pick and clenches 8% on every Perfect. Market shows the eight gloves as an icon grid (drop-only gloves read "Drop").
 - **Glove perks** (one small, readable effect each, shown under the icon in the Market): leather – starter · latex – Perfect slice +10% · gold – pin cash +10% · neon – Hot Hands after 3 Perfects · skeleton – the first miss on each door doesn't sound the alarm · crimson – 1 s bribe restart instead of 3-2-1 · ice – dial 5% slower · royal – golden vaults pay x3 loot. Bot check (σ 50 ms, 10 tries, no bribes): heist 6 busts 1/10 with every glove; heist 11 (dark) 9/10 leather vs 8/10 skeleton/ice/latex – a nudge, not a skip.
-- **Hot Hands meter** (`HotMeter.gd`, under the grade word): one flame per Perfect needed; each Perfect lights the next (pop 1.35), a strike breaks the row in red. Lighting it drops a full-width "HOT HANDS! / x2 CASH" banner for 1.4 s, then a breathing flame + x2 badge while it burns.
+- **Hot Hands meter** (`HotMeter.gd`, under the grade word): one flame per Perfect needed; each Perfect lights the next (pop 1.35), a strike breaks the row in red. Lighting it slams the flame + x2 badge in at 1.6x (settles in 0.35 s) and bumps the bag 1.14x; the badge breathes while it burns. No text banner.
 - **Hot Hands**: 4 Perfects without a strike (across doors; a Good neither counts nor breaks it) → 80 ms freeze, orange burst, rising arpeggio, flickering fire ring on the dial, double-length orange pick trail, octave-up layer on every hit. Pins pay **2x** until any strike (glass-snap) or the heist ends. Orange, not gold: the full gold dial stays reserved for the golden heist.
 - Approach inside 45°: rising drone, cut on tap.
 
@@ -150,7 +151,8 @@ Guidelines for production art:
 |---|---|---|
 | `near_miss_revive` | Third alarm strike | Bribe the Cops: alarm reset, vault continues |
 | `end_multiplier` | Card `3x LOOT` | Twice the heist's banked cash again |
-| `glove_drop` | Card every 4 heists | Random unowned glove |
+| `glove_drop` | Card every 4 heists from heist 8 | Random unowned glove |
+| `interstitial` | NEXT on a cracked card, from heist 5, every 2nd heist, ≥ 45 s apart | None. Skipped after a bust, the daily, a card where cash was spent or a rewarded ad watched, and with No Ads (`GameState.interstitial_due`) |
 | IAP `no_ads_bundle` | Shop | Skip non-revive ads, 3x auto-claimed |
 | IAP `auto_tap` | Shop | Auto-Crack: taps the Good window for you |
 | IAP `dial_obsidian` | Shop | Neon gloves |

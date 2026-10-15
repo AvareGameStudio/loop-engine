@@ -41,6 +41,8 @@ signal cosmetic_equipped(id: String)
 signal glove_granted(id: String)
 ## A glove perk just did its thing (gold paid +10%, skeleton swallowed a miss...).
 signal glove_perk(id: String)
+## The first door of a new city (vault type) is about to open.
+signal city_entered(vault_type: String)
 ## A new hideout item joined the shelf.
 signal loot_unlocked(loot_id: String)
 ## Hot Hands: five Perfects in a row light the dial; pins pay double until a strike or the heist ends.

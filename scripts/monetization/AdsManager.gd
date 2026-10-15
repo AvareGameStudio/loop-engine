@@ -1,6 +1,8 @@
 extends Node
 ## Mock mediation layer. Swap `show_rewarded` with AdMob/LevelPlay later.
 ## Placements: near_miss_revive (Bribe the Cops), end_multiplier (3x loot), glove_drop, crew_double (Welcome Back 2x).
+## interstitial: between heists on NEXT (policy in GameState.interstitial_due); `rewarded`
+## there only means it filled. Swap for the mediation SDK's interstitial call.
 
 @export var mock_fill_rate: float = 1.0
 @export var mock_latency_ms: int = 350
