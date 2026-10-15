@@ -20,11 +20,23 @@ var _t: float = 0.0
 var _holding_pause: bool = false
 ## "Every item adds +2% to all cash, forever" - the shop's reason to exist, said once.
 var _info: Label
+## Per-slot backing: a gold plate behind gilded items so the collection reads at a glance.
+var _slots: Array[PanelContainer] = []
+var _gold_box := StyleBoxFlat.new()
+var _next_gold_box := StyleBoxFlat.new()
 
 
 func _ready() -> void:
 	root.visible = false
 	grid.columns = COLS
+	_gold_box.bg_color = Color(0.55, 0.38, 0.06, 0.55)
+	_gold_box.border_color = Color(1.0, 0.82, 0.3, 1.0)
+	_gold_box.set_border_width_all(3)
+	_gold_box.set_corner_radius_all(14)
+	_next_gold_box.bg_color = Color(0, 0, 0, 0)
+	_next_gold_box.border_color = Color(1.0, 0.82, 0.3, 0.55)
+	_next_gold_box.set_border_width_all(2)
+	_next_gold_box.set_corner_radius_all(14)
 	VaultArt.ensure()
 	for i in GameState.LOOT_ITEMS.size():
 		var box := VBoxContainer.new()
@@ -49,7 +61,11 @@ func _ready() -> void:
 		box.add_child(name_label)
 		box.add_child(buy)
 		_buys.append(buy)
-		grid.add_child(box)
+		var slot := PanelContainer.new()
+		slot.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		slot.add_child(box)
+		_slots.append(slot)
+		grid.add_child(slot)
 		_icons.append(icon)
 		_labels.append(name_label)
 	close_btn.pressed.connect(close)
@@ -72,19 +88,26 @@ func _process(delta: float) -> void:
 	if not root.visible:
 		return
 	_t += delta
-	var slot: int = GameState.loot_unlocked_count()
-	if slot >= _icons.size():
+	var slot: int = _sale_slot()
+	if slot < 0:
 		return
 	var icon: TextureRect = _icons[slot]
 	icon.pivot_offset = icon.size * 0.5
 	icon.scale = Vector2.ONE * (1.0 + 0.06 * maxf(0.0, sin(_t * TAU / 0.8))) if GameState.can_buy_loot() else Vector2.ONE
 
 
+## Slot whose buy button shows: the next shelf item, or the next one to gild. -1 when done.
+func _sale_slot() -> int:
+	if not GameState.shelf_full():
+		return GameState.loot_unlocked_count()
+	return GameState.gold_bought if GameState.next_is_gold() else -1
+
+
 func _buy() -> void:
-	var slot: int = GameState.loot_unlocked_count()
-	if GameState.buy_next_loot() == "":
+	var slot: int = _sale_slot()
+	if slot < 0 or GameState.buy_next_loot() == "":
 		return
-	EventBus.juice_hit.emit("claim", 1.0)
+	EventBus.juice_hit.emit("claim", 1.4 if GameState.last_buy_gold else 1.0)
 	_refresh()
 	var icon: TextureRect = _icons[slot]
 	icon.pivot_offset = icon.size * 0.5
@@ -125,7 +148,9 @@ func close() -> void:
 
 func _refresh() -> void:
 	var bonus: int = roundi((GameState.loot_bonus() - 1.0) * 100.0)
-	title.text = tr("HIDEOUT_TITLE")
+	var gold_phase: bool = GameState.shelf_full()
+	title.text = tr("HIDEOUT_GOLD_TITLE") % [GameState.gold_bought, GameState.LOOT_ITEMS.size()] if gold_phase else tr("HIDEOUT_TITLE")
+	title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.3) if gold_phase else Color.WHITE)
 	if _info == null:
 		_info = Label.new()
 		_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -134,19 +159,26 @@ func _refresh() -> void:
 		_info.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0, 1.0))
 		title.get_parent().add_child(_info)
 		title.get_parent().move_child(_info, title.get_index() + 1)
-	_info.text = tr("HIDEOUT_INFO") % [roundi(GameState.LOOT_BONUS_STEP * 100.0), bonus]
+	_info.text = tr("HIDEOUT_GOLD_INFO" if gold_phase else "HIDEOUT_INFO") % [roundi(GameState.LOOT_BONUS_STEP * 100.0), bonus]
 	close_btn.text = tr("MARKET_CLOSE")
 	var owned: int = GameState.loot_unlocked_count()
+	var sale: int = _sale_slot()
 	for i in _icons.size():
 		var unlocked: bool = i < owned
-		_icons[i].modulate = Color.WHITE if unlocked else Color(0.12, 0.12, 0.14, 1.0)
-		_labels[i].text = tr("LOOT_" + GameState.LOOT_ITEMS[i].to_upper()) if unlocked else "—"
-		_labels[i].add_theme_color_override("font_color", Color(0.9, 0.84, 0.6, 1.0) if unlocked else Color(0.35, 0.38, 0.42, 1.0))
+		var gilded: bool = i < GameState.gold_bought
+		_icons[i].modulate = GameState.GOLD_TINT if gilded else (Color.WHITE if unlocked else Color(0.12, 0.12, 0.14, 1.0))
+		var item_name: String = tr("LOOT_" + GameState.LOOT_ITEMS[i].to_upper())
+		_labels[i].text = (GameState.gold_item_name(GameState.LOOT_ITEMS[i]) if gilded else item_name) if unlocked else "—"
+		_labels[i].add_theme_color_override("font_color", Color(1.0, 0.82, 0.3, 1.0) if gilded else (Color(0.9, 0.84, 0.6, 1.0) if unlocked else Color(0.35, 0.38, 0.42, 1.0)))
 		# Only the next slot is for sale; its silhouette is lighter so it reads as "this one".
-		var for_sale: bool = i == owned
+		var for_sale: bool = i == sale
 		_buys[i].visible = for_sale
 		_labels[i].visible = not for_sale
+		_slots[i].add_theme_stylebox_override("panel", _gold_box if gilded else StyleBoxEmpty.new())
 		if for_sale:
-			_icons[i].modulate = Color(0.45, 0.48, 0.6, 1.0)
+			# Gold phase: still in colour (owned), the plain gold rim says "this one turns gold".
+			_icons[i].modulate = Color.WHITE if gold_phase else Color(0.45, 0.48, 0.6, 1.0)
+			if gold_phase:
+				_slots[i].add_theme_stylebox_override("panel", _next_gold_box)
 			_buys[i].text = tr("MARKET_COST") % GameState.next_loot_price()
 			_buys[i].disabled = not GameState.can_buy_loot()

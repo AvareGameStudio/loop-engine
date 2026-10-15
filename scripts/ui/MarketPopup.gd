@@ -159,7 +159,10 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 
 func _refresh() -> void:
 	balance_label.text = tr("MARKET_BALANCE") % GameState.cash
-	_hideout_btn.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
+	if GameState.shelf_full():
+		_hideout_btn.text = tr("MARKET_GOLD") % [GameState.gold_bought, GameState.LOOT_ITEMS.size()]
+	else:
+		_hideout_btn.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
 	# Gold when the next shelf item is affordable: that is the best buy in the game.
 	_hideout_btn.theme_type_variation = &"PrimaryButton" if GameState.can_buy_loot() else &""
 	for item: Dictionary in MetaUpgrade.CATALOG:

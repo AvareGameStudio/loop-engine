@@ -22,6 +22,11 @@ var buyable: bool = false:
 		set_process(not complete or buyable)
 		queue_redraw()
 var _icon_scale: float = 1.0
+## Gold Collection: the item is drawn gilded (gold tint + gold rim) instead of in colour.
+var gold: bool = false:
+	set(value):
+		gold = value
+		queue_redraw()
 var complete: bool = false
 var focused: bool = false
 var _pulse: float = 0.0
@@ -107,6 +112,10 @@ func _draw() -> void:
 	if icon:
 		var side: float = radius * 1.25 * _icon_scale
 		var tint: Color = Color.WHITE if complete else Color(0.3, 0.34, 0.46, 0.95)
+		if gold:
+			tint = GameState.GOLD_TINT if complete else Color(0.55, 0.45, 0.18, 0.95)
+			draw_circle(center, side * 0.62, Color(1.0, 0.8, 0.25, 0.18 if complete else 0.08))
+			draw_arc(center, side * 0.62, 0.0, TAU, 40, Color(1.0, 0.82, 0.3, 0.9 if complete else 0.45), 3.0, true)
 		draw_texture_rect(icon, Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side)), false, tint)
 		if buyable:
 			var coin: Vector2 = center + Vector2(radius * 0.78, -radius * 0.78)

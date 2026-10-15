@@ -13,6 +13,12 @@ CARD_BUY,BUY: %s  $%d  (+%d%% cash),AL: %s  $%d  (+%%%d para)
 CARD_LOOT_BONUS,+$%d hideout bonus (+%d%%),+$%d saklanma evi bonusu (+%%%d)
 HUD_CREW_NEW,NEW! Hire a crew,YENİ! Ekip kur
 HIDEOUT_INFO,"Every item adds +%d%% to all your cash, forever. Now: +%d%%","Her ganimet tüm kazancına kalıcı +%%%d ekler. Şu an: +%%%d"
+HIDEOUT_GOLD_TITLE,GOLD COLLECTION  %d / %d,ALTIN KOLEKSİYON  %d / %d
+HIDEOUT_GOLD_INFO,"Shelf complete! Gild each item for +%d%% more cash, forever. Now: +%d%%","Raf tamam! Her ganimeti altına çevir: kalıcı +%%%d daha para. Şu an: +%%%d"
+GOLD_ITEM,Gold %s,Altın %s
+LOOT_GOLD_GILDED,Platinum Bar,Platin Külçe
+LOOT_WATCH_GILDED,Diamond Watch,Elmas Saat
+MARKET_GOLD,Gold Collection  ·  %d / %d,Altın Koleksiyon  ·  %d / %d
 MARKET_CREW_NAME,Crew,Ekip
 MARKET_CREW_EFFECT,"Steals $%d an hour while you're away (up to %d h).","Sen yokken saatte $%d çalar (en fazla %d saat)."
 WELCOME_TITLE,WELCOME BACK!,HOŞ GELDİN!
