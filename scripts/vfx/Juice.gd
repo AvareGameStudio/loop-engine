@@ -20,6 +20,19 @@ const RING_SLOWMO_SEC: float = 0.15
 const LAST_PIN_FREEZE: float = 0.1
 const HIT_ZOOM := Vector2(1.05, 1.05)
 const BUST_ZOOM: float = 1.12
+## Heist finale (last door of the heist, or the daily door): a longer freeze, 0.3x slow-mo
+## while the door falls at the camera, a 1.08 push and twice the hoard rain.
+const FINALE_FREEZE: float = 0.12
+const FINALE_TIME_SCALE: float = 0.3
+const FINALE_SLOWMO_SEC: float = 0.35
+const FINALE_ZOOM := Vector2(1.08, 1.08)
+## Glove perk tag: what each perk says when it fires. The glove icon carries the rest.
+const PERK_TAG := {"gold": "+10%", "latex": "+10%", "skeleton": "PERK_SAVED"}
+const PERK_COLOR := {
+	"gold": Color(1.0, 0.84, 0.3, 1.0),
+	"latex": Color(1.0, 0.95, 0.75, 1.0),
+	"skeleton": Color(0.92, 0.92, 0.86, 1.0),
+}
 var _bust_active: bool = false
 var _bust_home: Vector2 = Vector2.ZERO
 
@@ -52,6 +65,7 @@ func _ready() -> void:
 	EventBus.run_started.connect(_stop_alarm)
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.stage_cleared.connect(_on_ring_cleared)
+	EventBus.glove_perk.connect(spawn_perk_tag)
 	EventBus.alarm_changed.connect(_on_alarm)
 	EventBus.busted.connect(_bust_zoom)
 	EventBus.revive_resolved.connect(func(_ok: bool) -> void: _release_zoom())
@@ -124,6 +138,13 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"unlock":
+			# A new system opens (Market, Crew): a beat of freeze, then a big gold bang.
+			TimeScale.hitstop(0.06)
+			_add_shake(12.0)
+			_burst(30, Color(1.0, 0.84, 0.35))
+			_pulse_glow(2.4)
+			Settings.vibrate(50, 1.0)
 		"hot_hands":
 			# Ignite: a beat of freeze, then the dial bursts orange.
 			TimeScale.hitstop(0.08)
@@ -232,21 +253,79 @@ func _zoom_punch_success() -> void:
 ## The freeze is hitstop, so the tap handler's slow-mo restore cannot cancel it.
 func _on_ring_cleared(index: int, _payout: int) -> void:
 	_cleared_stage = index
-	TimeScale.hitstop(LAST_PIN_FREEZE)
-	get_tree().create_timer(LAST_PIN_FREEZE, true, false, true).timeout.connect(_slam_vault)
+	var freeze: float = FINALE_FREEZE if GameState.is_heist_finale(index) else LAST_PIN_FREEZE
+	TimeScale.hitstop(freeze)
+	get_tree().create_timer(freeze, true, false, true).timeout.connect(_slam_vault)
 
 
 func _slam_vault() -> void:
-	_zoom_punch_success()
+	var finale: bool = GameState.is_heist_finale(_cleared_stage)
+	if finale:
+		_finale_push()
+		_add_shake(16.0)
+		_burst(40, Color(1.0, 0.84, 0.35))
+	else:
+		_zoom_punch_success()
 	bounce_node(_dial(), 1.28)
 	_tint_glow(_shell_color(_cleared_stage + 1))
 	_pulse_glow(3.0)
-	spawn_vault_rain()
+	spawn_vault_rain(2 if finale else 1)
 	_fly_loot()
 	_shed_rust(_cleared_stage)
 	_shed_shell(_shell_color(_cleared_stage))
-	Settings.vibrate(70, 1.0)
-	TimeScale.pulse_slowmo(RING_TIME_SCALE, RING_SLOWMO_SEC)
+	Settings.vibrate(110 if finale else 70, 1.0)
+	if finale:
+		TimeScale.pulse_slowmo(FINALE_TIME_SCALE, FINALE_SLOWMO_SEC)
+	else:
+		TimeScale.pulse_slowmo(RING_TIME_SCALE, RING_SLOWMO_SEC)
+
+
+## Camera leans in 1.08 while the door falls, then eases home over the slow-mo.
+func _finale_push() -> void:
+	if camera == null:
+		return
+	if _zoom_tween:
+		_zoom_tween.kill()
+	_zoom_tween = create_tween()
+	_zoom_tween.set_ignore_time_scale(true)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom * FINALE_ZOOM, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_zoom_tween.tween_interval(FINALE_SLOWMO_SEC)
+	_zoom_tween.tween_property(camera, "zoom", _base_zoom, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Glove icon + tag rising off the pick tip: the perk is seen, not read in the Market.
+func spawn_perk_tag(id: String) -> void:
+	VaultArt.ensure()
+	var host: Node = get_tree().current_scene
+	if host == null:
+		host = get_parent()
+	var tag := Node2D.new()
+	tag.name = "PerkTag"
+	tag.z_index = 26
+	var icon := Sprite2D.new()
+	icon.texture = VaultArt.glove_icon(id)
+	if icon.texture:
+		icon.scale = Vector2.ONE * (44.0 / float(maxi(icon.texture.get_width(), 1)))
+	icon.position = Vector2(-34, 0)
+	tag.add_child(icon)
+	var label := Label.new()
+	label.text = tr(String(PERK_TAG.get(id, "")))
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", PERK_COLOR.get(id, Color.WHITE))
+	label.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 1))
+	label.add_theme_constant_override("outline_size", 8)
+	label.position = Vector2(-6, -20)
+	tag.add_child(label)
+	host.add_child(tag)
+	tag.global_position = _contact_point() + Vector2(0, -36)
+	tag.scale = Vector2(0.4, 0.4)
+	var tw := tag.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(tag, "scale", Vector2(1.15, 1.15), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(tag, "scale", Vector2.ONE, 0.08)
+	tw.tween_property(tag, "position:y", tag.position.y - 70.0, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(tag, "modulate:a", 0.0, 0.55).set_delay(0.2)
+	tw.tween_callback(tag.queue_free)
 
 
 func _shell_color(stage: int) -> Color:
@@ -421,12 +500,13 @@ func _fly_loot() -> void:
 
 
 ## Gold bars and diamonds fill the phone when the door slams open.
-func spawn_vault_rain() -> void:
+func spawn_vault_rain(mult: int = 1) -> void:
 	VaultArt.ensure()
 	var layer: Node = glow.get_parent() if glow else (get_tree().current_scene if get_tree() else self)
 	var origin := _vault_origin()
-	_drop_rain(layer, "VaultRainGold", VaultArt.gold, Color(1.0, 0.86, 0.3, 1.0), 140, 0.0)
-	_drop_rain(layer, "VaultRainGem", VaultArt.gem, Color(0.85, 0.95, 1.0, 1.0), 70, 0.05)
+	_drop_rain(layer, "VaultRainGold", VaultArt.gold, Color(1.0, 0.86, 0.3, 1.0), 140 * mult, 0.0)
+	_drop_rain(layer, "VaultRainGem", VaultArt.gem, Color(0.85, 0.95, 1.0, 1.0), 70 * mult, 0.05)
+	# The burst stays 1x even on the finale: doubled it buried the falling door.
 	_explode_hoard(layer, "VaultBurstGold", VaultArt.gold, Color(1.0, 0.84, 0.25, 1.0), origin, 90)
 	_explode_hoard(layer, "VaultBurstGem", VaultArt.gem, Color(0.8, 0.95, 1.0, 1.0), origin, 40)
 
