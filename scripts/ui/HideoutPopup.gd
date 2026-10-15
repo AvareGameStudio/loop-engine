@@ -18,6 +18,8 @@ var _labels: Array[Label] = []
 var _buys: Array[Button] = []
 var _t: float = 0.0
 var _holding_pause: bool = false
+## "Every item adds +2% to all cash, forever" - the shop's reason to exist, said once.
+var _info: Label
 
 
 func _ready() -> void:
@@ -123,7 +125,16 @@ func close() -> void:
 
 func _refresh() -> void:
 	var bonus: int = roundi((GameState.loot_bonus() - 1.0) * 100.0)
-	title.text = tr("HIDEOUT_TITLE") + ("   " + tr("HIDEOUT_BONUS") % bonus if bonus > 0 else "")
+	title.text = tr("HIDEOUT_TITLE")
+	if _info == null:
+		_info = Label.new()
+		_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_info.add_theme_font_size_override("font_size", 17)
+		_info.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0, 1.0))
+		title.get_parent().add_child(_info)
+		title.get_parent().move_child(_info, title.get_index() + 1)
+	_info.text = tr("HIDEOUT_INFO") % [roundi(GameState.LOOT_BONUS_STEP * 100.0), bonus]
 	close_btn.text = tr("MARKET_CLOSE")
 	var owned: int = GameState.loot_unlocked_count()
 	for i in _icons.size():

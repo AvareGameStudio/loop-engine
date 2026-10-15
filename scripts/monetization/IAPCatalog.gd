@@ -13,7 +13,7 @@ const PRODUCTS := [
 	{
 		"id": "auto_tap",
 		"title": "Auto-Crack",
-		"blurb": "The crew taps the Good window for you. Perfects stay yours.",
+		"blurb": "Taps the Good window for you. Perfects stay yours.",
 		"price": "$2.99",
 		"flag": "auto_tap",
 	},

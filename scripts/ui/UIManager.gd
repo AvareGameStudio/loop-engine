@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## HUD (door pips, alarm lamps, grade, loot bag) and the end-of-heist card, which
-## holds the market / stash entry points. Fully signal-driven.
+## holds the market / hideout entry points. Fully signal-driven.
 ## HUD rule: three things on screen during play. Door pips, lamps, bag. No buttons, no labels.
 
 const GRADE_COLORS: Dictionary[String, Color] = {
@@ -12,6 +12,7 @@ const GRADE_COLORS: Dictionary[String, Color] = {
 ## Combo label shows from this streak up; below it the grade word is enough.
 const COMBO_SHOW_FROM: int = 3
 ## The new hideout item pops onto the shelf once the card has landed.
+const HIDEOUT_ICON := "res://assets/art/hideout_btn.png"
 const SHELF_POP_DELAY: float = 0.45
 
 @onready var pips: DoorPips = $HUD/Pips
@@ -27,14 +28,14 @@ const SHELF_POP_DELAY: float = 0.45
 @onready var primary_btn: Button = $Card/Panel/Margin/VBox/Primary
 @onready var x3_btn: Button = $Card/Panel/Margin/VBox/X3
 @onready var card_market_btn: Button = $Card/Panel/Margin/VBox/Meta/Market
-@onready var stash_btn: Button = $Card/Panel/Margin/VBox/Meta/Stash
+@onready var hideout_btn: Button = $Card/Panel/Margin/VBox/Meta/Hideout
+@onready var buy_btn: Button = $Card/Panel/Margin/VBox/Buy
 @onready var card_meta: Control = $Card/Panel/Margin/VBox/Meta
 @onready var card_city: CityStrip = $Card/Panel/Margin/VBox/City
 @onready var daily_btn: Button = $Card/Panel/Margin/VBox/Daily
 @onready var settings_btn: Button = $SettingsButton
 @onready var settings_popup: SettingsPopup = $SettingsPopup
 @onready var market_popup: MarketPopup = $MarketPopup
-@onready var claim_popup: ClaimPopup = $ClaimPopup
 @onready var hideout_popup: HideoutPopup = $HideoutPopup
 @onready var glove_btn: Button = $Card/Panel/Margin/VBox/Meta/Glove
 
@@ -45,6 +46,9 @@ var _x3_key: String = "CARD_X3"
 var _run_end_reason: String = ""
 var _run_end_stats: Dictionary = {}
 var _loot_popped: String = ""
+## Market button breathes while an upgrade is affordable.
+var _market_pulse: Tween
+var _bonus_label: Label
 
 
 func _ready() -> void:
@@ -59,7 +63,15 @@ func _ready() -> void:
 	x3_btn.pressed.connect(_x3)
 	glove_btn.pressed.connect(_glove_ad)
 	card_market_btn.pressed.connect(market_popup.open)
-	stash_btn.pressed.connect(_open_stash)
+	hideout_btn.pressed.connect(hideout_popup.open)
+	buy_btn.pressed.connect(_buy_loot)
+	if ResourceLoader.exists(HIDEOUT_ICON):
+		hideout_btn.icon = load(HIDEOUT_ICON)
+		hideout_btn.add_theme_constant_override("icon_max_width", 34)
+	buy_btn.add_theme_constant_override("icon_max_width", 40)
+	EventBus.loot_unlocked.connect(func(_id: String) -> void:
+		if card.visible:
+			_render_buy())
 	card_ring.gui_input.connect(_on_shelf_input)
 	settings_btn.pressed.connect(settings_popup.open)
 	# The theme's nine-slice margins squeezed the gear icon to a dot; the icon is the button.
@@ -69,7 +81,6 @@ func _ready() -> void:
 	EventBus.tap_evaluated.connect(_on_tap)
 	EventBus.jackpot.connect(_on_jackpot)
 	EventBus.cash_changed.connect(_on_cash)
-	EventBus.stash_changed.connect(_on_stash)
 	EventBus.alarm_changed.connect(_on_alarm)
 	EventBus.meta_upgraded.connect(func(_stat: String, _level: int) -> void: _refresh_market())
 	EventBus.run_ended.connect(_on_run_end)
@@ -80,13 +91,11 @@ func _ready() -> void:
 	EventBus.ad_finished.connect(_on_ad)
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.countdown.connect(_on_countdown)
-	EventBus.stash_ready.connect(_on_stash_ready)
 	EventBus.glove_granted.connect(_on_glove_granted)
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()
 	_refresh_pips()
-	_refresh_stash()
 	lamps.set_level(GameState.session_alarm, GameState.ALARM_MAX)
 
 
@@ -99,7 +108,6 @@ func _refresh_texts() -> void:
 	grade_label.text = ""
 	_refresh_market()
 	_refresh_session()
-	_refresh_stash()
 	if card.visible:
 		_render_card()
 
@@ -157,33 +165,56 @@ func _on_cash(amount: int, delta: int) -> void:
 	_refresh_market()
 
 
-func _on_stash(_amount: int, _delta: int) -> void:
-	_refresh_stash()
+## The hideout's +2%-per-item is invisible unless the card says what it paid this heist.
+func _render_bonus_line() -> void:
+	if _bonus_label == null:
+		_bonus_label = Label.new()
+		_bonus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_bonus_label.add_theme_font_size_override("font_size", 17)
+		_bonus_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0, 1.0))
+		card_loot.get_parent().add_child(_bonus_label)
+		card_loot.get_parent().move_child(_bonus_label, card_loot.get_index() + 1)
+	var run_cash: int = int(_run_end_stats.get("cash", 0))
+	var bonus: float = GameState.loot_bonus()
+	var extra: int = run_cash - int(round(float(run_cash) / bonus))
+	_bonus_label.visible = extra > 0
+	if extra > 0:
+		_bonus_label.text = tr("CARD_LOOT_BONUS") % [extra, roundi((bonus - 1.0) * 100.0)]
 
 
-func _refresh_stash() -> void:
-	var n: int = GameState.unclaimed_cash
-	stash_btn.visible = n > 0 and GameState.crew_unlocked()
-	_refresh_meta_row()
-	if n > 0:
-		stash_btn.text = tr("HUD_STASH") % n
-		stash_btn.pivot_offset = stash_btn.size * 0.5
-
-
-func _on_stash_ready(_amount: int) -> void:
-	_refresh_stash()
-	if not stash_btn.visible:
+## Play data: $144k banked, 3 of 12 shelf items bought. When the next item is affordable
+## the card offers it in one tap, above the Next button.
+func _render_buy() -> void:
+	var id: String = GameState.next_loot_id()
+	buy_btn.visible = GameState.can_buy_loot() and id != ""
+	if not buy_btn.visible:
 		return
+	buy_btn.text = tr("CARD_BUY") % [tr("LOOT_" + id.to_upper()), GameState.next_loot_price(), roundi(GameState.LOOT_BONUS_STEP * 100.0)]
+	buy_btn.icon = VaultSprites.loot_icon(id)
+
+
+## One-tap buy from the card: the item pops into the shelf ring, the bag gives up the cash.
+func _buy_loot() -> void:
+	var id: String = GameState.buy_next_loot()
+	if id == "":
+		return
+	EventBus.juice_hit.emit("claim", 1.0)
+	card_ring.set_icon(VaultSprites.loot_icon(id))
+	card_ring.set_state(1.0, true, false)
+	card_ring.buyable = false
+	card_ring.pop()
+	_render_buy()
+	# Next item is affordable too: keep the button, re-punch it.
+	if buy_btn.visible:
+		_punch(buy_btn)
+
+
+func _punch(target: Control) -> void:
+	target.pivot_offset = target.size * 0.5
+	target.scale = Vector2(1.12, 1.12)
 	var tw := create_tween()
 	tw.set_ignore_time_scale(true)
-	stash_btn.scale = Vector2(1.12, 1.12)
-	tw.tween_property(stash_btn, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK)
-
-
-func _open_stash() -> void:
-	if GameState.unclaimed_cash <= 0:
-		return
-	claim_popup.open(GameState.unclaimed_cash, true)
+	tw.tween_property(target, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Door open: the loot is in the air; the bag catches it half a second later.
@@ -226,7 +257,6 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 	tw.set_ignore_time_scale(true)
 	tw.tween_property(card_panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_roll_loot(int(stats.get("cash", 0)))
-	_refresh_stash()
 
 
 func _render_card() -> void:
@@ -242,12 +272,14 @@ func _render_card() -> void:
 		card_title.text = tr("CARD_CAUGHT")
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
+	_render_bonus_line()
 	x3_btn.text = tr(_x3_key)
 	daily_btn.text = tr("CARD_DAILY")
 	daily_btn.visible = GameState.daily_available()
 	if not glove_btn.disabled:
 		glove_btn.text = tr("CARD_GLOVE_SHORT")
 	_render_shelf(cracked)
+	_render_buy()
 
 
 ## City strip: the vault the next run plays in. Crossing into a new city pops its icon.
@@ -383,7 +415,7 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_MARKET_NEW")
 	elif heist == GameState.CREW_UNLOCK_AFTER:
-		# The crew starts stealing from now; the market row is where they are hired.
+		# The Crew is hired in the Market and steals from the next time the app closes.
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_CREW_NEW")
 	if target == null:
@@ -401,10 +433,11 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 	tw.tween_property(target, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-## Glove, Market and Stash share one row on the card; the row hides until one exists.
+## Glove, Market and Hideout share one row on the card. The hideout is always there.
 func _refresh_meta_row() -> void:
 	card_market_btn.visible = GameState.market_unlocked()
-	card_meta.visible = card_market_btn.visible or stash_btn.visible or glove_btn.visible
+	hideout_btn.text = tr("HUD_HIDEOUT")
+	card_meta.visible = true
 
 
 ## Market buttons advertise how many upgrades are affordable right now.
@@ -413,3 +446,21 @@ func _refresh_market() -> void:
 	var text: String = tr("HUD_MARKET_COUNT") % affordable if affordable > 0 else tr("HUD_MARKET")
 	card_market_btn.text = text
 	_refresh_meta_row()
+	_pulse_market(affordable > 0 and card_market_btn.visible)
+
+
+## 1.0 -> 1.06 breathing while an upgrade is affordable, so the card says "spend here".
+func _pulse_market(on: bool) -> void:
+	if on == (_market_pulse != null):
+		return
+	if _market_pulse:
+		_market_pulse.kill()
+		_market_pulse = null
+		card_market_btn.scale = Vector2.ONE
+		return
+	card_market_btn.pivot_offset = card_market_btn.size * 0.5
+	_market_pulse = create_tween().set_loops()
+	_market_pulse.set_ignore_time_scale(true)
+	_market_pulse.tween_callback(func() -> void: card_market_btn.pivot_offset = card_market_btn.size * 0.5)
+	_market_pulse.tween_property(card_market_btn, "scale", Vector2(1.06, 1.06), 0.45).set_trans(Tween.TRANS_SINE)
+	_market_pulse.tween_property(card_market_btn, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)

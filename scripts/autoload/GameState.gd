@@ -4,7 +4,7 @@ extends Node
 ## vault, a crack moves to the next one, so the 200-door art progression is real.
 
 const SAVE_PATH := "user://loop_engine_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 
 ## Alarm strikes before the cops arrive. Each Miss / Near-Miss adds one.
 const ALARM_MAX: int = 3
@@ -38,11 +38,14 @@ var cash: int = 0
 var best_combo: int = 0
 var best_score: int = 0
 var runs_played: int = 0
-var crew_level: int = 1
 var gloves_level: int = 1
-## Unclaimed Crew earnings. Shown as a stuffed bag, never a live ticker.
+var crew_level: int = 1
+## What the Crew stole while the app was closed, waiting on the Welcome Back screen.
+## Saved, so killing the app before collecting does not lose it.
 var unclaimed_cash: int = 0
-## Unix time of last backgrounding; used to fill the stash while the app is closed.
+## Seconds away behind the current `unclaimed_cash` (for the "in 3 h 20 min" line).
+var unclaimed_seconds: int = 0
+## Unix time of last backgrounding; the Crew steals for the gap up to the next open.
 var last_seen_unix: int = 0
 var no_ads: bool = false
 var auto_tap: bool = false
@@ -76,10 +79,14 @@ const SAVE_DEBOUNCE: float = 1.5
 var _save_pending: bool = false
 ## Tools (ad capture, simulations) set this so they never touch the player's save.
 var no_save: bool = false
+## False until load_game() ran. A focus-out during boot used to save the blank defaults
+## over the real save (seen in a tool run; a phone switching apps mid-launch could too).
+var _loaded: bool = false
 
 
 func _ready() -> void:
 	load_game()
+	_loaded = true
 	current_stage = stages_cleared + 1
 
 
@@ -95,26 +102,6 @@ func add_cash(delta: int) -> void:
 	cash = max(0, cash + delta)
 	EventBus.cash_changed.emit(cash, delta)
 	request_save()
-
-
-## Crew income lands here, not the wallet, until the player collects it.
-func add_stash(delta: int) -> void:
-	if delta == 0:
-		return
-	unclaimed_cash = max(0, unclaimed_cash + delta)
-	EventBus.stash_changed.emit(unclaimed_cash, delta)
-	request_save()
-
-
-## Empties the stash into the wallet. Returns how much was claimed (0 if empty).
-func claim_stash() -> int:
-	var n: int = unclaimed_cash
-	unclaimed_cash = 0
-	if n > 0:
-		add_cash(n)
-		EventBus.stash_changed.emit(0, -n)
-	save_game()
-	return n
 
 
 func stamp_seen() -> void:
@@ -147,11 +134,9 @@ static func is_first_heist(stage: int) -> bool:
 static func pins_for(stage: int) -> int:
 	var h: int = heist_for(stage)
 	var pins: int = 3
-	# Base tops out at 5 from heist 9: door 3 adds one (cap 6) and golden adds two (cap 8),
-	# which keeps a late heist near 30 s at the faster dial.
-	if h >= 9:
-		pins = 5
-	elif h >= 2:
+	# Base stays at 4 from heist 2; door 3 adds one, golden one more. A real session ran
+	# 26-38 s per heist at 5 base pins from heist 9; difficulty now comes from the dial.
+	if h >= 2:
 		pins = 4
 	if door_in_heist(stage) == 0 and h <= 1:
 		pins = 3
@@ -350,7 +335,7 @@ func complete_heists() -> int:
 
 ## Meta opens one system at a time so the first session is dial + hideout only.
 ## The Market (Wide Gate, glove skins) appears on the card that closes heist 3,
-## the Crew (offline stash) on the card that closes heist 5.
+## the Crew (steals while the app is closed) on the card that closes heist 5.
 const MARKET_UNLOCK_AFTER: int = 3
 const CREW_UNLOCK_AFTER: int = 5
 
@@ -361,6 +346,18 @@ func market_unlocked() -> bool:
 
 func crew_unlocked() -> bool:
 	return complete_heists() >= CREW_UNLOCK_AFTER
+
+
+## Collects the Crew's take; `mult` 2 after the rewarded ad. Returns what was paid.
+func claim_offline(mult: int = 1) -> int:
+	var n: int = unclaimed_cash * maxi(mult, 1)
+	unclaimed_cash = 0
+	unclaimed_seconds = 0
+	if n > 0:
+		add_cash(n)
+	save_game()
+	return n
+
 
 
 ## Free shelf items: one per heist for the first LOOT_FREE heists (onboarding); after that
@@ -632,9 +629,10 @@ func to_dict() -> Dictionary:
 		"best_combo": best_combo,
 		"best_score": best_score,
 		"runs_played": runs_played,
-		"crew_level": crew_level,
 		"gloves_level": gloves_level,
+		"crew_level": crew_level,
 		"unclaimed_cash": unclaimed_cash,
+		"unclaimed_seconds": unclaimed_seconds,
 		"last_seen_unix": last_seen_unix,
 		"no_ads": no_ads,
 		"auto_tap": auto_tap,
@@ -662,9 +660,15 @@ func from_dict(data: Dictionary) -> void:
 	best_combo = int(data.get("best_combo", 0))
 	best_score = int(data.get("best_score", 0))
 	runs_played = int(data.get("runs_played", 0))
-	crew_level = maxi(int(data.get("crew_level", data.get("generator_level", 1))), 1)
 	gloves_level = maxi(int(data.get("gloves_level", data.get("global_mult_level", 1))), 1)
-	unclaimed_cash = int(data.get("unclaimed_cash", data.get("unclaimed_energy", 0)))
+	crew_level = maxi(int(data.get("crew_level", data.get("generator_level", 1))), 1)
+	# v5 rebuilt the Crew around the Welcome Back screen; an old v4 stash goes to the wallet.
+	var stash: int = maxi(int(data.get("unclaimed_cash", data.get("unclaimed_energy", 0))), 0)
+	if int(data.get("v", 0)) < 5:
+		cash += stash
+	else:
+		unclaimed_cash = stash
+		unclaimed_seconds = int(data.get("unclaimed_seconds", 0))
 	last_seen_unix = int(data.get("last_seen_unix", 0))
 	no_ads = bool(data.get("no_ads", false))
 	lifetime_hits = int(data.get("lifetime_hits", 0))
@@ -828,7 +832,7 @@ func equip_dial(id: String) -> void:
 
 
 func request_save() -> void:
-	if _save_pending or no_save:
+	if _save_pending or no_save or not _loaded or not is_inside_tree():
 		return
 	_save_pending = true
 	get_tree().create_timer(SAVE_DEBOUNCE, true, false, true).timeout.connect(save_game)
@@ -836,7 +840,7 @@ func request_save() -> void:
 
 func save_game() -> void:
 	_save_pending = false
-	if no_save:
+	if no_save or not _loaded:
 		return
 	# Write-then-rename: a crash mid-write can never truncate the real save.
 	var tmp_path: String = SAVE_PATH + ".tmp"

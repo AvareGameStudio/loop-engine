@@ -1,21 +1,19 @@
 class_name MetaUpgrade
 extends Node
-## Idle meta loop. The Crew fills the stash only while the app is closed.
+## Market upgrades. The Crew steals while the app is closed: about one heist's door payout
+## per hour (x1.25 per level), up to 8 h, collected on the Welcome Back screen (2x with an ad).
+## v1 paid $0.67/s into a hidden card button and nobody found it.
 ## Wide Gate adds degrees to the green Good arc. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
-signal produced(amount: int)
-
-## Cash per second the crew steals while the app is closed, at level 1.
-const PASSIVE_BASE: float = 0.67
-## Cap so a week away does not dump a week's numbers onto the Claim screen.
-const OFFLINE_CAP_SECONDS: int = 8 * 3600
-## One minute of idle = a "full" bag. Zeigarnik teases this at 90%.
-const STASH_FULL_SECONDS: float = 60.0
+## Hours of theft the Crew banks at most; a night's sleep, so the morning open pays.
+const OFFLINE_CAP_HOURS: float = 8.0
+## Shorter absences pay nothing: no popup for a quick app switch.
+const OFFLINE_MIN_SECONDS: int = 120
 
 ## `id` values are save keys. UI names live in translations (Crew / Wide Gate).
 const CATALOG := [
-	{"id": "crew", "base_cost": 60, "growth": 1.35, "effect_pct": 25},
+	{"id": "crew", "base_cost": 120, "growth": 1.5, "effect_pct": 25},
 	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
 ]
 
@@ -24,38 +22,36 @@ const GLOVES_DEG: float = 1.5
 
 
 func _ready() -> void:
-	# Foreground play, popups included, must not drip. Only a closed app does.
 	set_process(false)
 	accrue_offline()
 
 
 func _notification(what: int) -> void:
-	# Don't pop the stash over an active run or the player loses their tap.
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN and not GameState.run_active:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		accrue_offline()
-		if GameState.unclaimed_cash > 0:
-			EventBus.stash_ready.emit(GameState.unclaimed_cash)
 
 
-## Credits time spent with the app closed. Returns cash added.
+## Credits the gap since `last_seen_unix`. Returns cash added to the Crew's take.
 func accrue_offline() -> int:
+	# Tool scripts (sims, store shots) boot the game too; they are not a player coming back.
+	var args := OS.get_cmdline_args()
+	if args.has("-s") or args.has("--script"):
+		return 0
 	var now: int = int(Time.get_unix_time_from_system())
 	var last: int = GameState.last_seen_unix
 	GameState.last_seen_unix = now
-	if last <= 0 or GameState.run_active:
-		GameState.request_save()
+	if last <= 0 or not GameState.crew_unlocked():
 		return 0
-	# No crew yet, nothing stolen. The stamp above still moves so unlocking does not back-pay.
-	if not GameState.crew_unlocked():
-		GameState.request_save()
+	var dt: int = mini(now - last, int(OFFLINE_CAP_HOURS * 3600.0))
+	if dt < OFFLINE_MIN_SECONDS:
 		return 0
-	var dt: int = clampi(now - last, 0, OFFLINE_CAP_SECONDS)
-	if dt < 5:
+	var gain: int = floori(hourly_rate() * float(dt) / 3600.0)
+	if gain <= 0:
 		return 0
-	var gain: int = floori(passive_rate() * float(dt))
-	if gain > 0:
-		GameState.add_stash(gain)
-		produced.emit(gain)
+	GameState.unclaimed_cash += gain
+	GameState.unclaimed_seconds += dt
+	GameState.request_save()
+	EventBus.offline_ready.emit(GameState.unclaimed_cash)
 	return gain
 
 
@@ -76,9 +72,13 @@ static func level(id: String) -> int:
 	return 1
 
 
+## Priced off one heist's door payout (3 x (40 + 12 x door)), so an upgrade always costs about
+## a heist and a half of loot: $80 flat was pocket change by heist 15 ($144k banked, unbought).
 static func cost(id: String) -> int:
 	var item: Dictionary = entry(id)
-	return int(float(item.base_cost) * pow(float(item.growth), level(id) - 1))
+	var heist_pay: float = 3.0 * (40.0 + 12.0 * float(GameState.current_stage))
+	var base: float = maxf(float(item.base_cost), heist_pay * 1.5)
+	return int(round(base * pow(float(item.growth), level(id) - 1) / 10.0)) * 10
 
 
 static func at_cap(id: String) -> bool:
@@ -136,19 +136,6 @@ static func perfect_window_mult() -> float:
 	return 1.0
 
 
-## Cash per second while idle (fills the stash, not the wallet).
-static func passive_rate() -> float:
-	return PASSIVE_BASE * bonus("crew")
-
-
-## 0..1 fill of the stash bag. Caps at 0.9 unless actually overflowing.
-static func stash_progress() -> float:
-	var full: float = maxf(passive_rate() * STASH_FULL_SECONDS, 10.0)
-	var raw: float = float(GameState.unclaimed_cash) / full
-	if raw >= 1.0:
-		return 1.0
-	if raw > 0.9:
-		return 0.9
-	if raw <= 0.0:
-		return 0.04
-	return raw
+## One door's base payout x3 (a heist) at the current door, x1.25 per Crew level.
+static func hourly_rate() -> float:
+	return 3.0 * (40.0 + 12.0 * float(GameState.current_stage)) * bonus("crew")

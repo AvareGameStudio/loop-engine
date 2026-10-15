@@ -5,9 +5,21 @@ HUD_HEIST,HEIST %d,SOYGUN %d
 HUD_HEIST_GOLDEN,GOLDEN HEIST %d,ALTIN SOYGUN %d
 HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
-HUD_STASH,STASH  $%d,ZULA  $%d
 HUD_MARKET_NEW,NEW! Market,YENİ! Pazar
+HUD_HIDEOUT,Hideout,Saklanma Evi
+CARD_BUY,BUY: %s  $%d  (+%d%% cash),AL: %s  $%d  (+%%%d para)
+CARD_LOOT_BONUS,+$%d hideout bonus (+%d%%),+$%d saklanma evi bonusu (+%%%d)
 HUD_CREW_NEW,NEW! Hire a crew,YENİ! Ekip kur
+HIDEOUT_INFO,"Every item adds +%d%% to all your cash, forever. Now: +%d%%","Her ganimet tüm kazancına kalıcı +%%%d ekler. Şu an: +%%%d"
+MARKET_CREW_NAME,Crew,Ekip
+MARKET_CREW_EFFECT,"Steals $%d an hour while you're away (up to %d h).","Sen yokken saatte $%d çalar (en fazla %d saat)."
+WELCOME_TITLE,WELCOME BACK!,HOŞ GELDİN!
+WELCOME_BODY,Your crew stole this in %s while you were away.,Sen yokken ekibin %s içinde bunu çaldı.
+WELCOME_DOUBLE,2x COLLECT  $%d,2x TOPLA  $%d
+WELCOME_TAKE,Collect $%d,$%d Topla
+WELCOME_MIN,%d min,%d dk
+WELCOME_HOURS,%d h,%d saat
+WELCOME_HOURS_MIN,%d h %d min,%d sa %d dk
 QUEST_PERCENT,%d%%,%%%d
 GRADE_PERFECT,PERFECT,MÜKEMMEL
 GRADE_GOOD,GOOD,İYİ
@@ -53,12 +65,9 @@ SETTINGS_AUTO_TAP,Auto-Crack,Oto-Kırma
 SETTINGS_CLOSE,Close,Kapat
 MARKET_TITLE,MARKET,PAZAR
 MARKET_BALANCE,$%d,$%d
-MARKET_PASSIVE,The crew keeps stealing while you're away.,Sen yokken ekip çalmaya devam eder.
 MARKET_HIDEOUT,Hideout  ·  %d / %d loot items,Saklanma evi  ·  %d / %d ganimet
 MARKET_LEVEL,Lv %d,Sv %d
 MARKET_COST,$%d,$%d
-MARKET_CREW_NAME,Crew,Ekip
-MARKET_CREW_EFFECT,Steals cash while the app is closed. Bigger crew; bigger stash.,Uygulama kapalıyken para çalar. Ekip büyüdükçe zula büyür.
 MARKET_GLOVES_NAME,Wide Gate,Geniş Kapı
 MARKET_GLOVES_EFFECT,Widens the green gate. You see the upgrade before you buy it.,Yeşil kapıyı genişletir. Aldığın şeyi kapıda görürsün.
 MARKET_MAX,MAX,MAX
@@ -72,12 +81,6 @@ MARKET_SKIN_EQUIPPED,Equipped,Kuşanıldı
 MARKET_CLOSE,Close,Kapat
 HIDEOUT_BONUS,+%d%% loot,+%%%d ganimet
 MARKET_SKIN_DROP,Drop,Hediye
-CLAIM_MARKET,Market,Pazar
-CLAIM_TITLE,CREW STASH,EKİP ZULASI
-CLAIM_AMOUNT,+$%d,+$%d
-CLAIM_BODY,Your crew kept stealing while you were gone.,Sen yokken ekibin çalmaya devam etti.
-CLAIM_BUTTON,Grab the stash,Zulayı Al
-CLAIM_LATER,Later,Sonra
 VAULT_PIGGY,Piggy Bank,Kumbara
 VAULT_OFFICE,Office Safe,Ofis Kasası
 VAULT_BANK,Bank Vault,Banka Kasası

@@ -44,7 +44,6 @@ func _ready() -> void:
 	GameState.auto_tap = false
 	# Clean numbers on screen: the bag climbs from a small stake, no stash from a real save.
 	GameState.cash = 120
-	GameState.unclaimed_cash = 0
 	_main = MAIN.instantiate()
 	if _frames_dir.is_empty():
 		add_child(_main)

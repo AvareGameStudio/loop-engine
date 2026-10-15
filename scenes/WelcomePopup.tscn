@@ -1,8 +1,8 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/ui/ClaimPopup.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/WelcomePopup.gd" id="1_script"]
 
-[node name="ClaimPopup" type="CanvasLayer"]
+[node name="WelcomePopup" type="CanvasLayer"]
 process_mode = 3
 layer = 25
 script = ExtResource("1_script")
@@ -33,12 +33,12 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -250.0
-offset_top = -200.0
+offset_top = -290.0
 offset_right = 250.0
-offset_bottom = 200.0
+offset_bottom = 290.0
 grow_horizontal = 2
 grow_vertical = 2
-pivot_offset = Vector2(250, 200)
+pivot_offset = Vector2(250, 290)
 
 [node name="Margin" type="MarginContainer" parent="Root/Panel"]
 layout_mode = 2
@@ -55,8 +55,14 @@ theme_override_constants/separation = 16
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
 theme_override_font_sizes/font_size = 34
-text = "CLAIM_TITLE"
+text = "WELCOME_TITLE"
 horizontal_alignment = 1
+
+[node name="Crew" type="TextureRect" parent="Root/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Amount" type="Label" parent="Root/Panel/Margin/VBox"]
 layout_mode = 2
@@ -67,28 +73,22 @@ horizontal_alignment = 1
 [node name="Body" type="Label" parent="Root/Panel/Margin/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "CLAIM_BODY"
+text = "WELCOME_BODY"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Claim" type="Button" parent="Root/Panel/Margin/VBox"]
+[node name="Double" type="Button" parent="Root/Panel/Margin/VBox"]
 theme_type_variation = &"PrimaryButton"
-custom_minimum_size = Vector2(0, 56)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "CLAIM_BUTTON"
+theme_override_font_sizes/font_size = 24
+text = "WELCOME_DOUBLE"
 
-[node name="Later" type="Button" parent="Root/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 44)
+[node name="Take" type="Button" parent="Root/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "CLAIM_LATER"
-
-[node name="Market" type="Button" parent="Root/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "CLAIM_MARKET"
+theme_override_font_sizes/font_size = 18
+text = "WELCOME_TAKE"
 
 [node name="CoinConfetti" type="CPUParticles2D" parent="."]
 position = Vector2(360, 200)
