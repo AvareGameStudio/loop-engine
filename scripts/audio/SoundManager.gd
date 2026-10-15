@@ -181,6 +181,14 @@ func _on_juice(grade: String, _intensity: float) -> void:
 			play_tone(3900.0, 0.02, 0.22)
 			play_tone(2600.0, 0.04, 0.3)
 			play_tone(180.0, 0.1, 0.34)
+		"unlock":
+			# Fanfare for a new system: the loot chips, then a bright rising major arpeggio.
+			play_sample("loot", 0.9)
+			for i in 4:
+				var freq: float = [523.0, 659.0, 784.0, 1046.0][i]
+				get_tree().create_timer(0.07 * float(i), true, false, true).timeout.connect(func() -> void:
+					play_tone(freq, 0.14, 0.24)
+				)
 		"claim":
 			# Stash collect or a hideout purchase: the chips land.
 			play_sample("loot", 0.85)

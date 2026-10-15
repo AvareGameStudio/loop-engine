@@ -36,5 +36,5 @@ static func grant(product_id: String) -> void:
 			GameState.auto_tap_unlocked = true
 			GameState.auto_tap = true
 		"dial_obsidian":
-			GameState.grant_glove("neon")
+			GameState.grant_glove("neon", true)
 	GameState.save_game()

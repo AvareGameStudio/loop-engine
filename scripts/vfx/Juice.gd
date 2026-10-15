@@ -124,6 +124,13 @@ func _on_juice(grade: String, intensity: float) -> void:
 			_burst(20, Color(1.0, 0.84, 0.35))
 			_pulse_glow(2.2)
 			Settings.vibrate(25)
+		"unlock":
+			# A new system opens (Market, Crew): a beat of freeze, then a big gold bang.
+			TimeScale.hitstop(0.06)
+			_add_shake(12.0)
+			_burst(30, Color(1.0, 0.84, 0.35))
+			_pulse_glow(2.4)
+			Settings.vibrate(50, 1.0)
 		"hot_hands":
 			# Ignite: a beat of freeze, then the dial bursts orange.
 			TimeScale.hitstop(0.08)

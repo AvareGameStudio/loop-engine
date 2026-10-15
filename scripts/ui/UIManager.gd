@@ -53,6 +53,10 @@ var _bonus_label: Label
 var _heist_label: Label
 ## "Next city: Casino Vault · in 3 heists" under the card's city strip.
 var _city_label: Label
+## Full-screen "MARKET OPEN!" / "CREW UNLOCKED!" over the unlock card.
+var _splash: UnlockSplash
+## The splash waits for the card pop and the loot roll before it lands.
+const SPLASH_DELAY: float = 0.75
 
 
 func _ready() -> void:
@@ -96,6 +100,9 @@ func _ready() -> void:
 	EventBus.session_changed.connect(_refresh_session)
 	EventBus.countdown.connect(_on_countdown)
 	EventBus.glove_granted.connect(_on_glove_granted)
+	_splash = UnlockSplash.new()
+	add_child(_splash)
+	_splash.accepted.connect(func(_kind: String) -> void: market_popup.open())
 	bag.set_cash(GameState.cash, true)
 	_refresh_market()
 	_refresh_session()
@@ -293,13 +300,13 @@ func _on_run_end(reason: String, stats: Dictionary) -> void:
 			glove_btn.icon = VaultSprites.glove_icon(pool[0])
 			glove_btn.expand_icon = true
 			glove_btn.add_theme_constant_override("icon_max_width", 34)
-	# The daily Big Heist hands its glove over on the card.
+	# The daily Big Heist hands its glove over on the card; one tap wears it (never automatic).
 	var daily_glove: String = String(stats.get("daily_glove", ""))
 	if daily_glove != "":
 		glove_btn.visible = true
 		glove_btn.icon = VaultSprites.glove_icon(daily_glove)
-		glove_btn.text = ""
-		glove_btn.disabled = true
+		glove_btn.text = tr("CARD_GLOVE_EQUIP")
+		glove_btn.disabled = GameState.equipped_gloves == daily_glove
 	_render_city(reason, stats)
 	card.visible = true
 	_render_card()
@@ -330,7 +337,8 @@ func _render_card() -> void:
 	daily_btn.text = tr("CARD_DAILY")
 	daily_btn.visible = GameState.daily_available()
 	if not glove_btn.disabled:
-		glove_btn.text = tr("CARD_GLOVE_SHORT")
+		var daily_glove: bool = String(_run_end_stats.get("daily_glove", "")) != ""
+		glove_btn.text = tr("CARD_GLOVE_EQUIP" if daily_glove else "CARD_GLOVE_SHORT")
 	_render_shelf(cracked)
 	_render_buy()
 
@@ -412,7 +420,7 @@ func _on_card_dim(event: InputEvent) -> void:
 
 
 func _primary() -> void:
-	if not card.visible:
+	if not card.visible or _splash.is_open():
 		return
 	card.visible = false
 	var world := get_tree().get_first_node_in_group("game_world")
@@ -428,6 +436,11 @@ func _on_shelf_input(event: InputEvent) -> void:
 
 func _glove_ad() -> void:
 	glove_btn.disabled = true
+	var daily_glove: String = String(_run_end_stats.get("daily_glove", ""))
+	if daily_glove != "":
+		GameState.equip_glove(daily_glove)
+		glove_btn.text = ""
+		return
 	EventBus.ad_requested.emit("glove_drop", {})
 
 
@@ -454,7 +467,7 @@ func _on_ad(placement: String, rewarded: bool) -> void:
 			_roll_loot(tripled)
 	elif placement == "glove_drop":
 		if rewarded:
-			GameState.grant_random_glove()
+			GameState.grant_random_glove(true)
 		else:
 			glove_btn.disabled = false
 
@@ -465,15 +478,23 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 		return
 	var heist: int = int(stats.get("stage", 0))
 	var target: Button = null
+	var kind: String = ""
 	if heist == GameState.MARKET_UNLOCK_AFTER:
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_MARKET_NEW")
+		kind = "market"
 	elif heist == GameState.CREW_UNLOCK_AFTER:
 		# The Crew is hired in the Market and steals from the next time the app closes.
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_CREW_NEW")
+		kind = "crew"
 	if target == null:
 		return
+	# The gold word on the meta row alone was too small to notice: a full-screen moment first.
+	get_tree().create_timer(SPLASH_DELAY, true, false, true).timeout.connect(func() -> void:
+		if card.visible:
+			_splash.show_unlock(kind)
+	)
 	target.add_theme_color_override("font_color", GRADE_COLORS.perfect)
 	_refresh_meta_row()
 	var tw := create_tween()

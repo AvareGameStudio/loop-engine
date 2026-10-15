@@ -241,11 +241,14 @@ func glove_perk() -> String:
 
 
 # --- Daily Big Heist ------------------------------------------------------------
-## Once a day (UTC) after the first heist: one golden door, 5x loot, a guaranteed glove
+## Once a day (UTC) from heist 4 (one heist after the Market): one golden door, 5x loot, a guaranteed glove
 ## (or a cash pile once every glove is owned). Retryable until cracked; it does not move
-## the career door index.
+## the career door index. Gated on the Market: from heist 1 it handed out a perk glove
+## (and wore it) before the player had ever seen a glove shop.
 const DAILY_LOOT_MULT: float = 5.0
 const DAILY_CASH_FALLBACK: int = 500
+## One heist after the Market, so the Market card does not also carry the Big Heist button.
+const DAILY_UNLOCK_AFTER: int = 4
 var daily_active: bool = false
 var daily_last_day: int = -1
 
@@ -255,7 +258,7 @@ static func today() -> int:
 
 
 func daily_available() -> bool:
-	return complete_heists() >= 1 and daily_last_day != today()
+	return complete_heists() >= DAILY_UNLOCK_AFTER and daily_last_day != today()
 
 
 ## Called when the daily door cracks. Returns the glove id granted, or "" for the cash pile.
@@ -828,23 +831,26 @@ func buy_glove(id: String) -> bool:
 	return true
 
 
-func grant_glove(id: String) -> bool:
+## `equip`: only when the player picked this glove (rewarded ad, IAP). A daily drop lands
+## in the Market; the starter glove stays on until the player equips the new one there.
+func grant_glove(id: String, equip: bool = false) -> bool:
 	if not GLOVE_IDS.has(id):
 		return false
 	if not cosmetics.has(id):
 		cosmetics.append(id)
-	equip_glove(id)
+	if equip:
+		equip_glove(id)
 	save_game()
 	EventBus.glove_granted.emit(id)
 	return true
 
 
-func grant_random_glove() -> String:
+func grant_random_glove(equip: bool = false) -> String:
 	var pool: PackedStringArray = unowned_gloves()
 	if pool.is_empty():
 		return ""
 	var id: String = pool[randi() % pool.size()]
-	grant_glove(id)
+	grant_glove(id, equip)
 	return id
 
 
