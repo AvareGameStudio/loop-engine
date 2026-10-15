@@ -42,6 +42,8 @@ signal glove_granted(id: String)
 ## A new hideout item joined the shelf.
 signal loot_unlocked(loot_id: String)
 ## Hot Hands: five Perfects in a row light the dial; pins pay double until a strike or the heist ends.
+## The Crew's take is waiting (Welcome Back screen).
+signal offline_ready(amount: int)
 signal hot_hands(on: bool)
 ## Perfects banked toward Hot Hands (0 after a strike), and how many light it.
 signal hot_streak(count: int, needed: int, broken: bool)

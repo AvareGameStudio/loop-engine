@@ -20,14 +20,15 @@ Main.tscn                          boot composition
 │   │   └── Burst (GPUParticles2D)
 │   ├── Guard                      dozing guard at a desk; wakes one step per strike
 │   ├── InputProcessor             one verb: press = lock
-│   ├── MetaUpgrade                Wide Gate (priced off the current heist payout)
+│   ├── MetaUpgrade                Crew (offline theft) + Wide Gate, priced off the heist payout
 │   └── Juice                      hitstop / shake / loot fly / alarm / haptics
 ├── UIManager.tscn
 │   ├── HUD                        door pips · lamps · grade word · loot bag (no buttons in play)
 │   ├── Card                       end-of-heist: CRACKED / BUSTED, loot roll, hideout, 3x ad, Market · Stash
 │   ├── RevivePopup.tscn           third strike → Bribe the Cops (rewarded) or Get Caught
 │   ├── SettingsPopup.tscn         language / sound / vibration (+ Auto-Crack if purchased)
-│   ├── MarketPopup.tscn           Wide Gate, glove skins, big Hideout button
+│   ├── MarketPopup.tscn           Crew, Wide Gate, glove skins, big Hideout button
+│   ├── WelcomePopup.tscn          Welcome Back: the Crew's take, 2x with a rewarded ad
 │   ├── HideoutPopup.tscn          12-item room
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
@@ -102,9 +103,11 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
 - **Market**: Wide Gate (visible green-arc widen), glove skins, and a big Hideout button (gold when the next item is affordable). Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
 - **Spend prompts** (play data: $144k banked, 3/12 items bought, Wide Gate never upgraded): when the next hideout item is affordable a gold "!" hops on the HUD bag (no buttons during play), and the card shows `BUY: <item> $price` above Next — one tap buys it and pops it into the shelf ring. The card's meta row always has a Hideout button; Market breathes while an upgrade is affordable. Wide Gate costs ~1.5 heists of payout (3 × (40 + 12 × door) × 1.5, min $80, ×1.4 per level) instead of a flat $80.
-- **Crew removed** (save v5): the offline stash was never used and added a fourth currency surface. Old stashes are paid into the wallet on load.
+- **Hideout explains itself**: the shop says "every item adds +2% to all your cash, forever (now +6%)", the BUY button carries "(+2% cash)", and the card shows what the bonus paid this heist ("+$24 hideout bonus").
+- **Crew v2 (offline progress, the come-back hook)**: unlocks on the card closing heist 5 (`NEW! Hire a crew`). While the app is closed the Crew steals one heist's door payout per hour (3 × (40 + 12 × door), ×1.25 per level), up to 8 h, nothing under 2 min. On launch a **Welcome Back** screen counts it up over the waiting door: `2x COLLECT` (rewarded ad `crew_double`) or `Collect`. Coming back mid-heist waits for the next card. v1 paid $0.67/s into a hidden card button and was never found. Save v5 keeps the take in `unclaimed_cash`; a v4 stash is paid into the wallet.
+- **Save guard**: nothing is written until the save has been loaded. A focus-out during boot used to write blank defaults over the player's save.
 - **Auto-Crack** is IAP-only.
-- **Meta unlocks one system at a time.** Heists 1–3: dial + hideout only. The card closing heist 3 shows a gold `NEW! Market` (Wide Gate, glove skins); Constant: `GameState.MARKET_UNLOCK_AFTER`.
+- **Meta unlocks one system at a time.** Heists 1–3: dial + hideout only. The card closing heist 3 shows a gold `NEW! Market` (Wide Gate, glove skins); The card closing heist 5 shows `NEW! Hire a crew`. Constants: `GameState.MARKET_UNLOCK_AFTER`, `CREW_UNLOCK_AFTER`.
 
 ---
 
@@ -156,7 +159,7 @@ Guidelines for production art:
 |---|---|
 | D1 | Persistent heist number + unfinished hideout room + heist 1 cannot fail |
 | Session length | 20–30 s heists (3 doors), one-tap continue, golden heist every 5th |
-| D7 | Door art career, glove skins, 12-item hideout |
+| D7 | Door art career, glove skins, Crew welcome-back take, 12-item hideout |
 
 Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before claiming numbers.
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/ui/CityStrip.gd" id="12_city"]
 [ext_resource type="Script" path="res://scripts/ui/HotMeter.gd" id="14_hot"]
 [ext_resource type="Texture2D" path="res://assets/art/gear.png" id="13_gear"]
+[ext_resource type="PackedScene" path="res://scenes/WelcomePopup.tscn" id="15_welcome"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -270,3 +271,5 @@ expand_icon = true
 [node name="MarketPopup" parent="." instance=ExtResource("5_market")]
 
 [node name="HideoutPopup" parent="." instance=ExtResource("10_hideout")]
+
+[node name="WelcomePopup" parent="." instance=ExtResource("15_welcome")]

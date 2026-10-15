@@ -7,7 +7,19 @@ HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
 HUD_MARKET_NEW,NEW! Market,YENİ! Pazar
 HUD_HIDEOUT,Hideout,Saklanma Evi
-CARD_BUY,BUY: %s  $%d,AL: %s  $%d
+CARD_BUY,BUY: %s  $%d  (+%d%% cash),AL: %s  $%d  (+%%%d para)
+CARD_LOOT_BONUS,+$%d hideout bonus (+%d%%),+$%d saklanma evi bonusu (+%%%d)
+HUD_CREW_NEW,NEW! Hire a crew,YENİ! Ekip kur
+HIDEOUT_INFO,"Every item adds +%d%% to all your cash, forever. Now: +%d%%","Her ganimet tüm kazancına kalıcı +%%%d ekler. Şu an: +%%%d"
+MARKET_CREW_NAME,Crew,Ekip
+MARKET_CREW_EFFECT,"Steals $%d an hour while you're away (up to %d h).","Sen yokken saatte $%d çalar (en fazla %d saat)."
+WELCOME_TITLE,WELCOME BACK!,HOŞ GELDİN!
+WELCOME_BODY,Your crew stole this in %s while you were away.,Sen yokken ekibin %s içinde bunu çaldı.
+WELCOME_DOUBLE,2x COLLECT  $%d,2x TOPLA  $%d
+WELCOME_TAKE,Collect $%d,$%d Topla
+WELCOME_MIN,%d min,%d dk
+WELCOME_HOURS,%d h,%d saat
+WELCOME_HOURS_MIN,%d h %d min,%d sa %d dk
 QUEST_PERCENT,%d%%,%%%d
 GRADE_PERFECT,PERFECT,MÜKEMMEL
 GRADE_GOOD,GOOD,İYİ

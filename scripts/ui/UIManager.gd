@@ -48,6 +48,7 @@ var _run_end_stats: Dictionary = {}
 var _loot_popped: String = ""
 ## Market button breathes while an upgrade is affordable.
 var _market_pulse: Tween
+var _bonus_label: Label
 
 
 func _ready() -> void:
@@ -164,6 +165,23 @@ func _on_cash(amount: int, delta: int) -> void:
 	_refresh_market()
 
 
+## The hideout's +2%-per-item is invisible unless the card says what it paid this heist.
+func _render_bonus_line() -> void:
+	if _bonus_label == null:
+		_bonus_label = Label.new()
+		_bonus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_bonus_label.add_theme_font_size_override("font_size", 17)
+		_bonus_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0, 1.0))
+		card_loot.get_parent().add_child(_bonus_label)
+		card_loot.get_parent().move_child(_bonus_label, card_loot.get_index() + 1)
+	var run_cash: int = int(_run_end_stats.get("cash", 0))
+	var bonus: float = GameState.loot_bonus()
+	var extra: int = run_cash - int(round(float(run_cash) / bonus))
+	_bonus_label.visible = extra > 0
+	if extra > 0:
+		_bonus_label.text = tr("CARD_LOOT_BONUS") % [extra, roundi((bonus - 1.0) * 100.0)]
+
+
 ## Play data: $144k banked, 3 of 12 shelf items bought. When the next item is affordable
 ## the card offers it in one tap, above the Next button.
 func _render_buy() -> void:
@@ -171,7 +189,7 @@ func _render_buy() -> void:
 	buy_btn.visible = GameState.can_buy_loot() and id != ""
 	if not buy_btn.visible:
 		return
-	buy_btn.text = tr("CARD_BUY") % [tr("LOOT_" + id.to_upper()), GameState.next_loot_price()]
+	buy_btn.text = tr("CARD_BUY") % [tr("LOOT_" + id.to_upper()), GameState.next_loot_price(), roundi(GameState.LOOT_BONUS_STEP * 100.0)]
 	buy_btn.icon = VaultSprites.loot_icon(id)
 
 
@@ -254,6 +272,7 @@ func _render_card() -> void:
 		card_title.text = tr("CARD_CAUGHT")
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
+	_render_bonus_line()
 	x3_btn.text = tr(_x3_key)
 	daily_btn.text = tr("CARD_DAILY")
 	daily_btn.visible = GameState.daily_available()
@@ -395,6 +414,10 @@ func _announce_unlock(reason: String, stats: Dictionary) -> void:
 	if heist == GameState.MARKET_UNLOCK_AFTER:
 		target = card_market_btn
 		card_market_btn.text = tr("HUD_MARKET_NEW")
+	elif heist == GameState.CREW_UNLOCK_AFTER:
+		# The Crew is hired in the Market and steals from the next time the app closes.
+		target = card_market_btn
+		card_market_btn.text = tr("HUD_CREW_NEW")
 	if target == null:
 		return
 	target.add_theme_color_override("font_color", GRADE_COLORS.perfect)

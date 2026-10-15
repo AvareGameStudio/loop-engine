@@ -1,12 +1,19 @@
 class_name MetaUpgrade
 extends Node
-## Market upgrades. The Crew (offline stash) was removed: unused in play data and unclear;
-## save v5 pays any old stash into the wallet.
+## Market upgrades. The Crew steals while the app is closed: about one heist's door payout
+## per hour (x1.25 per level), up to 8 h, collected on the Welcome Back screen (2x with an ad).
+## v1 paid $0.67/s into a hidden card button and nobody found it.
 ## Wide Gate adds degrees to the green Good arc. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
-## `id` values are save keys. UI names live in translations (Wide Gate).
+## Hours of theft the Crew banks at most; a night's sleep, so the morning open pays.
+const OFFLINE_CAP_HOURS: float = 8.0
+## Shorter absences pay nothing: no popup for a quick app switch.
+const OFFLINE_MIN_SECONDS: int = 120
+
+## `id` values are save keys. UI names live in translations (Crew / Wide Gate).
 const CATALOG := [
+	{"id": "crew", "base_cost": 120, "growth": 1.5, "effect_pct": 25},
 	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
 ]
 
@@ -16,6 +23,36 @@ const GLOVES_DEG: float = 1.5
 
 func _ready() -> void:
 	set_process(false)
+	accrue_offline()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		accrue_offline()
+
+
+## Credits the gap since `last_seen_unix`. Returns cash added to the Crew's take.
+func accrue_offline() -> int:
+	# Tool scripts (sims, store shots) boot the game too; they are not a player coming back.
+	var args := OS.get_cmdline_args()
+	if args.has("-s") or args.has("--script"):
+		return 0
+	var now: int = int(Time.get_unix_time_from_system())
+	var last: int = GameState.last_seen_unix
+	GameState.last_seen_unix = now
+	if last <= 0 or not GameState.crew_unlocked():
+		return 0
+	var dt: int = mini(now - last, int(OFFLINE_CAP_HOURS * 3600.0))
+	if dt < OFFLINE_MIN_SECONDS:
+		return 0
+	var gain: int = floori(hourly_rate() * float(dt) / 3600.0)
+	if gain <= 0:
+		return 0
+	GameState.unclaimed_cash += gain
+	GameState.unclaimed_seconds += dt
+	GameState.request_save()
+	EventBus.offline_ready.emit(GameState.unclaimed_cash)
+	return gain
 
 
 static func entry(id: String) -> Dictionary:
@@ -28,6 +65,8 @@ static func entry(id: String) -> Dictionary:
 
 static func level(id: String) -> int:
 	match id:
+		"crew":
+			return GameState.crew_level
 		"gloves":
 			return GameState.gloves_level
 	return 1
@@ -52,8 +91,8 @@ static func can_afford(id: String) -> bool:
 	return GameState.cash >= cost(id)
 
 
-static func unlocked(_id: String) -> bool:
-	return true
+static func unlocked(id: String) -> bool:
+	return id != "crew" or GameState.crew_unlocked()
 
 
 static func affordable_count() -> int:
@@ -69,6 +108,8 @@ static func purchase(id: String) -> bool:
 		return false
 	GameState.add_cash(-cost(id))
 	match id:
+		"crew":
+			GameState.crew_level += 1
 		"gloves":
 			GameState.gloves_level += 1
 	GameState.save_game()
@@ -93,3 +134,8 @@ static func gate_bonus_deg() -> float:
 ## Perfect slice still tracks the Good gate; leftover callers use this.
 static func perfect_window_mult() -> float:
 	return 1.0
+
+
+## One door's base payout x3 (a heist) at the current door, x1.25 per Crew level.
+static func hourly_rate() -> float:
+	return 3.0 * (40.0 + 12.0 * float(GameState.current_stage)) * bonus("crew")

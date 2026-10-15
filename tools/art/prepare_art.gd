@@ -54,6 +54,9 @@ func _prepare_images(src: String) -> void:
 	for extra: Array in [["cuffs", 240], ["tap_hand", 180], ["daily", 160], ["gear", 96], ["hideout_btn", 96]]:
 		if FileAccess.file_exists(src.path_join(extra[0] + ".png")):
 			_save(_square(_trim(_load(src, extra[0])), extra[1]), ART + extra[0] + ".png")
+	# Welcome Back screen: the three-man crew, 420 px wide.
+	if FileAccess.file_exists(src.path_join("crew.png")):
+		_save(_fit_width(_trim(_load(src, "crew")), 420), ART + "crew.png")
 	_save(_fit_width(_trim(_load(src, "bag")), 360), ART + "bag.png")
 	for id: String in LOOT_IDS:
 		_save(_square(_trim(_load(src, "loot_" + id)), LOOT_SIZE), ART + "loot_%s.png" % id)
