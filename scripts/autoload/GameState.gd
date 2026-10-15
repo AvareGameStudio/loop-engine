@@ -4,7 +4,7 @@ extends Node
 ## vault, a crack moves to the next one, so the 200-door art progression is real.
 
 const SAVE_PATH := "user://loop_engine_save.json"
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 
 ## Alarm strikes before the cops arrive. Each Miss / Near-Miss adds one.
 const ALARM_MAX: int = 3
@@ -346,7 +346,18 @@ func crew_unlocked() -> bool:
 	return complete_heists() >= CREW_UNLOCK_AFTER
 
 
+## Free shelf items: one per heist for the first LOOT_FREE heists (onboarding); after that
+## every item is bought in the hideout shop. Simulated: free drops every 3 heists filled the
+## shelf by heist 21 and the cash pile had nothing left to buy.
+const LOOT_FREE: int = 3
+
+
 static func loot_count_at(cleared: int) -> int:
+	return mini(cleared / DOORS_PER_HEIST, mini(LOOT_FREE, LOOT_ITEMS.size()))
+
+
+## Save v3 dropped an item every 3 heists after the first three; keep what those earned.
+static func _legacy_loot_count(cleared: int) -> int:
 	var heists: int = cleared / DOORS_PER_HEIST
 	if heists <= 3:
 		return mini(heists, LOOT_ITEMS.size())
@@ -354,13 +365,55 @@ static func loot_count_at(cleared: int) -> int:
 
 
 func loot_unlocked_count() -> int:
-	return loot_count_at(stages_cleared)
+	return mini(loot_count_at(stages_cleared) + loot_bought, LOOT_ITEMS.size())
+
+
+# --- Hideout shop: the cash sink ------------------------------------------------
+## The next item can always be bought outright; every few heists one still drops free.
+## Prices climb x1.55 per shelf slot (slot 3 ~ $1.5k, slot 11 ~ $50k), and every owned item
+## adds LOOT_BONUS_STEP to all cash (12 items = +24%).
+const LOOT_PRICE_BASE: float = 400.0
+const LOOT_PRICE_GROWTH: float = 1.6
+const LOOT_BONUS_STEP: float = 0.02
+var loot_bought: int = 0
+
+
+static func loot_price(slot: int) -> int:
+	return int(round(LOOT_PRICE_BASE * pow(LOOT_PRICE_GROWTH, slot) / 50.0)) * 50
+
+
+func next_loot_price() -> int:
+	var slot: int = loot_unlocked_count()
+	return loot_price(slot) if slot < LOOT_ITEMS.size() else 0
+
+
+func can_buy_loot() -> bool:
+	return loot_unlocked_count() < LOOT_ITEMS.size() and cash >= next_loot_price()
+
+
+## Buys the next shelf item. Returns its id, or "" when it can't.
+func buy_next_loot() -> String:
+	if not can_buy_loot():
+		return ""
+	var id: String = LOOT_ITEMS[loot_unlocked_count()]
+	add_cash(-next_loot_price())
+	loot_bought += 1
+	request_save()
+	EventBus.loot_unlocked.emit(id)
+	return id
+
+
+func loot_bonus() -> float:
+	return 1.0 + LOOT_BONUS_STEP * float(loot_unlocked_count())
 
 
 ## 0..1 toward the next hideout item. 1.0 only when the shelf is full.
 func loot_progress() -> float:
 	if loot_unlocked_count() >= LOOT_ITEMS.size():
 		return 1.0
+	# Past the free drops the ring fills with cash toward the next item's price.
+	if complete_heists() >= LOOT_FREE:
+		return clampf(float(cash) / float(maxi(next_loot_price(), 1)), 0.0, 1.0)
 	var heists: int = complete_heists()
 	var door_frac: float = float(stages_cleared % DOORS_PER_HEIST) / float(DOORS_PER_HEIST)
 	if heists < 3:
@@ -397,7 +450,9 @@ func loot_step() -> Vector2i:
 func loot_just_unlocked() -> bool:
 	if stages_cleared <= 0:
 		return false
-	return loot_count_at(stages_cleared) > loot_count_at(stages_cleared - 1)
+	# Bought items fill the shelf ahead of the free drops; a free drop on a full shelf is nothing.
+	var before: int = mini(loot_count_at(stages_cleared - 1) + loot_bought, LOOT_ITEMS.size())
+	return loot_unlocked_count() > before
 
 
 # --- Session ------------------------------------------------------------------
@@ -569,6 +624,7 @@ func to_dict() -> Dictionary:
 		"auto_tap_purchased": auto_tap_purchased,
 		"stages_cleared": stages_cleared,
 		"daily_last_day": daily_last_day,
+		"loot_bought": loot_bought,
 		"lifetime_hits": lifetime_hits,
 		"cosmetics": Array(cosmetics),
 		"equipped_dial": equipped_dial,
@@ -597,6 +653,9 @@ func from_dict(data: Dictionary) -> void:
 	lifetime_hits = int(data.get("lifetime_hits", 0))
 	stages_cleared = int(data.get("stages_cleared", 0))
 	daily_last_day = int(data.get("daily_last_day", -1))
+	loot_bought = int(data.get("loot_bought", 0))
+	if int(data.get("v", 0)) < 4:
+		loot_bought = maxi(0, _legacy_loot_count(stages_cleared) - loot_count_at(stages_cleared))
 	auto_tap_purchased = bool(data.get("auto_tap_purchased", false))
 	# Auto-Tap is an IAP only now. The old first-ring reward no longer grants it.
 	auto_tap_unlocked = auto_tap_purchased
@@ -682,11 +741,12 @@ func unowned_gloves() -> PackedStringArray:
 
 
 func buy_glove(id: String) -> bool:
-	if not GLOVE_COST.has(id):
-		return false
+	# Owned first: skeleton / royal have no price (drops only) but must still be equippable.
 	if owns_glove(id):
 		equip_glove(id)
 		return true
+	if not GLOVE_COST.has(id):
+		return false
 	var cost: int = glove_cost(id)
 	if cash < cost:
 		return false

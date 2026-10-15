@@ -99,6 +99,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **End-of-heist card** (opaque `#0B1020` panel, gold rim): `HEIST N CRACKED`, a 60 px loot roll (the bag bumps 8% at every fifth), the hideout ring with the next item as a silhouette (new item in colour, 1.0 → 1.2 → 1.0 pop; tap opens the room), a 76 px `NEXT HEIST`, `3x LOOT`, then one row: `FREE` glove (every 4 heists) · Market · Stash. No subtitle or shelf text.
 - **City strip** (card top, `CityStrip.gd`): piggy shop → office → bank → museum → casino → Fort Knox → **moon vault** (door 100). Cracked cities in colour, the current one ringed in gold, the ones ahead as silhouettes; crossing into a new city pops its icon.
 - **Daily Big Heist**: once a day (UTC) after the first heist, a gold `BIG HEIST x5` button above NEXT. One golden door at 5x loot plus a guaranteed glove (or $500 once all are owned); retryable until cracked; does not move the career door index.
+- **Hideout shop (the cash sink)**: one free item per heist for heists 1–3, then every item is bought. Prices climb x1.6 per slot ($650 … ~$70k) and each owned item adds +2% to all cash (12 = +24%). The next slot breathes when affordable; the card's shelf ring shows a gold "$" coin. Save v3 players keep the items the old every-3-heists drop gave them. Simulated (avg player, no crew stash): a purchase every 3–6 heists through heist 30, the last two around 35–40.
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
 - **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
 - **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
@@ -117,6 +118,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - Alarm: lamps + guard (painted: asleep at the desk → alert looking ahead on strike 1 → head up, flashlight raised at the dial on strikes 2-3).
 - Alarm (code fallback): lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
 - Combo ≥ 3: gold trail on the pick, not a HUD number.
+- The equipped glove (painted fist, `assets/art/glove_<id>.png`) grips the pick and clenches 8% on every Perfect. Market shows the eight gloves as an icon grid (drop-only gloves read "Drop").
 - **Hot Hands**: 4 Perfects without a strike (across doors; a Good neither counts nor breaks it) → 80 ms freeze, orange burst, rising arpeggio, flickering fire ring on the dial, double-length orange pick trail, octave-up layer on every hit. Pins pay **2x** until any strike (glass-snap) or the heist ends. Orange, not gold: the full gold dial stays reserved for the golden heist.
 - Approach inside 45°: rising drone, cut on tap.
 
@@ -169,6 +171,16 @@ STEP=theme godot --headless --path . -s res://tools/art/prepare_art.gd
 ```
 
 Every art consumer falls back to the old procedural drawing when its file is missing. The steel door carries the career as a tint (`VaultSprites.door_tint`: rust, then the metal stops). The project theme is set in `project.godot` (`gui/theme/custom`); gold primary buttons use the `PrimaryButton` variation.
+
+## Analytics
+
+`scripts/autoload/Analytics.gd` builds the events a publisher test reads (GameAnalytics naming): progression Start/Complete/Fail per heist (`heist_013`, `daily`), and design events `heist:busted`, `heist:seconds`, `bribe:offered|taken|declined`, `ad:<placement>:rewarded|failed`, `hideout:item:<id>`, `glove:equip:<id>`, `hot_hands:lit`, `session:start|end`. If the GameAnalytics Godot plugin is installed (native `GameAnalytics` singleton, game key in its config) every event is forwarded; debug builds also append them to `user://analytics.jsonl`. No SDK is vendored.
+
+## Store package
+
+- `docs/store/listing_en.md`, `listing_tr.md`: title, short and full description, keywords.
+- `docs/store/screenshots/store_01..05.jpg`: 1080x1920, captioned in the Canva design "Vault Heist store screenshots" from stills rendered by `tools/store/StoreShots.gd` (`OUT=<dir> godot --path . --fixed-fps 30 -s res://tools/store/StoreShots.gd --resolution 720x1280`).
+- `export_presets.cfg`: Android, arm64, immersive, `com.avaregamestudio.vaultheist`, APK to `build/` (signed with the editor's debug keystore until you set a release one; switch to Gradle + AAB for Play).
 
 ## Ad capture (CPI test creative)
 

@@ -15,6 +15,12 @@ const GAP := Color(1.0, 0.55, 1.0, 1)
 var progress: float = 0.0
 ## Next hideout item. Drawn as a dark silhouette until the ring completes, then in full colour.
 var icon: Texture2D
+## The next item is affordable in the hideout shop: a gold "$" coin breathes on the ring.
+var buyable: bool = false:
+	set(value):
+		buyable = value
+		set_process(not complete or buyable)
+		queue_redraw()
 var _icon_scale: float = 1.0
 var complete: bool = false
 var focused: bool = false
@@ -102,6 +108,15 @@ func _draw() -> void:
 		var side: float = radius * 1.25 * _icon_scale
 		var tint: Color = Color.WHITE if complete else Color(0.3, 0.34, 0.46, 0.95)
 		draw_texture_rect(icon, Rect2(center - Vector2(side, side) * 0.5, Vector2(side, side)), false, tint)
+		if buyable:
+			var coin: Vector2 = center + Vector2(radius * 0.78, -radius * 0.78)
+			var r: float = thickness * 1.6 * (1.0 + 0.08 * sin(_pulse * 1.6))
+			draw_circle(coin, r, Color(1.0, 0.84, 0.3))
+			draw_arc(coin, r, 0.0, TAU, 20, Color(0.6, 0.42, 0.1), 2.0, true)
+			var font: Font = get_theme_default_font()
+			var fs: int = int(r * 1.3)
+			var w: float = font.get_string_size("$", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			draw_string(font, coin + Vector2(-w * 0.5, fs * 0.36), "$", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.35, 0.22, 0.04))
 		return
 	var font: Font = get_theme_default_font()
 	var text: String = tr("QUEST_PERCENT") % roundi(progress * 100.0)

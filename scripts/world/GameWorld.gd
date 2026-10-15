@@ -211,6 +211,7 @@ func _apply_success(result: Dictionary) -> void:
 		EventBus.juice_hit.emit("jackpot", 1.2)
 	if _hot_hands:
 		cash *= HOT_HANDS_MULT
+	cash = int(ceil(float(cash) * GameState.loot_bonus()))
 	GameState.session_score += cash
 	_bank_cash(cash)
 	# Lights after paying: the pins that follow pay double, not the one that lit it.
@@ -250,7 +251,7 @@ func _after_hit() -> void:
 ## Last pin: the door flies, the loot rains. Card only after the heist is done.
 func _crack_vault() -> void:
 	var stage: int = GameState.current_stage
-	var loot: int = int(float(40 + 12 * stage) * GameState.loot_mult(stage))
+	var loot: int = int(float(40 + 12 * stage) * GameState.loot_mult(stage) * GameState.loot_bonus())
 	_bank_cash(loot)
 	if _door_strikes == 0:
 		GameState.lower_alarm()

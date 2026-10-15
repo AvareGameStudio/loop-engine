@@ -24,6 +24,7 @@ Settings="*res://scripts/autoload/Settings.gd"
 GameState="*res://scripts/autoload/GameState.gd"
 TimeScale="*res://scripts/autoload/TimeScale.gd"
 OverlayPause="*res://scripts/autoload/OverlayPause.gd"
+Analytics="*res://scripts/autoload/Analytics.gd"
 
 [display]
 
