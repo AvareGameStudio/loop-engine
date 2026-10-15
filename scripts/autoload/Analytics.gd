@@ -73,7 +73,7 @@ func design(id: String, value: float = 0.0) -> void:
 
 
 func _log(data: Dictionary) -> void:
-	if not debug_log or GameState.no_save:
+	if not debug_log or GameState.no_save or _is_tool_run():
 		return
 	data["t"] = Time.get_unix_time_from_system()
 	var f := FileAccess.open(LOG_PATH, FileAccess.READ_WRITE if FileAccess.file_exists(LOG_PATH) else FileAccess.WRITE)
@@ -82,3 +82,9 @@ func _log(data: Dictionary) -> void:
 	f.seek_end()
 	f.store_line(JSON.stringify(data))
 	f.close()
+
+
+## Headless/editor tool scripts (`godot -s ...`) and imports are not play sessions.
+func _is_tool_run() -> bool:
+	var args := OS.get_cmdline_args()
+	return args.has("-s") or args.has("--script") or args.has("--import") or DisplayServer.get_name() == "headless"

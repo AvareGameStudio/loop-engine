@@ -47,7 +47,7 @@ func _prepare_images(src: String) -> void:
 			_save(_square(_trim(_load(src, "city_" + kind)), 128), ART + "city_%s.png" % kind)
 	for glove: String in GLOVES:
 		if FileAccess.file_exists(src.path_join("glove_%s.png" % glove)):
-			_save(_square(_trim(_load(src, "glove_" + glove)), 128), ART + "glove_%s.png" % glove)
+			_save(_glove(_trim(_load(src, "glove_" + glove))), ART + "glove_%s.png" % glove)
 	for extra: Array in [["cuffs", 240], ["tap_hand", 180], ["daily", 160], ["gear", 96]]:
 		if FileAccess.file_exists(src.path_join(extra[0] + ".png")):
 			_save(_square(_trim(_load(src, extra[0])), extra[1]), ART + extra[0] + ".png")
@@ -140,6 +140,20 @@ func _square(img: Image, size: int) -> Image:
 	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	out.fill(Color(0, 0, 0, 0))
 	out.blit_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), (Vector2i(size, size) - img.get_size()) / 2)
+	return out
+
+
+## Gloves share one pose; scale every fist to the same height and stand it on the same
+## baseline so all eight read as one set (fitting by the longer side made wide ones shrink).
+func _glove(img: Image) -> Image:
+	var size: int = 128
+	var h: int = 120
+	img.resize(maxi(1, int(img.get_width() * float(h) / img.get_height())), h, Image.INTERPOLATE_LANCZOS)
+	if img.get_width() > size:
+		img.resize(size, maxi(1, int(img.get_height() * float(size) / img.get_width())), Image.INTERPOLATE_LANCZOS)
+	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	out.fill(Color(0, 0, 0, 0))
+	out.blit_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i((size - img.get_width()) / 2, size - img.get_height() - 4))
 	return out
 
 
