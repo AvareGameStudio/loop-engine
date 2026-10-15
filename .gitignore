@@ -9,4 +9,4 @@ export.cfg
 android/
 ios/
 *.tmp
-*~
+*~build/
