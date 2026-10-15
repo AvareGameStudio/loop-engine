@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/HideoutPopup.tscn" id="10_hideout"]
 [ext_resource type="Script" path="res://scripts/ui/DoorPips.gd" id="11_pips"]
 [ext_resource type="Script" path="res://scripts/ui/CityStrip.gd" id="12_city"]
+[ext_resource type="Script" path="res://scripts/ui/HotMeter.gd" id="14_hot"]
 [ext_resource type="Texture2D" path="res://assets/art/gear.png" id="13_gear"]
 
 [node name="UIManager" type="CanvasLayer"]
@@ -83,6 +84,16 @@ text = "x3"
 horizontal_alignment = 1
 vertical_alignment = 1
 pivot_offset = Vector2(160, 18)
+
+[node name="Hot" type="Control" parent="HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 196.0
+offset_bottom = 316.0
+grow_horizontal = 2
+mouse_filter = 2
+script = ExtResource("14_hot")
 
 [node name="Bag" type="Control" parent="HUD"]
 layout_mode = 1

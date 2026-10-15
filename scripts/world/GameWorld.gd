@@ -221,7 +221,9 @@ func _apply_success(result: Dictionary) -> void:
 	GameState.session_score += cash
 	_bank_cash(cash)
 	# Lights after paying: the pins that follow pay double, not the one that lit it.
-	var streak_needed: int = GameState.GLOVE_HOT_STREAK if GameState.glove_perk() == "neon" else HOT_HANDS_STREAK
+	var streak_needed: int = _hot_needed()
+	if not _hot_hands:
+		EventBus.hot_streak.emit(mini(_perfect_streak, streak_needed), streak_needed, false)
 	if not _hot_hands and _perfect_streak >= streak_needed:
 		_set_hot_hands(true)
 	if bool(drop.get("triggered", false)):
@@ -449,10 +451,16 @@ func _bank_cash(amount: int) -> void:
 	GameState.add_cash(amount)
 
 
+func _hot_needed() -> int:
+	return GameState.GLOVE_HOT_STREAK if GameState.glove_perk() == "neon" else HOT_HANDS_STREAK
+
+
 ## Any strike, the heist end or a new run puts the fire out and restarts the Perfect count.
 ## `shatter` false ends it quietly (card / new run), true plays the break.
 func _set_hot_hands(on: bool, shatter: bool = true) -> void:
 	if not on:
+		if _perfect_streak > 0 and not _hot_hands:
+			EventBus.hot_streak.emit(0, _hot_needed(), shatter)
 		_perfect_streak = 0
 	if on == _hot_hands:
 		return
