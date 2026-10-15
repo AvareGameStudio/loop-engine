@@ -1,21 +1,12 @@
 class_name MetaUpgrade
 extends Node
-## Idle meta loop. The Crew fills the stash only while the app is closed.
+## Market upgrades. The Crew (offline stash) was removed: unused in play data and unclear;
+## save v5 pays any old stash into the wallet.
 ## Wide Gate adds degrees to the green Good arc. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
-signal produced(amount: int)
-
-## Cash per second the crew steals while the app is closed, at level 1.
-const PASSIVE_BASE: float = 0.67
-## Cap so a week away does not dump a week's numbers onto the Claim screen.
-const OFFLINE_CAP_SECONDS: int = 8 * 3600
-## One minute of idle = a "full" bag. Zeigarnik teases this at 90%.
-const STASH_FULL_SECONDS: float = 60.0
-
-## `id` values are save keys. UI names live in translations (Crew / Wide Gate).
+## `id` values are save keys. UI names live in translations (Wide Gate).
 const CATALOG := [
-	{"id": "crew", "base_cost": 60, "growth": 1.35, "effect_pct": 25},
 	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
 ]
 
@@ -24,39 +15,7 @@ const GLOVES_DEG: float = 1.5
 
 
 func _ready() -> void:
-	# Foreground play, popups included, must not drip. Only a closed app does.
 	set_process(false)
-	accrue_offline()
-
-
-func _notification(what: int) -> void:
-	# Don't pop the stash over an active run or the player loses their tap.
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN and not GameState.run_active:
-		accrue_offline()
-		if GameState.unclaimed_cash > 0:
-			EventBus.stash_ready.emit(GameState.unclaimed_cash)
-
-
-## Credits time spent with the app closed. Returns cash added.
-func accrue_offline() -> int:
-	var now: int = int(Time.get_unix_time_from_system())
-	var last: int = GameState.last_seen_unix
-	GameState.last_seen_unix = now
-	if last <= 0 or GameState.run_active:
-		GameState.request_save()
-		return 0
-	# No crew yet, nothing stolen. The stamp above still moves so unlocking does not back-pay.
-	if not GameState.crew_unlocked():
-		GameState.request_save()
-		return 0
-	var dt: int = clampi(now - last, 0, OFFLINE_CAP_SECONDS)
-	if dt < 5:
-		return 0
-	var gain: int = floori(passive_rate() * float(dt))
-	if gain > 0:
-		GameState.add_stash(gain)
-		produced.emit(gain)
-	return gain
 
 
 static func entry(id: String) -> Dictionary:
@@ -69,16 +28,18 @@ static func entry(id: String) -> Dictionary:
 
 static func level(id: String) -> int:
 	match id:
-		"crew":
-			return GameState.crew_level
 		"gloves":
 			return GameState.gloves_level
 	return 1
 
 
+## Priced off one heist's door payout (3 x (40 + 12 x door)), so an upgrade always costs about
+## a heist and a half of loot: $80 flat was pocket change by heist 15 ($144k banked, unbought).
 static func cost(id: String) -> int:
 	var item: Dictionary = entry(id)
-	return int(float(item.base_cost) * pow(float(item.growth), level(id) - 1))
+	var heist_pay: float = 3.0 * (40.0 + 12.0 * float(GameState.current_stage))
+	var base: float = maxf(float(item.base_cost), heist_pay * 1.5)
+	return int(round(base * pow(float(item.growth), level(id) - 1) / 10.0)) * 10
 
 
 static func at_cap(id: String) -> bool:
@@ -91,8 +52,8 @@ static func can_afford(id: String) -> bool:
 	return GameState.cash >= cost(id)
 
 
-static func unlocked(id: String) -> bool:
-	return id != "crew" or GameState.crew_unlocked()
+static func unlocked(_id: String) -> bool:
+	return true
 
 
 static func affordable_count() -> int:
@@ -108,8 +69,6 @@ static func purchase(id: String) -> bool:
 		return false
 	GameState.add_cash(-cost(id))
 	match id:
-		"crew":
-			GameState.crew_level += 1
 		"gloves":
 			GameState.gloves_level += 1
 	GameState.save_game()
@@ -134,21 +93,3 @@ static func gate_bonus_deg() -> float:
 ## Perfect slice still tracks the Good gate; leftover callers use this.
 static func perfect_window_mult() -> float:
 	return 1.0
-
-
-## Cash per second while idle (fills the stash, not the wallet).
-static func passive_rate() -> float:
-	return PASSIVE_BASE * bonus("crew")
-
-
-## 0..1 fill of the stash bag. Caps at 0.9 unless actually overflowing.
-static func stash_progress() -> float:
-	var full: float = maxf(passive_rate() * STASH_FULL_SECONDS, 10.0)
-	var raw: float = float(GameState.unclaimed_cash) / full
-	if raw >= 1.0:
-		return 1.0
-	if raw > 0.9:
-		return 0.9
-	if raw <= 0.0:
-		return 0.04
-	return raw

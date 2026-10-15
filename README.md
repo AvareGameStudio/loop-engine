@@ -20,16 +20,15 @@ Main.tscn                          boot composition
 │   │   └── Burst (GPUParticles2D)
 │   ├── Guard                      dozing guard at a desk; wakes one step per strike
 │   ├── InputProcessor             one verb: press = lock
-│   ├── MetaUpgrade                Crew (offline stash) + Wide Gate
+│   ├── MetaUpgrade                Wide Gate (priced off the current heist payout)
 │   └── Juice                      hitstop / shake / loot fly / alarm / haptics
 ├── UIManager.tscn
 │   ├── HUD                        door pips · lamps · grade word · loot bag (no buttons in play)
 │   ├── Card                       end-of-heist: CRACKED / BUSTED, loot roll, hideout, 3x ad, Market · Stash
 │   ├── RevivePopup.tscn           third strike → Bribe the Cops (rewarded) or Get Caught
 │   ├── SettingsPopup.tscn         language / sound / vibration (+ Auto-Crack if purchased)
-│   ├── MarketPopup.tscn           Crew, Wide Gate, cuff skins
+│   ├── MarketPopup.tscn           Wide Gate, glove skins, big Hideout button
 │   ├── HideoutPopup.tscn          12-item room
-│   └── ClaimPopup.tscn            Crew stash collect (card Stash button only)
 ├── SoundManager.tscn              procedural tones
 └── AdsManager.tscn                mock rewarded mediation
 
@@ -64,7 +63,7 @@ Portrait canvas: **720×1280**, `canvas_items` stretch, mouse-emulated touch.
 
 - `current_stage` is the persistent **door** index. A bust retries that door; a crack moves on. The end card waits until `_doors_goal` doors of the current heist are cleared (`DOORS_PER_HEIST = 3`).
 - **Heist 1 cannot be failed.** The guard still walks in; `raise_alarm` never returns caught.
-- **Pins** scale with heist, 3–8. Every 5th **heist** is golden: +1 pin, 2× loot, gold door, Good window +3°.
+- **Pins** scale with heist: 3 on heist 1, then a flat 4 base (door 3 +1, golden +1, max 6). Late heists get harder through the dial speed, not more pins, so a heist stays ~25–30 s. Every 5th **heist** is golden: +1 pin, 2× loot, gold door, Good window +3°.
 - **Dial speed / window** use a sawtooth on the heist index (squeeze, then a golden breath). DDA bends up to 15% easier but only 8% harder. Wide Gate adds +1.5° to Good per level (cap 5).
 - **Direction flips** from heist 2, once per new door, with a 0.4 s chevron telegraph. No mid-door random flips.
 - Target lead is **120–270°**. Target heist length: 20–30 s.
@@ -99,12 +98,13 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - **End-of-heist card** (opaque `#0B1020` panel, gold rim): `HEIST N CRACKED`, a 60 px loot roll (the bag bumps 8% at every fifth), the hideout ring with the next item as a silhouette (new item in colour, 1.0 → 1.2 → 1.0 pop; tap opens the room), a 76 px `NEXT HEIST`, `3x LOOT`, then one row: `FREE` glove (every 4 heists) · Market · Stash. No subtitle or shelf text.
 - **City strip** (card top, `CityStrip.gd`): piggy shop → office → bank → museum → casino → Fort Knox → **moon vault** (door 100). Cracked cities in colour, the current one ringed in gold, the ones ahead as silhouettes; crossing into a new city pops its icon.
 - **Daily Big Heist**: once a day (UTC) after the first heist, a gold `BIG HEIST x5` button above NEXT. One golden door at 5x loot plus a guaranteed glove (or $500 once all are owned); retryable until cracked; does not move the career door index.
-- **Hideout shop (the cash sink)**: one free item per heist for heists 1–3, then every item is bought. Prices climb x1.6 per slot ($650 … ~$70k) and each owned item adds +2% to all cash (12 = +24%). The next slot breathes when affordable; the card's shelf ring shows a gold "$" coin. Save v3 players keep the items the old every-3-heists drop gave them. Simulated (avg player, no crew stash): a purchase every 3–6 heists through heist 30, the last two around 35–40.
+- **Hideout shop (the cash sink)**: one free item per heist for heists 1–3, then every item is bought. Prices climb x1.6 per slot ($650 … ~$70k) and each owned item adds +2% to all cash (12 = +24%). The next slot breathes when affordable; the card's shelf ring shows a gold "$" coin. Save v3 players keep the items the old every-3-heists drop gave them. Simulated (avg player): a purchase every 3–6 heists through heist 30, the last two around 35–40.
 - **Hideout**: 12 items. One per heist for the first three heists, then one every 3 heists. Tap the card shelf or the market hideout line.
-- **Market**: Crew (offline cash), Wide Gate (visible green-arc widen), glove skins. Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
-- **Crew stash**: card button only (next to Market). The Claim popup no longer auto-opens on focus.
+- **Market**: Wide Gate (visible green-arc widen), glove skins, and a big Hideout button (gold when the next item is affordable). Combo is a pick trail from x3, not a number. Variable-ratio drops arm a **gold pin** instead of an x8 label.
+- **Spend prompts** (play data: $144k banked, 3/12 items bought, Wide Gate never upgraded): when the next hideout item is affordable a gold "!" hops on the HUD bag (no buttons during play), and the card shows `BUY: <item> $price` above Next — one tap buys it and pops it into the shelf ring. The card's meta row always has a Hideout button; Market breathes while an upgrade is affordable. Wide Gate costs ~1.5 heists of payout (3 × (40 + 12 × door) × 1.5, min $80, ×1.4 per level) instead of a flat $80.
+- **Crew removed** (save v5): the offline stash was never used and added a fourth currency surface. Old stashes are paid into the wallet on load.
 - **Auto-Crack** is IAP-only.
-- **Meta unlocks one system at a time.** Heists 1–3: dial + hideout only. The card closing heist 3 shows a gold `NEW! Market` (Wide Gate, glove skins); the card closing heist 5 shows `NEW! Hire a crew` and the crew starts stealing from then on (no back-pay). Constants: `GameState.MARKET_UNLOCK_AFTER`, `CREW_UNLOCK_AFTER`.
+- **Meta unlocks one system at a time.** Heists 1–3: dial + hideout only. The card closing heist 3 shows a gold `NEW! Market` (Wide Gate, glove skins); Constant: `GameState.MARKET_UNLOCK_AFTER`.
 
 ---
 
@@ -143,7 +143,7 @@ Guidelines for production art:
 | `end_multiplier` | Card `3x LOOT` | Twice the heist's banked cash again |
 | `glove_drop` | Card every 4 heists | Random unowned glove |
 | IAP `no_ads_bundle` | Shop | Skip non-revive ads, 3x auto-claimed |
-| IAP `auto_tap` | Shop | Auto-Crack: crew taps the Good window |
+| IAP `auto_tap` | Shop | Auto-Crack: taps the Good window for you |
 | IAP `dial_obsidian` | Shop | Neon gloves |
 
 `AdsManager` waits `mock_latency_ms` then emits `ad_finished`. Replace `show_rewarded` with AdMob / LevelPlay; keep the EventBus contract.
@@ -156,7 +156,7 @@ Guidelines for production art:
 |---|---|
 | D1 | Persistent heist number + unfinished hideout room + heist 1 cannot fail |
 | Session length | 20–30 s heists (3 doors), one-tap continue, golden heist every 5th |
-| D7 | Door art career, glove skins, crew stash drip, 12-item hideout |
+| D7 | Door art career, glove skins, 12-item hideout |
 
 Instrument `EventBus.tap_evaluated` / `run_ended` / `revive_resolved` before claiming numbers.
 

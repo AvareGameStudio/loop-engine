@@ -4,7 +4,7 @@ extends Node
 ## vault, a crack moves to the next one, so the 200-door art progression is real.
 
 const SAVE_PATH := "user://loop_engine_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 
 ## Alarm strikes before the cops arrive. Each Miss / Near-Miss adds one.
 const ALARM_MAX: int = 3
@@ -38,11 +38,8 @@ var cash: int = 0
 var best_combo: int = 0
 var best_score: int = 0
 var runs_played: int = 0
-var crew_level: int = 1
 var gloves_level: int = 1
-## Unclaimed Crew earnings. Shown as a stuffed bag, never a live ticker.
-var unclaimed_cash: int = 0
-## Unix time of last backgrounding; used to fill the stash while the app is closed.
+## Unix time of last backgrounding.
 var last_seen_unix: int = 0
 var no_ads: bool = false
 var auto_tap: bool = false
@@ -97,26 +94,6 @@ func add_cash(delta: int) -> void:
 	request_save()
 
 
-## Crew income lands here, not the wallet, until the player collects it.
-func add_stash(delta: int) -> void:
-	if delta == 0:
-		return
-	unclaimed_cash = max(0, unclaimed_cash + delta)
-	EventBus.stash_changed.emit(unclaimed_cash, delta)
-	request_save()
-
-
-## Empties the stash into the wallet. Returns how much was claimed (0 if empty).
-func claim_stash() -> int:
-	var n: int = unclaimed_cash
-	unclaimed_cash = 0
-	if n > 0:
-		add_cash(n)
-		EventBus.stash_changed.emit(0, -n)
-	save_game()
-	return n
-
-
 func stamp_seen() -> void:
 	last_seen_unix = int(Time.get_unix_time_from_system())
 	request_save()
@@ -147,11 +124,9 @@ static func is_first_heist(stage: int) -> bool:
 static func pins_for(stage: int) -> int:
 	var h: int = heist_for(stage)
 	var pins: int = 3
-	# Base tops out at 5 from heist 9: door 3 adds one (cap 6) and golden adds two (cap 8),
-	# which keeps a late heist near 30 s at the faster dial.
-	if h >= 9:
-		pins = 5
-	elif h >= 2:
+	# Base stays at 4 from heist 2; door 3 adds one, golden one more. A real session ran
+	# 26-38 s per heist at 5 base pins from heist 9; difficulty now comes from the dial.
+	if h >= 2:
 		pins = 4
 	if door_in_heist(stage) == 0 and h <= 1:
 		pins = 3
@@ -349,18 +324,13 @@ func complete_heists() -> int:
 
 
 ## Meta opens one system at a time so the first session is dial + hideout only.
-## The Market (Wide Gate, glove skins) appears on the card that closes heist 3,
-## the Crew (offline stash) on the card that closes heist 5.
+## The Market (Wide Gate, glove skins) appears on the card that closes heist 3.
 const MARKET_UNLOCK_AFTER: int = 3
-const CREW_UNLOCK_AFTER: int = 5
 
 
 func market_unlocked() -> bool:
 	return complete_heists() >= MARKET_UNLOCK_AFTER
 
-
-func crew_unlocked() -> bool:
-	return complete_heists() >= CREW_UNLOCK_AFTER
 
 
 ## Free shelf items: one per heist for the first LOOT_FREE heists (onboarding); after that
@@ -632,9 +602,7 @@ func to_dict() -> Dictionary:
 		"best_combo": best_combo,
 		"best_score": best_score,
 		"runs_played": runs_played,
-		"crew_level": crew_level,
 		"gloves_level": gloves_level,
-		"unclaimed_cash": unclaimed_cash,
 		"last_seen_unix": last_seen_unix,
 		"no_ads": no_ads,
 		"auto_tap": auto_tap,
@@ -662,9 +630,9 @@ func from_dict(data: Dictionary) -> void:
 	best_combo = int(data.get("best_combo", 0))
 	best_score = int(data.get("best_score", 0))
 	runs_played = int(data.get("runs_played", 0))
-	crew_level = maxi(int(data.get("crew_level", data.get("generator_level", 1))), 1)
 	gloves_level = maxi(int(data.get("gloves_level", data.get("global_mult_level", 1))), 1)
-	unclaimed_cash = int(data.get("unclaimed_cash", data.get("unclaimed_energy", 0)))
+	# v5 retired the Crew (offline stash): whatever it stole goes straight into the wallet.
+	cash += maxi(int(data.get("unclaimed_cash", data.get("unclaimed_energy", 0))), 0)
 	last_seen_unix = int(data.get("last_seen_unix", 0))
 	no_ads = bool(data.get("no_ads", false))
 	lifetime_hits = int(data.get("lifetime_hits", 0))

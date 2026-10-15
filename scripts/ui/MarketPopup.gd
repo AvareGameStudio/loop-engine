@@ -1,24 +1,24 @@
 class_name MarketPopup
 extends CanvasLayer
-## Spend cash on the Crew, Wide Gate, and glove skins. Pauses an active vault while
+## Spend cash on Wide Gate and glove skins; a big button leads to the hideout shop. Pauses an active vault while
 ## open; between vaults the tree keeps going, so affordability updates live.
 
 @onready var root: Control = $Root
 @onready var panel: Control = $Root/Panel
 @onready var balance_label: Label = $Root/Panel/Margin/VBox/Balance
-@onready var passive_label: Label = $Root/Panel/Margin/VBox/Passive
 @onready var items_box: VBoxContainer = $Root/Panel/Margin/VBox/Items
 @onready var close_btn: Button = $Root/Panel/Margin/VBox/Close
 
 ## id -> {"name": Label, "effect": Label, "buy": Button}
 var _rows: Dictionary[String, Dictionary] = {}
 var _skin_rows: Dictionary[String, Dictionary] = {}
-var _hideout_label: Label
+var _hideout_btn: Button
 var _holding_pause: bool = false
 ## Glove skins as a 4-wide grid of painted gloves (assets/art/glove_<id>.png), no copy.
 const SKIN_COLS: int = 4
 const SKIN_EQUIPPED := Color(0.3, 0.95, 0.45, 1.0)
 var _skin_grid: GridContainer
+const HIDEOUT_ICON := "res://assets/art/hideout_btn.png"
 
 
 func _ready() -> void:
@@ -33,21 +33,23 @@ func _ready() -> void:
 	for skin_id: String in GameState.GLOVE_IDS:
 		_skin_rows[skin_id] = _make_skin_cell(skin_id)
 	close_btn.pressed.connect(close)
-	_hideout_label = Label.new()
-	_hideout_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hideout_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hideout_label.add_theme_font_size_override("font_size", 15)
-	_hideout_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1))
-	_hideout_label.mouse_filter = Control.MOUSE_FILTER_STOP
-	_hideout_label.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton and event.pressed:
-			var ui := get_parent()
-			if ui and ui.get_node_or_null("HideoutPopup"):
-				ui.get_node("HideoutPopup").open()
+	# Play data: the "3/12 loot" line was never tapped. A real button with the hideout art.
+	_hideout_btn = Button.new()
+	_hideout_btn.custom_minimum_size = Vector2(0, 64)
+	_hideout_btn.add_theme_font_size_override("font_size", 22)
+	_hideout_btn.expand_icon = true
+	_hideout_btn.add_theme_constant_override("icon_max_width", 44)
+	if ResourceLoader.exists(HIDEOUT_ICON):
+		_hideout_btn.icon = load(HIDEOUT_ICON)
+	_hideout_btn.pressed.connect(func() -> void:
+		var ui := get_parent()
+		if ui and ui.get_node_or_null("HideoutPopup"):
+			close()
+			ui.get_node("HideoutPopup").open()
 	)
 	var box: Node = items_box.get_parent()
-	box.add_child(_hideout_label)
-	box.move_child(_hideout_label, items_box.get_index())
+	box.add_child(_hideout_btn)
+	box.move_child(_hideout_btn, items_box.get_index())
 	EventBus.cosmetic_equipped.connect(func(_id: String) -> void: _refresh())
 	EventBus.loot_unlocked.connect(func(_id: String) -> void:
 		if root.visible:
@@ -157,9 +159,9 @@ func _on_wallet_changed(_amount: int, _delta: int) -> void:
 
 func _refresh() -> void:
 	balance_label.text = tr("MARKET_BALANCE") % GameState.cash
-	passive_label.text = tr("MARKET_PASSIVE")
-	passive_label.visible = GameState.crew_unlocked()
-	_hideout_label.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
+	_hideout_btn.text = tr("MARKET_HIDEOUT") % [GameState.loot_unlocked_count(), GameState.LOOT_ITEMS.size()]
+	# Gold when the next shelf item is affordable: that is the best buy in the game.
+	_hideout_btn.theme_type_variation = &"PrimaryButton" if GameState.can_buy_loot() else &""
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		var id: String = String(item.id)
 		var key: String = id.to_upper()

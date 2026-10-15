@@ -1,10 +1,9 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
 [ext_resource type="PackedScene" path="res://scenes/SettingsPopup.tscn" id="3_settings"]
 [ext_resource type="PackedScene" path="res://scenes/MarketPopup.tscn" id="5_market"]
-[ext_resource type="PackedScene" path="res://scenes/ClaimPopup.tscn" id="6_claim"]
 [ext_resource type="Script" path="res://scripts/ui/LootBag.gd" id="7_bag"]
 [ext_resource type="Script" path="res://scripts/ui/AlarmLamps.gd" id="8_lamps"]
 [ext_resource type="Script" path="res://scripts/ui/QuestRing.gd" id="9_ring"]
@@ -200,6 +199,15 @@ theme_override_font_sizes/font_size = 24
 text = "CARD_DAILY"
 expand_icon = true
 
+[node name="Buy" type="Button" parent="Card/Panel/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "CARD_BUY"
+expand_icon = true
+
 [node name="Primary" type="Button" parent="Card/Panel/Margin/VBox"]
 theme_type_variation = &"PrimaryButton"
 custom_minimum_size = Vector2(0, 76)
@@ -232,13 +240,12 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "HUD_MARKET"
 
-[node name="Stash" type="Button" parent="Card/Panel/Margin/VBox/Meta"]
-visible = false
+[node name="Hideout" type="Button" parent="Card/Panel/Margin/VBox/Meta"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
-text = "HUD_STASH"
+text = "HUD_HIDEOUT"
+expand_icon = true
 
 [node name="SettingsButton" type="Button" parent="."]
 flat = true
@@ -261,7 +268,5 @@ expand_icon = true
 [node name="SettingsPopup" parent="." instance=ExtResource("3_settings")]
 
 [node name="MarketPopup" parent="." instance=ExtResource("5_market")]
-
-[node name="ClaimPopup" parent="." instance=ExtResource("6_claim")]
 
 [node name="HideoutPopup" parent="." instance=ExtResource("10_hideout")]

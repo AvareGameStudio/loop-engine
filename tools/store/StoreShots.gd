@@ -43,7 +43,6 @@ func _run() -> void:
 	var world: Node = get_first_node_in_group("game_world")
 	var ui: Node = _view.get_node("Main").find_child("UIManager", true, false)
 	gs.cash = 0
-	gs.unclaimed_cash = 0
 	gs.loot_bought = 0
 	gs.daily_last_day = gs.today()
 	gs.cosmetics = PackedStringArray(["leather", "gold"])

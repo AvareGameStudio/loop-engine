@@ -5,9 +5,9 @@ HUD_HEIST,HEIST %d,SOYGUN %d
 HUD_HEIST_GOLDEN,GOLDEN HEIST %d,ALTIN SOYGUN %d
 HUD_MARKET,Market,Pazar
 HUD_MARKET_COUNT,Market (%d),Pazar (%d)
-HUD_STASH,STASH  $%d,ZULA  $%d
 HUD_MARKET_NEW,NEW! Market,YENİ! Pazar
-HUD_CREW_NEW,NEW! Hire a crew,YENİ! Ekip kur
+HUD_HIDEOUT,Hideout,Saklanma Evi
+CARD_BUY,BUY: %s  $%d,AL: %s  $%d
 QUEST_PERCENT,%d%%,%%%d
 GRADE_PERFECT,PERFECT,MÜKEMMEL
 GRADE_GOOD,GOOD,İYİ
@@ -53,12 +53,9 @@ SETTINGS_AUTO_TAP,Auto-Crack,Oto-Kırma
 SETTINGS_CLOSE,Close,Kapat
 MARKET_TITLE,MARKET,PAZAR
 MARKET_BALANCE,$%d,$%d
-MARKET_PASSIVE,The crew keeps stealing while you're away.,Sen yokken ekip çalmaya devam eder.
 MARKET_HIDEOUT,Hideout  ·  %d / %d loot items,Saklanma evi  ·  %d / %d ganimet
 MARKET_LEVEL,Lv %d,Sv %d
 MARKET_COST,$%d,$%d
-MARKET_CREW_NAME,Crew,Ekip
-MARKET_CREW_EFFECT,Steals cash while the app is closed. Bigger crew; bigger stash.,Uygulama kapalıyken para çalar. Ekip büyüdükçe zula büyür.
 MARKET_GLOVES_NAME,Wide Gate,Geniş Kapı
 MARKET_GLOVES_EFFECT,Widens the green gate. You see the upgrade before you buy it.,Yeşil kapıyı genişletir. Aldığın şeyi kapıda görürsün.
 MARKET_MAX,MAX,MAX
@@ -72,12 +69,6 @@ MARKET_SKIN_EQUIPPED,Equipped,Kuşanıldı
 MARKET_CLOSE,Close,Kapat
 HIDEOUT_BONUS,+%d%% loot,+%%%d ganimet
 MARKET_SKIN_DROP,Drop,Hediye
-CLAIM_MARKET,Market,Pazar
-CLAIM_TITLE,CREW STASH,EKİP ZULASI
-CLAIM_AMOUNT,+$%d,+$%d
-CLAIM_BODY,Your crew kept stealing while you were gone.,Sen yokken ekibin çalmaya devam etti.
-CLAIM_BUTTON,Grab the stash,Zulayı Al
-CLAIM_LATER,Later,Sonra
 VAULT_PIGGY,Piggy Bank,Kumbara
 VAULT_OFFICE,Office Safe,Ofis Kasası
 VAULT_BANK,Bank Vault,Banka Kasası
