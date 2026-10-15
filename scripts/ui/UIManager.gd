@@ -49,6 +49,10 @@ var _loot_popped: String = ""
 ## Market button breathes while an upgrade is affordable.
 var _market_pulse: Tween
 var _bonus_label: Label
+## "HEIST 15" under the door pips: play data said nobody knew which heist they were on.
+var _heist_label: Label
+## "Next city: Casino Vault · in 3 heists" under the card's city strip.
+var _city_label: Label
 
 
 func _ready() -> void:
@@ -120,11 +124,55 @@ func _refresh_session() -> void:
 ## so refreshing on session_changed would wipe the gold pop of the last door.
 ## Doors already cracked this heist sit gold; a bust retries the current door.
 func _refresh_pips() -> void:
+	_ensure_heist_label()
 	if GameState.daily_active:
 		pips.set_state(0, 1, true)
+		_heist_label.text = tr("CARD_DAILY")
+		_heist_label.add_theme_color_override("font_color", GRADE_COLORS.perfect)
 		return
 	var stage: int = GameState.current_stage
 	pips.set_state(GameState.door_in_heist(stage), GameState.DOORS_PER_HEIST, GameState.is_golden(stage))
+	_heist_label.text = tr("HUD_HEIST") % GameState.heist_for(stage)
+	_heist_label.add_theme_color_override("font_color", GRADE_COLORS.perfect if GameState.is_golden(stage) else Color(1, 1, 1, 0.9))
+
+
+func _ensure_heist_label() -> void:
+	if _heist_label:
+		return
+	_heist_label = Label.new()
+	_heist_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_heist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_heist_label.add_theme_font_size_override("font_size", 22)
+	_heist_label.add_theme_constant_override("outline_size", 8)
+	_heist_label.add_theme_color_override("font_outline_color", Color(0.04, 0.05, 0.1, 1))
+	pips.get_parent().add_child(_heist_label)
+	_heist_label.anchor_left = 0.5
+	_heist_label.anchor_right = 0.5
+	_heist_label.offset_left = -160.0
+	_heist_label.offset_right = 160.0
+	_heist_label.offset_top = pips.offset_bottom + 2.0
+	_heist_label.offset_bottom = pips.offset_bottom + 34.0
+
+
+## Cities change at fixed doors (VAULT_TYPE_BY_STAGE); say where and how far the next one is.
+func _render_next_city() -> void:
+	if _city_label == null:
+		_city_label = Label.new()
+		_city_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_city_label.add_theme_font_size_override("font_size", 16)
+		_city_label.add_theme_color_override("font_color", Color(0.75, 0.9, 1.0, 1.0))
+		card_city.get_parent().add_child(_city_label)
+		card_city.get_parent().move_child(_city_label, card_city.get_index() + 1)
+	var next_door: int = GameState.current_stage
+	var best: int = 0
+	for key in GameState.VAULT_TYPE_BY_STAGE.keys():
+		if int(key) > next_door and (best == 0 or int(key) < best):
+			best = int(key)
+	_city_label.visible = best > 0
+	if best > 0:
+		var heists: int = maxi(GameState.heist_for(best) - GameState.heist_for(next_door), 1)
+		var city: String = tr("VAULT_" + String(GameState.VAULT_TYPE_BY_STAGE[best]).to_upper())
+		_city_label.text = tr("CARD_NEXT_CITY") % [city, heists]
 
 
 func _on_tap(result: Dictionary) -> void:
@@ -273,6 +321,7 @@ func _render_card() -> void:
 		primary_btn.text = tr("CARD_RETRY")
 	card_loot.visible = int(_run_end_stats.get("cash", 0)) > 0
 	_render_bonus_line()
+	_render_next_city()
 	x3_btn.text = tr(_x3_key)
 	daily_btn.text = tr("CARD_DAILY")
 	daily_btn.visible = GameState.daily_available()

@@ -1,9 +1,10 @@
 class_name MetaUpgrade
 extends Node
-## Market upgrades. The Crew steals while the app is closed: about one heist's door payout
+## Market upgrades. The Crew steals while the app is closed: half a heist's door payout
 ## per hour (x1.25 per level), up to 8 h, collected on the Welcome Back screen (2x with an ad).
+## A night away is ~4 heists of cash (8 with the ad): a welcome gift, not a shortcut.
 ## v1 paid $0.67/s into a hidden card button and nobody found it.
-## Wide Gate adds degrees to the green Good arc. The market sells both, in cash.
+## Bigger Green Zone (id "gloves", ex Wide Gate) adds degrees to the green Good arc. The market sells both, in cash.
 ## Levels persist in GameState; economy math is static so UI can call it without a node.
 
 ## Hours of theft the Crew banks at most; a night's sleep, so the morning open pays.
@@ -11,10 +12,10 @@ const OFFLINE_CAP_HOURS: float = 8.0
 ## Shorter absences pay nothing: no popup for a quick app switch.
 const OFFLINE_MIN_SECONDS: int = 120
 
-## `id` values are save keys. UI names live in translations (Crew / Wide Gate).
+## `id` values are save keys. UI names live in translations (Crew / Bigger Green Zone).
 const CATALOG := [
-	{"id": "crew", "base_cost": 120, "growth": 1.5, "effect_pct": 25},
-	{"id": "gloves", "base_cost": 80, "growth": 1.4, "effect_pct": 12},
+	{"id": "crew", "base_cost": 2500, "growth": 1.7, "effect_pct": 25},
+	{"id": "gloves", "base_cost": 1500, "growth": 2.0, "effect_pct": 12},
 ]
 
 ## Wide Gate: the green Good arc grows this many degrees per purchased level.
@@ -72,13 +73,11 @@ static func level(id: String) -> int:
 	return 1
 
 
-## Priced off one heist's door payout (3 x (40 + 12 x door)), so an upgrade always costs about
-## a heist and a half of loot: $80 flat was pocket change by heist 15 ($144k banked, unbought).
+## Fixed price ladders ($1.5k, 3k, 6k, 12k for Wide Gate; $2.5k x1.7 for the Crew).
+## Pricing off the current heist made every upgrade "1.5 heists" forever, so nothing was a goal.
 static func cost(id: String) -> int:
 	var item: Dictionary = entry(id)
-	var heist_pay: float = 3.0 * (40.0 + 12.0 * float(GameState.current_stage))
-	var base: float = maxf(float(item.base_cost), heist_pay * 1.5)
-	return int(round(base * pow(float(item.growth), level(id) - 1) / 10.0)) * 10
+	return int(round(float(item.base_cost) * pow(float(item.growth), level(id) - 1) / 50.0)) * 50
 
 
 static func at_cap(id: String) -> bool:
@@ -136,6 +135,14 @@ static func perfect_window_mult() -> float:
 	return 1.0
 
 
-## One door's base payout x3 (a heist) at the current door, x1.25 per Crew level.
+## Half a heist's door payout per hour at the current door, x1.25 per Crew level.
+const CREW_HEISTS_PER_HOUR: float = 0.5
+
+
 static func hourly_rate() -> float:
-	return 3.0 * (40.0 + 12.0 * float(GameState.current_stage)) * bonus("crew")
+	return CREW_HEISTS_PER_HOUR * 3.0 * (40.0 + 12.0 * float(GameState.current_stage)) * bonus("crew")
+
+
+## How much wider the green gate gets per Wide Gate level, as % of today's gate.
+static func gate_step_pct() -> int:
+	return roundi(GLOVES_DEG / GameState.base_good_deg(GameState.current_stage) * 100.0)
