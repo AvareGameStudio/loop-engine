@@ -3,7 +3,6 @@
 [ext_resource type="Script" path="res://scripts/ui/UIManager.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://scenes/RevivePopup.tscn" id="2_revive"]
 [ext_resource type="PackedScene" path="res://scenes/SettingsPopup.tscn" id="3_settings"]
-[ext_resource type="Texture2D" path="res://assets/icons/settings.svg" id="4_gear"]
 [ext_resource type="PackedScene" path="res://scenes/MarketPopup.tscn" id="5_market"]
 [ext_resource type="PackedScene" path="res://scenes/ClaimPopup.tscn" id="6_claim"]
 [ext_resource type="Script" path="res://scripts/ui/LootBag.gd" id="7_bag"]
@@ -12,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/HideoutPopup.tscn" id="10_hideout"]
 [ext_resource type="Script" path="res://scripts/ui/DoorPips.gd" id="11_pips"]
 [ext_resource type="Script" path="res://scripts/ui/CityStrip.gd" id="12_city"]
+[ext_resource type="Texture2D" path="res://assets/art/gear.png" id="13_gear"]
 
 [node name="UIManager" type="CanvasLayer"]
 layer = 10
@@ -241,7 +241,7 @@ offset_top = 36.0
 offset_right = -28.0
 offset_bottom = 100.0
 grow_horizontal = 0
-icon = ExtResource("4_gear")
+icon = ExtResource("13_gear")
 icon_alignment = 1
 expand_icon = true
 

@@ -20,6 +20,7 @@ const VaultArt := preload("res://scripts/vfx/VaultSprites.gd")
 
 var _door_sprite: Sprite2D
 var _hand_sprite: Sprite2D
+var _hand_art: bool = false
 var _loot_sprite: Sprite2D
 var _cuff: Sprite2D
 var _cuff_tween: Tween
@@ -415,7 +416,16 @@ func _build_sprites() -> void:
 	move_child(_door_sprite, 0)
 	_hand_sprite = Sprite2D.new()
 	_hand_sprite.name = "TapHand"
-	_hand_sprite.texture = VaultArt.hand
+	# The same Canva finger as the ads; the procedural hand is the fallback.
+	var finger := "res://assets/art/tap_hand.png"
+	if ResourceLoader.exists(finger):
+		_hand_sprite.texture = load(finger)
+		_hand_art = true
+		# Pivot on the fingertip (TapFinger.TIP) so the tip presses the gate exactly.
+		var size: Vector2 = _hand_sprite.texture.get_size()
+		_hand_sprite.offset = -(Vector2(0.56, 0.94) - Vector2(0.5, 0.5)) * size
+	else:
+		_hand_sprite.texture = VaultArt.hand
 	_hand_sprite.z_index = 6
 	_hand_sprite.visible = false
 	add_child(_hand_sprite)
@@ -437,6 +447,8 @@ func _build_sprites() -> void:
 func _paint_cuff(flash: bool) -> void:
 	if _cuff == null:
 		return
+	# The painted glove on the pick replaces the cuff ring on the hub.
+	_cuff.visible = not ResourceLoader.exists("res://assets/art/glove_%s.png" % GameState.equipped_gloves)
 	_cuff.texture = VaultArt.cuff_for(GameState.equipped_gloves)
 	_cuff.modulate = Color.WHITE
 	_cuff.scale = CUFF_SCALE
@@ -497,6 +509,13 @@ func _place_hand(show_hand: bool) -> void:
 		return
 	var dir := Vector2.from_angle(target_angle)
 	var pulse: float = 0.85 + 0.15 * sin(_coach_pulse)
+	if _hand_art:
+		# Fingertip pokes the outside of the gate: 1.0 -> 0.85 press, like the ad finger.
+		_hand_sprite.position = dir * (radius + 22.0 - 10.0 * (1.0 - pulse) / 0.15)
+		_hand_sprite.rotation = target_angle + PI * 0.5
+		_hand_sprite.scale = Vector2.ONE * (120.0 / _hand_sprite.texture.get_height()) * pulse
+		_hand_sprite.modulate = Color.WHITE
+		return
 	# Finger presses into the gate so the first glance reads as a tap.
 	_hand_sprite.position = dir * (radius + 118.0 - 16.0 * pulse)
 	_hand_sprite.rotation = target_angle + PI * 0.5

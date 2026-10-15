@@ -15,15 +15,23 @@ var _rows: Dictionary[String, Dictionary] = {}
 var _skin_rows: Dictionary[String, Dictionary] = {}
 var _hideout_label: Label
 var _holding_pause: bool = false
-const _SKINS: Array[String] = ["leather", "latex", "gold", "neon", "crimson"]
+## Glove skins as a 4-wide grid of painted gloves (assets/art/glove_<id>.png), no copy.
+const SKIN_COLS: int = 4
+const SKIN_EQUIPPED := Color(0.3, 0.95, 0.45, 1.0)
+var _skin_grid: GridContainer
 
 
 func _ready() -> void:
 	root.visible = false
 	for item: Dictionary in MetaUpgrade.CATALOG:
 		_rows[String(item.id)] = _make_row(String(item.id))
-	for skin_id: String in _SKINS:
-		_skin_rows[skin_id] = _make_skin_row(skin_id)
+	_skin_grid = GridContainer.new()
+	_skin_grid.columns = SKIN_COLS
+	_skin_grid.add_theme_constant_override("h_separation", 10)
+	_skin_grid.add_theme_constant_override("v_separation", 8)
+	items_box.add_child(_skin_grid)
+	for skin_id: String in GameState.GLOVE_IDS:
+		_skin_rows[skin_id] = _make_skin_cell(skin_id)
 	close_btn.pressed.connect(close)
 	_hideout_label = Label.new()
 	_hideout_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -103,13 +111,24 @@ func _make_row(id: String) -> Dictionary:
 	return {"name": name_label, "effect": effect, "buy": buy}
 
 
-func _make_skin_row(id: String) -> Dictionary:
-	var row: Dictionary = _make_row("glove_%s" % id)
-	var buy: Button = row.buy
-	for conn: Dictionary in buy.pressed.get_connections():
-		buy.pressed.disconnect(conn.callable)
+func _make_skin_cell(id: String) -> Dictionary:
+	var cell := VBoxContainer.new()
+	cell.alignment = BoxContainer.ALIGNMENT_CENTER
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(72, 72)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var art := "res://assets/art/glove_%s.png" % id
+	icon.texture = load(art) if ResourceLoader.exists(art) else VaultSprites.cuff_for(id)
+	var buy := Button.new()
+	buy.custom_minimum_size = Vector2(0, 40)
+	buy.add_theme_font_size_override("font_size", 14)
 	buy.pressed.connect(_buy_skin.bind(id))
-	return row
+	cell.add_child(icon)
+	cell.add_child(buy)
+	_skin_grid.add_child(cell)
+	return {"icon": icon, "buy": buy}
 
 
 func _buy_skin(id: String) -> void:
@@ -148,21 +167,29 @@ func _refresh() -> void:
 		else:
 			buy.text = tr("MARKET_COST") % MetaUpgrade.cost(id)
 			buy.disabled = not MetaUpgrade.can_afford(id)
-	for skin_id: String in _SKINS:
-		var skin_row: Dictionary = _skin_rows[skin_id]
-		(skin_row.name as Label).text = tr("GLOVE_" + skin_id.to_upper())
-		(skin_row.effect as Label).text = tr("MARKET_GLOVE_EFFECT")
-		var skin_buy: Button = skin_row.buy
+	for skin_id: String in GameState.GLOVE_IDS:
+		var cell: Dictionary = _skin_rows[skin_id]
+		var skin_buy: Button = cell.buy
+		var icon: TextureRect = cell.icon
+		var owned: bool = GameState.owns_glove(skin_id)
+		var skin_cost: int = GameState.glove_cost(skin_id)
+		icon.modulate = Color.WHITE if owned else Color(0.55, 0.58, 0.68, 1.0)
+		skin_buy.theme_type_variation = &""
 		if GameState.equipped_gloves == skin_id:
 			skin_buy.text = tr("MARKET_SKIN_EQUIPPED")
 			skin_buy.disabled = true
-		elif GameState.owns_glove(skin_id):
+			skin_buy.add_theme_color_override("font_disabled_color", SKIN_EQUIPPED)
+		elif owned:
 			skin_buy.text = tr("MARKET_SKIN_EQUIP")
 			skin_buy.disabled = false
+		elif skin_cost <= 0:
+			# Ad and Big Heist drops only.
+			skin_buy.text = tr("MARKET_SKIN_DROP")
+			skin_buy.disabled = true
 		else:
-			var skin_cost: int = GameState.glove_cost(skin_id)
 			skin_buy.text = tr("MARKET_COST") % skin_cost
 			skin_buy.disabled = GameState.cash < skin_cost
+			skin_buy.theme_type_variation = &"PrimaryButton"
 
 
 func _punch(target: Control, from_scale: float) -> void:

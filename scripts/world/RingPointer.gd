@@ -21,6 +21,12 @@ var grade: String = "":
 		queue_redraw()
 
 var combo: int = 0
+## The thief's gloved fist on the pick's shaft (assets/art/glove_<id>.png); it turns with
+## the pick and squeezes on a Perfect. Without the art the old cuff ring on the hub stays.
+const GLOVE_AT := Vector2(92, 0)
+const GLOVE_SIZE: float = 92.0
+var glove: Sprite2D
+var _glove_tween: Tween
 ## Hot Hands: the trail doubles and burns orange.
 var hot: bool = false
 var _pulse: float = 0.0
@@ -31,10 +37,44 @@ var _flash_tween: Tween
 func _ready() -> void:
 	EventBus.session_changed.connect(_on_session)
 	EventBus.run_started.connect(_on_session)
+	glove = Sprite2D.new()
+	glove.name = "Glove"
+	glove.position = GLOVE_AT
+	# The fist art points up; turn it so the knuckles run along the shaft.
+	glove.rotation = PI * 0.5
+	glove.z_index = 2
+	add_child(glove)
+	_paint_glove(GameState.equipped_gloves)
+	EventBus.cosmetic_equipped.connect(_paint_glove)
+	EventBus.juice_hit.connect(func(grade: String, _i: float) -> void:
+		if grade == "perfect":
+			_squeeze()
+	)
 	EventBus.hot_hands.connect(func(on: bool) -> void:
 		hot = on
 		queue_redraw()
 	)
+
+
+func _paint_glove(id: String) -> void:
+	var art := "res://assets/art/glove_%s.png" % id
+	glove.texture = load(art) if ResourceLoader.exists(art) else null
+	glove.visible = glove.texture != null
+	if glove.texture:
+		glove.scale = Vector2.ONE * GLOVE_SIZE / float(glove.texture.get_width())
+
+
+## Perfect: the fist clenches 8% and springs back.
+func _squeeze() -> void:
+	if not glove.visible:
+		return
+	var base: Vector2 = Vector2.ONE * GLOVE_SIZE / float(glove.texture.get_width())
+	if _glove_tween:
+		_glove_tween.kill()
+	_glove_tween = create_tween()
+	_glove_tween.set_ignore_time_scale(true)
+	_glove_tween.tween_property(glove, "scale", base * 0.92, 0.05)
+	_glove_tween.tween_property(glove, "scale", base, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _on_session() -> void:
