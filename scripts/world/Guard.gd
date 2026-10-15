@@ -48,6 +48,10 @@ const AIM_ART := "res://assets/art/guard_aim.png"
 const AIM_LENS := Vector2(0.9, 0.2)
 const AIM_HEAD := Vector2(0.38, 0.12)
 var _aim_tex: Texture2D = load(AIM_ART) if ResourceLoader.exists(AIM_ART) else null
+## Strike 1: awake at the desk, eyes up, flashlight still off (no painted beam to cut).
+const WAKE_ART := "res://assets/art/guard_wake.png"
+const WAKE_HEAD := Vector2(0.38, 0.2)
+var _wake_tex: Texture2D = load(WAKE_ART) if ResourceLoader.exists(WAKE_ART) else null
 ## Feet (bottom-centre) in world space and sprite height per pose: asleep at the desk, then
 ## up and growing as he steps toward the dial. The loot bag owns x 220-500 below the dial.
 const ART_FEET: Array[Vector2] = [Vector2(116, 1090), Vector2(108, 1090), Vector2(116, 1090), Vector2(124, 1090)]
@@ -198,25 +202,27 @@ func _draw_art() -> void:
 	# Wake-up cross-fade sits between pose 0.3 and 0.7.
 	var awake: float = clampf((_pose - 0.3) / 0.4, 0.0, 1.0)
 	var standing: float = clampf(_pose - 1.0, 0.0, 1.0)
-	# Alert (looking ahead) hands over to the aiming pose between pose 1.3 and 1.7.
+	# Strike 1 keeps him at the desk (awake, flashlight off); from pose 1.3 he is up and aiming.
 	var aim: float = clampf((_pose - 1.3) / 0.4, 0.0, 1.0) if _aim_tex else 0.0
-	var sleep_rect := _feet_rect(_sleep_tex, feet, ART_HEIGHT[0] * punch)
-	var alert_rect := _feet_rect(_alert_tex, feet, height)
-	var aim_rect := _feet_rect(_aim_tex, feet, height) if _aim_tex else alert_rect
+	var desk_feet: Vector2 = ART_FEET[0]
+	var sleep_rect := _feet_rect(_sleep_tex, desk_feet, ART_HEIGHT[0] * punch)
+	var mid_tex: Texture2D = _wake_tex if _wake_tex else _alert_tex
+	var mid_rect := _feet_rect(mid_tex, desk_feet, ART_HEIGHT[0] * punch) if _wake_tex else _feet_rect(_alert_tex, feet, height)
+	var aim_rect := _feet_rect(_aim_tex, feet, height) if _aim_tex else mid_rect
 	if awake < 1.0:
 		draw_texture_rect(_sleep_tex, sleep_rect, false, Color(1, 1, 1, 1.0 - awake))
 	if awake > 0.0 and aim < 1.0:
-		draw_texture_rect(_alert_tex, alert_rect, false, Color(1, 1, 1, awake * (1.0 - aim)))
+		draw_texture_rect(mid_tex, mid_rect, false, Color(1, 1, 1, awake * (1.0 - aim)))
 	if aim > 0.0:
 		draw_texture_rect(_aim_tex, aim_rect, false, Color(1, 1, 1, awake * aim))
-	var lens: Vector2 = alert_rect.position + alert_rect.size * ALERT_LENS
-	if aim > 0.5:
-		lens = aim_rect.position + aim_rect.size * AIM_LENS
-	if standing > 0.0:
-		_draw_beam(lens, standing)
+	var lens: Vector2 = aim_rect.position + aim_rect.size * AIM_LENS if _aim_tex else mid_rect.position + mid_rect.size * ALERT_LENS
+	# The beam only exists once the flashlight is up: it fades in with the aiming pose.
+	var beam: float = standing * (aim if _aim_tex else 1.0)
+	if beam > 0.0:
+		_draw_beam(lens, beam)
 	var head: Vector2 = sleep_rect.position + sleep_rect.size * SLEEP_HEAD
 	if awake > 0.5:
-		head = alert_rect.position + alert_rect.size * ALERT_HEAD
+		head = mid_rect.position + mid_rect.size * (WAKE_HEAD if _wake_tex else ALERT_HEAD)
 	if aim > 0.5:
 		head = aim_rect.position + aim_rect.size * AIM_HEAD
 	_draw_snore(head, 1.0 - awake)

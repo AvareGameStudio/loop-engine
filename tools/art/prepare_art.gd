@@ -38,6 +38,9 @@ func _prepare_images(src: String) -> void:
 	_clear_right_of(alert, int(alert.get_width() * ALERT_BEAM_CUT))
 	_save(_fit_height(_trim(alert), 360), ART + "guard_alert.png")
 	_save(_fit_height(_trim(_load(src, "guard_sleep")), 280), ART + "guard_sleep.png")
+	# Strike 1: awake at the desk, eyes up, flashlight still off.
+	if FileAccess.file_exists(src.path_join("guard_wake.png")):
+		_save(_fit_height(_trim(_load(src, "guard_wake")), 280), ART + "guard_wake.png")
 	# Third pose: head up, flashlight raised toward the dial (pose 2-3).
 	if FileAccess.file_exists(src.path_join("guard_aim.png")):
 		_save(_fit_height(_trim(_load(src, "guard_aim")), 360), ART + "guard_aim.png")
