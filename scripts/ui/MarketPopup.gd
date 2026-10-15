@@ -121,14 +121,21 @@ func _make_skin_cell(id: String) -> Dictionary:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	var art := "res://assets/art/glove_%s.png" % id
 	icon.texture = load(art) if ResourceLoader.exists(art) else VaultSprites.cuff_for(id)
+	var perk := Label.new()
+	perk.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	perk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	perk.custom_minimum_size = Vector2(0, 34)
+	perk.add_theme_font_size_override("font_size", 12)
+	perk.add_theme_color_override("font_color", Color(1.0, 0.84, 0.3, 1.0))
 	var buy := Button.new()
 	buy.custom_minimum_size = Vector2(0, 40)
 	buy.add_theme_font_size_override("font_size", 14)
 	buy.pressed.connect(_buy_skin.bind(id))
 	cell.add_child(icon)
+	cell.add_child(perk)
 	cell.add_child(buy)
 	_skin_grid.add_child(cell)
-	return {"icon": icon, "buy": buy}
+	return {"icon": icon, "buy": buy, "perk": perk}
 
 
 func _buy_skin(id: String) -> void:
@@ -172,6 +179,7 @@ func _refresh() -> void:
 		var skin_buy: Button = cell.buy
 		var icon: TextureRect = cell.icon
 		var owned: bool = GameState.owns_glove(skin_id)
+		(cell.perk as Label).text = tr("PERK_" + skin_id.to_upper())
 		var skin_cost: int = GameState.glove_cost(skin_id)
 		icon.modulate = Color.WHITE if owned else Color(0.55, 0.58, 0.68, 1.0)
 		skin_buy.theme_type_variation = &""

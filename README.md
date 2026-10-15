@@ -119,6 +119,7 @@ Near-Miss keeps the heavier 180 ms hitstop so the almost-win still lands harder 
 - Alarm (code fallback): lamps + guard. Strike 0 asleep (Zzz), 1 head up + "!", 2 on his feet with a flashlight sweeping the dial, 3 stepped out with the beam locked on the dial + strobe. Heist 1: he looks up on strike 3 and dozes off again.
 - Combo ≥ 3: gold trail on the pick, not a HUD number.
 - The equipped glove (painted fist, `assets/art/glove_<id>.png`) grips the pick and clenches 8% on every Perfect. Market shows the eight gloves as an icon grid (drop-only gloves read "Drop").
+- **Glove perks** (one small, readable effect each, shown under the icon in the Market): leather – starter · latex – Perfect slice +10% · gold – pin cash +10% · neon – Hot Hands after 3 Perfects · skeleton – the first miss on each door doesn't sound the alarm · crimson – 1 s bribe restart instead of 3-2-1 · ice – dial 5% slower · royal – golden vaults pay x3 loot. Bot check (σ 50 ms, 10 tries, no bribes): heist 6 busts 1/10 with every glove; heist 11 (dark) 9/10 leather vs 8/10 skeleton/ice/latex – a nudge, not a skip.
 - **Hot Hands**: 4 Perfects without a strike (across doors; a Good neither counts nor breaks it) → 80 ms freeze, orange burst, rising arpeggio, flickering fire ring on the dial, double-length orange pick trail, octave-up layer on every hit. Pins pay **2x** until any strike (glass-snap) or the heist ends. Orange, not gold: the full gold dial stays reserved for the golden heist.
 - Approach inside 45°: rising drone, cut on tap.
 

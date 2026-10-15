@@ -235,7 +235,24 @@ static func flips_enabled(stage: int) -> bool:
 static func loot_mult(stage: int) -> float:
 	if GameState.daily_active:
 		return DAILY_LOOT_MULT
-	return 2.0 if is_golden(stage) else 1.0
+	if is_golden(stage):
+		return 3.0 if GameState.glove_perk() == "royal" else 2.0
+	return 1.0
+
+
+# --- Glove perks -----------------------------------------------------------------
+## Each glove does one small, readable thing; leather is the plain starter.
+## latex: Perfect slice +10% · gold: pin cash +10% · neon: Hot Hands after 3 Perfects (not 4)
+## skeleton: the first miss on each door doesn't sound the alarm · crimson: bribe countdown 1 s
+## ice: dial 5% slower · royal: golden vaults pay x3 loot (not x2)
+const GLOVE_PERFECT_MULT: float = 1.10
+const GLOVE_CASH_MULT: float = 1.10
+const GLOVE_HOT_STREAK: int = 3
+const GLOVE_RPM_MULT: float = 0.95
+
+
+func glove_perk() -> String:
+	return equipped_gloves if equipped_gloves != "" else "leather"
 
 
 # --- Daily Big Heist ------------------------------------------------------------
